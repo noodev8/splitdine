@@ -1,0 +1,75 @@
+erDiagram
+
+    APP_USER {
+        int id_pk
+        varchar name
+        varchar email
+        varchar phone
+        timestamp created_at
+        varchar account_level
+        varchar password
+    }
+
+    RESTAURANT {
+        int id_pk
+        varchar name
+        text address
+        varchar city
+        varchar postcode
+        varchar phone
+        varchar website
+        timestamp created_at
+        int rating
+        numeric longitude
+        numeric latitude
+        int fhrsid
+    }
+
+    MENU {
+        int id_pk
+        int restaurant_id
+        varchar item_name
+        text description
+        numeric price
+        varchar category
+        timestamp created_at
+    }
+
+    EVENT {
+        int id_pk
+        int restaurant_id
+        int created_by
+        numeric total_amount
+        timestamp event_date
+        boolean locked
+        varchar public_event_code
+    }
+
+    GUEST {
+        int id_pk
+        int event_id
+        int user_id
+        varchar role
+        boolean locked
+    }
+
+    ORDER_ITEM {
+        int id_pk
+        int event_id
+        int guest_id
+        int menu_id
+        varchar custom_item_name
+        int quantity
+        numeric price_at_time
+        boolean locked
+    }
+
+    %% Relationships (clean + valid)
+    APP_USER ||--|| EVENT : ""
+    APP_USER ||--|| GUEST : ""
+    RESTAURANT ||--|| MENU : ""
+    RESTAURANT ||--|| EVENT : ""
+    EVENT ||--|| GUEST : ""
+    EVENT ||--|| ORDER_ITEM : ""
+    GUEST ||--|| ORDER_ITEM : ""
+    MENU ||--|| ORDER_ITEM : ""

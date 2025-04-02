@@ -1,0 +1,12 @@
+flowchart TD
+
+EventHub["Event Hub"]
+EventDetail["Event Detail"]
+GuestFood["Guest Food Choices"]
+CreateEvent["Create Event Screen"]
+Confirm["Order Confirmation"]
+
+Splash --> |"User logged in"| EventHub
+Splash --> |"Not logged in"| Login
+Login --> EventHub
+Register --> EventHub

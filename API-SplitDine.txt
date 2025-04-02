@@ -1,0 +1,26 @@
+== Test User ==
+ID: 10
+
+http://localhost:3000/login_user
+{
+  "email": "test1@test.com",
+  "password": "1234"
+}
+
+
+get_event_menu		Returns the menu for an event along with any item selections already made by guests.
+get_event_bill		Retrieves the final bill summary for an event, showing each guest’s selections and totals.
+get_guest_order		Retrieves a single guest’s selected menu and custom items for a specific event.
+login_user		Logs in a user and returns a token
+register_user		Registers  new user, returns a token and logs in
+get_user_events		Retrieve all the events the user is currently in
+search_restaurant	Gets the restaurant by name and location
+get_menu		Gets the menu for a restaurant
+create_event		Creates an event
+get_event_details	gets the details for an event
+get_event_guests	Retrieves all the guests for a particular event
+join_event		Allows an app user to join an event
+submit_order		Sends the order details for a guest and a particular event
+lock_order_item		Locks an item on a restaurant menu (not sure)
+lock_guest		Locks the guest from changing their menu choice
+lock_event		Locks any chnages to menu items for an event

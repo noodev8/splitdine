@@ -1,0 +1,23 @@
+== Screens
+Splash
+Login
+Register
+EventHub
+CreateEvent
+EventDetail
+ChooseFood
+
+
+== Mermaid
+flowchart TD
+    EventHub["Event Hub"]
+    CreateEvent["Create Event"]
+    EventDetail["Event Detail"]
+    ChooseFood["Choose Food"]
+
+    EventHub --> CreateEvent
+    EventHub --> EventDetail
+    CreateEvent --> EventDetail
+    EventDetail --> ChooseFood
+
+

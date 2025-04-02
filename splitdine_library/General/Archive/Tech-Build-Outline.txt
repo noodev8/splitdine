@@ -1,0 +1,34 @@
+"Here’s the SplitDine Flutter build system we’re following — continue with this approach."
+
+SplitDine Flutter Dev Guide – MVP Style
+We’re building function-first, using a light structure that allows fast development without tech debt.
+
+🧱 Project Structure
+lib/screens/ → Each screen in its own file
+
+lib/api/ → REST API wrappers (one per feature group screen)
+
+lib/styles/ → Central styling: padding, colors, text styles
+
+lib/main.dart → Contains ThemeData for global styling
+
+🎨 UI/UX Strategy
+Use ThemeData for consistent global styling (buttons, inputs, app bars)
+
+Use styles.dart for shared paddings, colors, error text, etc.
+
+Don’t focus on responsiveness or animation right now
+
+✅ Goals
+Prioritize MVP functionality
+
+Use auth + token flow
+
+Reuse components when natural
+
+Make styling consistent without over-engineering
+
+✅ If unsure, keep it simple and working.
+🎯 Fast, clean, and expandable.
+
+

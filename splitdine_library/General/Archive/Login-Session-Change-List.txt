@@ -1,0 +1,5 @@
+event_create_api.dart         // For /create_event
+event_join_api.dart           // For /join_event
+event_api.dart                // For /get_user_events
+event_hub_screen.dart         // Uses getUserEvents + Join dialog
+create_event_screen.dart      // Uses createEvent()

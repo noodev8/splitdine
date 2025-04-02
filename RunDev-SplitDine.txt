@@ -1,0 +1,9 @@
+cd C:\splitdine\splitdine_server
+cd C:\splitdine\splitdine_flutter
+
+node server.js
+flutter run
+
+
+
+

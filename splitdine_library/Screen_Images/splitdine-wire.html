@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SplitDine Prototype</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 400px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="home">
+        <h1>Welcome to SplitDine</h1>
+        <button onclick="showScreen('startMeal')">Start a New Meal</button>
+        <button onclick="showScreen('joinMeal')">Join an Existing Meal</button>
+        <button onclick="showScreen('pastMeals')">View Past Meals</button>
+    </div>
+    
+    <div class="container hidden" id="startMeal">
+        <h2>Start a New Meal</h2>
+        <p>Select a restaurant or scan a receipt.</p>
+        <button onclick="showScreen('menuSelection')">Proceed to Menu</button>
+        <button onclick="showScreen('home')">Back</button>
+    </div>
+    
+    <div class="container hidden" id="joinMeal">
+        <h2>Join an Existing Meal</h2>
+        <p>Enter a code or scan a QR.</p>
+        <button onclick="showScreen('menuSelection')">Join Meal</button>
+        <button onclick="showScreen('home')">Back</button>
+    </div>
+    
+    <div class="container hidden" id="pastMeals">
+        <h2>Past Meals</h2>
+        <p>No past meals found.</p>
+        <button onclick="showScreen('home')">Back</button>
+    </div>
+    
+    <div class="container hidden" id="menuSelection">
+        <h2>Menu Selection</h2>
+        <p>Choose items to split.</p>
+        <button onclick="showScreen('billSplitting')">Proceed to Bill Splitting</button>
+        <button onclick="showScreen('home')">Back</button>
+    </div>
+    
+    <div class="container hidden" id="billSplitting">
+        <h2>Bill Splitting</h2>
+        <p>Select a splitting method.</p>
+        <button onclick="showScreen('payment')">Proceed to Payment</button>
+        <button onclick="showScreen('home')">Back</button>
+    </div>
+    
+    <div class="container hidden" id="payment">
+        <h2>Payment</h2>
+        <p>Choose a payment method.</p>
+        <button onclick="showScreen('home')">Finish</button>
+    </div>
+    
+    <script>
+        function showScreen(screenId) {
+            document.querySelectorAll('.container').forEach(div => {
+                div.classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

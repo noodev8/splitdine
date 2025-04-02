@@ -1,0 +1,112 @@
+SCREEN
+splash_screen
+login_screen
+register_screen
+event_hub_screen
+event_detail_screen
+guest_food_choices_screen
+create_event_screen
+guest_order_screen
+
+
+=========================================================================================================================================
+guest_order_screen
+=========================================================================================================================================
+Shows the menu items ordered by the guest 
+=========================================================================================================================================
+Navigation:
+
+=========================================================================================================================================
+
+=========================================================================================================================================
+splash_screen
+=========================================================================================================================================
+Display logo and animated loading symbol
+Determine whether to request login or go straight to event_hub_screen
+=========================================================================================================================================
+Navigation:
+After a little wait
+Go directly to event_hub_screen or login page depending if user is logged in or not
+=========================================================================================================================================
+
+
+=========================================================================================================================================
+login_screen
+=========================================================================================================================================
+Login fields for username and password
+=========================================================================================================================================
+Navigation:
+Successful login --> event_hub_screen
+=========================================================================================================================================
+
+
+=========================================================================================================================================
+register_screen
+=========================================================================================================================================
+Allow the user to register details
+=========================================================================================================================================
+Navigation:
+Successful register --> event_hub_screen
+=========================================================================================================================================
+
+
+=========================================================================================================================================
+event_hub_screen
+=========================================================================================================================================
+This is like the app home screen. It allows the user to see a list of their events.
+These events can have a separate status. For example, it could be active, past or an invite
+The user also has the option to choose create a new event from this screen
+The user can join an event from this screen by entering a 4 digit PIN provided to them externally
+=========================================================================================================================================
+Navigation:
+Create event button --> create_event_screen
+Tap on an event --> event_detail_screen
+Join an event --> event_detail_screen
+=========================================================================================================================================
+
+
+=========================================================================================================================================
+event_detail_screen
+=========================================================================================================================================
+Here is where an individual event is shown.
+There is the restaurant details and event ID as well as the list of current guests
+Each guest can have a different status, for example, accepted, invited, declined
+The total bill for the event is shown here
+Each guest attributed total is shown on this screen
+The user can either be a guest themselves or an organiser
+An organiser can lock/unlock a guest which does not allow him to modify or submit his food order
+=========================================================================================================================================
+Navigation:
+Tap on guest --> guest_food_choices_screen
+=========================================================================================================================================
+
+=========================================================================================================================================
+guest_food_choices_screen
+=========================================================================================================================================
+Has an indication of restaurant and event details
+Purpose of the screen is to allow adding/removing/modifying menu choices
+The screen displays food choices, prices and total for the indidual guest
+The guest can confirm prices if able to
+The organiser has the power to lock/unlock the submit order from this screen for the individual guest
+The organiser has the power to modify/add/remove any food choices
+=========================================================================================================================================
+Navigation:
+Submit button --> submits food choices and shows confirmation
+Return <-- Goes back to event_hub_screen either with back button or specific button
+=========================================================================================================================================
+
+=========================================================================================================================================
+create_event_screen
+=========================================================================================================================================
+This is where a new event can be created
+The restaurant is chosen by entering "business name", "Town, city or postcode" with Search button
+The date and time is entered
+a 4 digit event PIN is displayed on confirmation of event
+The event creator is automatically added to the event as a guest and has the status of organiser
+=========================================================================================================================================
+Navigation:
+Confirm event --> displays PIN and goes to event_hub_screen
+=========================================================================================================================================
+
+
+

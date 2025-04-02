@@ -1,0 +1,774 @@
+2025-03-15 00:00:17,476 - Processing: fsa_data\FHRS021en-GB.xml
+2025-03-15 00:01:04,323 - \u2705 Summary: 418 inserted, 1127 updated, 59 unchanged.
+2025-03-15 00:01:04,325 - Processing: fsa_data\FHRS027en-GB.xml
+2025-03-15 00:03:03,190 - Processing: fsa_data\FHRS021en-GB.xml
+2025-03-15 00:03:15,149 - \u2705 Summary: 0 inserted, 405 updated, 13 unchanged.
+2025-03-15 00:03:15,149 - Processing: fsa_data\FHRS027en-GB.xml
+2025-03-15 00:03:17,995 - \u2705 Summary: 90 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:03:17,995 - Processing: fsa_data\FHRS028en-GB.xml
+2025-03-15 00:03:19,904 - \u2705 Summary: 64 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:03:19,915 - Processing: fsa_data\FHRS029en-GB.xml
+2025-03-15 00:03:21,892 - \u2705 Summary: 64 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:03:21,893 - Processing: fsa_data\FHRS030en-GB.xml
+2025-03-15 00:03:25,688 - \u2705 Summary: 115 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:03:25,688 - Processing: fsa_data\FHRS032en-GB.xml
+2025-03-15 00:03:29,973 - \u2705 Summary: 136 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:03:29,973 - Processing: fsa_data\FHRS055en-GB.xml
+2025-03-15 00:03:39,921 - \u2705 Summary: 347 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:03:39,921 - Processing: fsa_data\FHRS056en-GB.xml
+2025-03-15 00:03:51,377 - \u2705 Summary: 395 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:03:51,377 - Processing: fsa_data\FHRS062en-GB.xml
+2025-03-15 00:03:56,714 - \u2705 Summary: 175 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:03:56,714 - Processing: fsa_data\FHRS063en-GB.xml
+2025-03-15 00:03:58,993 - \u2705 Summary: 71 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:03:58,994 - Processing: fsa_data\FHRS064en-GB.xml
+2025-03-15 00:04:02,964 - \u2705 Summary: 135 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:02,964 - Processing: fsa_data\FHRS066en-GB.xml
+2025-03-15 00:04:06,552 - \u2705 Summary: 110 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:06,553 - Processing: fsa_data\FHRS067en-GB.xml
+2025-03-15 00:04:10,082 - \u2705 Summary: 119 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:10,083 - Processing: fsa_data\FHRS068en-GB.xml
+2025-03-15 00:04:13,460 - \u2705 Summary: 110 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:13,460 - Processing: fsa_data\FHRS069en-GB.xml
+2025-03-15 00:04:16,806 - \u2705 Summary: 111 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:16,806 - Processing: fsa_data\FHRS070en-GB.xml
+2025-03-15 00:04:21,664 - \u2705 Summary: 155 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:21,665 - Processing: fsa_data\FHRS072en-GB.xml
+2025-03-15 00:04:26,327 - \u2705 Summary: 149 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:26,327 - Processing: fsa_data\FHRS073en-GB.xml
+2025-03-15 00:04:29,630 - \u2705 Summary: 105 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:29,631 - Processing: fsa_data\FHRS074en-GB.xml
+2025-03-15 00:04:33,936 - \u2705 Summary: 99 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:33,937 - Processing: fsa_data\FHRS075en-GB.xml
+2025-03-15 00:04:37,581 - \u2705 Summary: 116 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:37,581 - Processing: fsa_data\FHRS077en-GB.xml
+2025-03-15 00:04:41,373 - \u2705 Summary: 127 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:41,373 - Processing: fsa_data\FHRS078en-GB.xml
+2025-03-15 00:04:46,129 - \u2705 Summary: 150 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:46,129 - Processing: fsa_data\FHRS080en-GB.xml
+2025-03-15 00:04:49,101 - \u2705 Summary: 95 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:49,101 - Processing: fsa_data\FHRS081en-GB.xml
+2025-03-15 00:04:51,455 - \u2705 Summary: 74 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:04:51,455 - Processing: fsa_data\FHRS085en-GB.xml
+2025-03-15 00:05:02,896 - \u2705 Summary: 416 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:02,897 - Processing: fsa_data\FHRS102en-GB.xml
+2025-03-15 00:05:04,950 - \u2705 Summary: 61 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:04,951 - Processing: fsa_data\FHRS103en-GB.xml
+2025-03-15 00:05:07,635 - \u2705 Summary: 85 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:07,636 - Processing: fsa_data\FHRS105en-GB.xml
+2025-03-15 00:05:10,253 - \u2705 Summary: 89 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:10,253 - Processing: fsa_data\FHRS106en-GB.xml
+2025-03-15 00:05:13,341 - \u2705 Summary: 95 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:13,341 - Processing: fsa_data\FHRS107en-GB.xml
+2025-03-15 00:05:17,150 - \u2705 Summary: 119 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:17,150 - Processing: fsa_data\FHRS109en-GB.xml
+2025-03-15 00:05:19,370 - \u2705 Summary: 65 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:19,370 - Processing: fsa_data\FHRS110en-GB.xml
+2025-03-15 00:05:23,973 - \u2705 Summary: 147 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:23,973 - Processing: fsa_data\FHRS111en-GB.xml
+2025-03-15 00:05:27,009 - \u2705 Summary: 86 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:27,009 - Processing: fsa_data\FHRS112en-GB.xml
+2025-03-15 00:05:28,321 - \u2705 Summary: 38 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:28,321 - Processing: fsa_data\FHRS113en-GB.xml
+2025-03-15 00:05:31,995 - \u2705 Summary: 115 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:31,995 - Processing: fsa_data\FHRS114en-GB.xml
+2025-03-15 00:05:34,830 - \u2705 Summary: 91 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:34,830 - Processing: fsa_data\FHRS115en-GB.xml
+2025-03-15 00:05:38,926 - \u2705 Summary: 140 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:38,927 - Processing: fsa_data\FHRS116en-GB.xml
+2025-03-15 00:05:40,740 - \u2705 Summary: 55 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:40,741 - Processing: fsa_data\FHRS117en-GB.xml
+2025-03-15 00:05:42,931 - \u2705 Summary: 63 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:42,931 - Processing: fsa_data\FHRS118en-GB.xml
+2025-03-15 00:05:44,612 - \u2705 Summary: 50 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:44,612 - Processing: fsa_data\FHRS120en-GB.xml
+2025-03-15 00:05:47,538 - \u2705 Summary: 104 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:47,538 - Processing: fsa_data\FHRS122en-GB.xml
+2025-03-15 00:05:49,995 - \u2705 Summary: 74 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:49,995 - Processing: fsa_data\FHRS124en-GB.xml
+2025-03-15 00:05:52,945 - \u2705 Summary: 93 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:52,945 - Processing: fsa_data\FHRS125en-GB.xml
+2025-03-15 00:05:57,011 - \u2705 Summary: 130 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:57,011 - Processing: fsa_data\FHRS126en-GB.xml
+2025-03-15 00:05:58,887 - \u2705 Summary: 61 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:05:58,887 - Processing: fsa_data\FHRS127en-GB.xml
+2025-03-15 00:06:00,126 - \u2705 Summary: 38 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:00,127 - Processing: fsa_data\FHRS128en-GB.xml
+2025-03-15 00:06:02,680 - \u2705 Summary: 89 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:02,680 - Processing: fsa_data\FHRS129en-GB.xml
+2025-03-15 00:06:04,753 - \u2705 Summary: 63 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:04,753 - Processing: fsa_data\FHRS131en-GB.xml
+2025-03-15 00:06:08,203 - \u2705 Summary: 105 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:08,203 - Processing: fsa_data\FHRS132en-GB.xml
+2025-03-15 00:06:12,547 - \u2705 Summary: 147 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:12,547 - Processing: fsa_data\FHRS133en-GB.xml
+2025-03-15 00:06:14,789 - \u2705 Summary: 70 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:14,789 - Processing: fsa_data\FHRS134en-GB.xml
+2025-03-15 00:06:16,650 - \u2705 Summary: 56 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:16,650 - Processing: fsa_data\FHRS135en-GB.xml
+2025-03-15 00:06:18,239 - \u2705 Summary: 50 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:18,239 - Processing: fsa_data\FHRS136en-GB.xml
+2025-03-15 00:06:19,906 - \u2705 Summary: 51 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:19,906 - Processing: fsa_data\FHRS137en-GB.xml
+2025-03-15 00:06:21,860 - \u2705 Summary: 69 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:21,860 - Processing: fsa_data\FHRS138en-GB.xml
+2025-03-15 00:06:26,781 - \u2705 Summary: 183 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:26,781 - Processing: fsa_data\FHRS140en-GB.xml
+2025-03-15 00:06:28,152 - \u2705 Summary: 43 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:28,153 - Processing: fsa_data\FHRS142en-GB.xml
+2025-03-15 00:06:31,693 - \u2705 Summary: 113 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:31,693 - Processing: fsa_data\FHRS143en-GB.xml
+2025-03-15 00:06:35,073 - \u2705 Summary: 103 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:35,073 - Processing: fsa_data\FHRS145en-GB.xml
+2025-03-15 00:06:37,829 - \u2705 Summary: 99 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:37,829 - Processing: fsa_data\FHRS148en-GB.xml
+2025-03-15 00:06:40,644 - \u2705 Summary: 101 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:40,644 - Processing: fsa_data\FHRS149en-GB.xml
+2025-03-15 00:06:42,111 - \u2705 Summary: 45 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:42,112 - Processing: fsa_data\FHRS151en-GB.xml
+2025-03-15 00:06:45,365 - \u2705 Summary: 103 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:45,366 - Processing: fsa_data\FHRS152en-GB.xml
+2025-03-15 00:06:50,037 - \u2705 Summary: 150 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:50,037 - Processing: fsa_data\FHRS153en-GB.xml
+2025-03-15 00:06:53,911 - \u2705 Summary: 125 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:53,912 - Processing: fsa_data\FHRS155en-GB.xml
+2025-03-15 00:06:55,098 - \u2705 Summary: 39 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:55,098 - Processing: fsa_data\FHRS156en-GB.xml
+2025-03-15 00:06:58,787 - \u2705 Summary: 121 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:06:58,787 - Processing: fsa_data\FHRS157en-GB.xml
+2025-03-15 00:07:03,551 - \u2705 Summary: 158 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:03,551 - Processing: fsa_data\FHRS158en-GB.xml
+2025-03-15 00:07:04,997 - \u2705 Summary: 43 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:04,997 - Processing: fsa_data\FHRS159en-GB.xml
+2025-03-15 00:07:08,952 - \u2705 Summary: 130 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:08,952 - Processing: fsa_data\FHRS160en-GB.xml
+2025-03-15 00:07:13,026 - \u2705 Summary: 134 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:13,027 - Processing: fsa_data\FHRS161en-GB.xml
+2025-03-15 00:07:14,350 - \u2705 Summary: 38 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:14,350 - Processing: fsa_data\FHRS162en-GB.xml
+2025-03-15 00:07:16,104 - \u2705 Summary: 50 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:16,105 - Processing: fsa_data\FHRS163en-GB.xml
+2025-03-15 00:07:17,508 - \u2705 Summary: 41 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:17,508 - Processing: fsa_data\FHRS164en-GB.xml
+2025-03-15 00:07:19,164 - \u2705 Summary: 54 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:19,165 - Processing: fsa_data\FHRS179en-GB.xml
+2025-03-15 00:07:21,825 - \u2705 Summary: 85 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:21,825 - Processing: fsa_data\FHRS180en-GB.xml
+2025-03-15 00:07:27,062 - \u2705 Summary: 167 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:27,062 - Processing: fsa_data\FHRS181en-GB.xml
+2025-03-15 00:07:28,910 - \u2705 Summary: 60 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:28,910 - Processing: fsa_data\FHRS182en-GB.xml
+2025-03-15 00:07:32,774 - \u2705 Summary: 129 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:32,774 - Processing: fsa_data\FHRS184en-GB.xml
+2025-03-15 00:07:35,248 - \u2705 Summary: 76 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:35,248 - Processing: fsa_data\FHRS185en-GB.xml
+2025-03-15 00:07:39,192 - \u2705 Summary: 124 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:39,192 - Processing: fsa_data\FHRS187en-GB.xml
+2025-03-15 00:07:42,175 - \u2705 Summary: 99 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:42,175 - Processing: fsa_data\FHRS188en-GB.xml
+2025-03-15 00:07:46,325 - \u2705 Summary: 139 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:46,325 - Processing: fsa_data\FHRS189en-GB.xml
+2025-03-15 00:07:50,831 - \u2705 Summary: 149 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:50,831 - Processing: fsa_data\FHRS190en-GB.xml
+2025-03-15 00:07:55,646 - \u2705 Summary: 141 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:55,646 - Processing: fsa_data\FHRS191en-GB.xml
+2025-03-15 00:07:58,713 - \u2705 Summary: 101 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:07:58,713 - Processing: fsa_data\FHRS192en-GB.xml
+2025-03-15 00:08:01,458 - \u2705 Summary: 87 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:01,458 - Processing: fsa_data\FHRS196en-GB.xml
+2025-03-15 00:08:03,746 - \u2705 Summary: 71 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:03,746 - Processing: fsa_data\FHRS197en-GB.xml
+2025-03-15 00:08:06,717 - \u2705 Summary: 102 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:06,717 - Processing: fsa_data\FHRS198en-GB.xml
+2025-03-15 00:08:08,790 - \u2705 Summary: 65 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:08,790 - Processing: fsa_data\FHRS199en-GB.xml
+2025-03-15 00:08:11,270 - \u2705 Summary: 87 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:11,270 - Processing: fsa_data\FHRS200en-GB.xml
+2025-03-15 00:08:15,470 - \u2705 Summary: 136 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:15,470 - Processing: fsa_data\FHRS201en-GB.xml
+2025-03-15 00:08:17,863 - \u2705 Summary: 80 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:17,863 - Processing: fsa_data\FHRS202en-GB.xml
+2025-03-15 00:08:21,719 - \u2705 Summary: 125 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:21,719 - Processing: fsa_data\FHRS203en-GB.xml
+2025-03-15 00:08:24,820 - \u2705 Summary: 110 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:24,821 - Processing: fsa_data\FHRS204en-GB.xml
+2025-03-15 00:08:27,117 - \u2705 Summary: 67 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:27,117 - Processing: fsa_data\FHRS205en-GB.xml
+2025-03-15 00:08:29,566 - \u2705 Summary: 80 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:29,566 - Processing: fsa_data\FHRS206en-GB.xml
+2025-03-15 00:08:32,481 - \u2705 Summary: 92 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:32,482 - Processing: fsa_data\FHRS207en-GB.xml
+2025-03-15 00:08:35,281 - \u2705 Summary: 102 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:35,281 - Processing: fsa_data\FHRS209en-GB.xml
+2025-03-15 00:08:37,177 - \u2705 Summary: 60 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:37,177 - Processing: fsa_data\FHRS210en-GB.xml
+2025-03-15 00:08:41,992 - \u2705 Summary: 168 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:41,993 - Processing: fsa_data\FHRS211en-GB.xml
+2025-03-15 00:08:44,552 - \u2705 Summary: 80 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:44,553 - Processing: fsa_data\FHRS212en-GB.xml
+2025-03-15 00:08:48,143 - \u2705 Summary: 109 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:48,143 - Processing: fsa_data\FHRS214en-GB.xml
+2025-03-15 00:08:49,789 - \u2705 Summary: 56 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:49,789 - Processing: fsa_data\FHRS215en-GB.xml
+2025-03-15 00:08:52,596 - \u2705 Summary: 92 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:52,596 - Processing: fsa_data\FHRS216en-GB.xml
+2025-03-15 00:08:53,515 - \u2705 Summary: 29 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:53,516 - Processing: fsa_data\FHRS219en-GB.xml
+2025-03-15 00:08:55,454 - \u2705 Summary: 60 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:08:55,454 - Processing: fsa_data\FHRS220en-GB.xml
+2025-03-15 00:09:04,627 - \u2705 Summary: 286 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:04,627 - Processing: fsa_data\FHRS221en-GB.xml
+2025-03-15 00:09:07,593 - \u2705 Summary: 89 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:07,593 - Processing: fsa_data\FHRS222en-GB.xml
+2025-03-15 00:09:10,554 - \u2705 Summary: 100 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:10,555 - Processing: fsa_data\FHRS223en-GB.xml
+2025-03-15 00:09:12,353 - \u2705 Summary: 63 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:12,353 - Processing: fsa_data\FHRS224en-GB.xml
+2025-03-15 00:09:16,433 - \u2705 Summary: 131 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:16,433 - Processing: fsa_data\FHRS225en-GB.xml
+2025-03-15 00:09:19,120 - \u2705 Summary: 87 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:19,120 - Processing: fsa_data\FHRS227en-GB.xml
+2025-03-15 00:09:21,612 - \u2705 Summary: 84 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:21,612 - Processing: fsa_data\FHRS228en-GB.xml
+2025-03-15 00:09:23,737 - \u2705 Summary: 70 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:23,737 - Processing: fsa_data\FHRS229en-GB.xml
+2025-03-15 00:09:26,721 - \u2705 Summary: 106 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:26,721 - Processing: fsa_data\FHRS230en-GB.xml
+2025-03-15 00:09:31,573 - \u2705 Summary: 160 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:31,573 - Processing: fsa_data\FHRS231en-GB.xml
+2025-03-15 00:09:35,696 - \u2705 Summary: 133 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:35,696 - Processing: fsa_data\FHRS232en-GB.xml
+2025-03-15 00:09:40,926 - \u2705 Summary: 169 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:40,926 - Processing: fsa_data\FHRS233en-GB.xml
+2025-03-15 00:09:44,323 - \u2705 Summary: 104 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:44,324 - Processing: fsa_data\FHRS235en-GB.xml
+2025-03-15 00:09:53,056 - \u2705 Summary: 276 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:09:53,056 - Processing: fsa_data\FHRS236en-GB.xml
+2025-03-15 00:10:03,010 - \u2705 Summary: 322 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:03,010 - Processing: fsa_data\FHRS250en-GB.xml
+2025-03-15 00:10:23,752 - \u2705 Summary: 671 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:23,752 - Processing: fsa_data\FHRS259en-GB.xml
+2025-03-15 00:10:26,319 - \u2705 Summary: 91 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:26,320 - Processing: fsa_data\FHRS260en-GB.xml
+2025-03-15 00:10:30,102 - \u2705 Summary: 128 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:30,102 - Processing: fsa_data\FHRS261en-GB.xml
+2025-03-15 00:10:32,512 - \u2705 Summary: 79 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:32,513 - Processing: fsa_data\FHRS262en-GB.xml
+2025-03-15 00:10:34,256 - \u2705 Summary: 55 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:34,256 - Processing: fsa_data\FHRS263en-GB.xml
+2025-03-15 00:10:37,101 - \u2705 Summary: 88 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:37,101 - Processing: fsa_data\FHRS264en-GB.xml
+2025-03-15 00:10:40,835 - \u2705 Summary: 129 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:40,836 - Processing: fsa_data\FHRS266en-GB.xml
+2025-03-15 00:10:42,791 - \u2705 Summary: 64 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:42,792 - Processing: fsa_data\FHRS268en-GB.xml
+2025-03-15 00:10:44,973 - \u2705 Summary: 68 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:44,974 - Processing: fsa_data\FHRS269en-GB.xml
+2025-03-15 00:10:49,245 - \u2705 Summary: 133 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:49,245 - Processing: fsa_data\FHRS270en-GB.xml
+2025-03-15 00:10:52,469 - \u2705 Summary: 106 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:52,469 - Processing: fsa_data\FHRS271en-GB.xml
+2025-03-15 00:10:56,197 - \u2705 Summary: 113 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:56,197 - Processing: fsa_data\FHRS272en-GB.xml
+2025-03-15 00:10:59,221 - \u2705 Summary: 107 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:10:59,221 - Processing: fsa_data\FHRS281en-GB.xml
+2025-03-15 00:11:17,554 - \u2705 Summary: 624 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:17,555 - Processing: fsa_data\FHRS287en-GB.xml
+2025-03-15 00:11:20,533 - \u2705 Summary: 90 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:20,534 - Processing: fsa_data\FHRS288en-GB.xml
+2025-03-15 00:11:24,282 - \u2705 Summary: 113 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:24,282 - Processing: fsa_data\FHRS289en-GB.xml
+2025-03-15 00:11:27,865 - \u2705 Summary: 127 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:27,865 - Processing: fsa_data\FHRS290en-GB.xml
+2025-03-15 00:11:31,677 - \u2705 Summary: 129 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:31,677 - Processing: fsa_data\FHRS291en-GB.xml
+2025-03-15 00:11:35,940 - \u2705 Summary: 138 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:35,940 - Processing: fsa_data\FHRS292en-GB.xml
+2025-03-15 00:11:40,382 - \u2705 Summary: 146 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:40,382 - Processing: fsa_data\FHRS293en-GB.xml
+2025-03-15 00:11:43,721 - \u2705 Summary: 111 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:43,721 - Processing: fsa_data\FHRS295en-GB.xml
+2025-03-15 00:11:45,689 - \u2705 Summary: 61 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:45,690 - Processing: fsa_data\FHRS297en-GB.xml
+2025-03-15 00:11:48,705 - \u2705 Summary: 90 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:48,706 - Processing: fsa_data\FHRS298en-GB.xml
+2025-03-15 00:11:52,555 - \u2705 Summary: 130 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:52,555 - Processing: fsa_data\FHRS299en-GB.xml
+2025-03-15 00:11:54,730 - \u2705 Summary: 66 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:54,730 - Processing: fsa_data\FHRS300en-GB.xml
+2025-03-15 00:11:57,095 - \u2705 Summary: 74 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:11:57,096 - Processing: fsa_data\FHRS302en-GB.xml
+2025-03-15 00:12:03,738 - \u2705 Summary: 227 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:03,738 - Processing: fsa_data\FHRS305en-GB.xml
+2025-03-15 00:12:07,113 - \u2705 Summary: 112 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:07,113 - Processing: fsa_data\FHRS306en-GB.xml
+2025-03-15 00:12:08,076 - \u2705 Summary: 25 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:08,077 - Processing: fsa_data\FHRS307en-GB.xml
+2025-03-15 00:12:11,135 - \u2705 Summary: 101 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:11,136 - Processing: fsa_data\FHRS308en-GB.xml
+2025-03-15 00:12:12,611 - \u2705 Summary: 49 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:12,611 - Processing: fsa_data\FHRS309en-GB.xml
+2025-03-15 00:12:15,762 - \u2705 Summary: 99 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:15,763 - Processing: fsa_data\FHRS310en-GB.xml
+2025-03-15 00:12:17,845 - \u2705 Summary: 61 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:17,845 - Processing: fsa_data\FHRS311en-GB.xml
+2025-03-15 00:12:19,407 - \u2705 Summary: 51 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:19,408 - Processing: fsa_data\FHRS312en-GB.xml
+2025-03-15 00:12:20,996 - \u2705 Summary: 50 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:20,997 - Processing: fsa_data\FHRS313en-GB.xml
+2025-03-15 00:12:23,632 - \u2705 Summary: 83 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:23,633 - Processing: fsa_data\FHRS314en-GB.xml
+2025-03-15 00:12:26,218 - \u2705 Summary: 84 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:26,218 - Processing: fsa_data\FHRS315en-GB.xml
+2025-03-15 00:12:28,071 - \u2705 Summary: 56 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:28,071 - Processing: fsa_data\FHRS317en-GB.xml
+2025-03-15 00:12:31,224 - \u2705 Summary: 101 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:31,225 - Processing: fsa_data\FHRS318en-GB.xml
+2025-03-15 00:12:34,174 - \u2705 Summary: 89 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:34,175 - Processing: fsa_data\FHRS319en-GB.xml
+2025-03-15 00:12:37,393 - \u2705 Summary: 106 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:37,393 - Processing: fsa_data\FHRS320en-GB.xml
+2025-03-15 00:12:42,725 - \u2705 Summary: 165 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:42,725 - Processing: fsa_data\FHRS321en-GB.xml
+2025-03-15 00:12:46,468 - \u2705 Summary: 120 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:46,468 - Processing: fsa_data\FHRS323en-GB.xml
+2025-03-15 00:12:48,015 - \u2705 Summary: 50 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:48,015 - Processing: fsa_data\FHRS324en-GB.xml
+2025-03-15 00:12:50,947 - \u2705 Summary: 97 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:50,947 - Processing: fsa_data\FHRS325en-GB.xml
+2025-03-15 00:12:54,866 - \u2705 Summary: 139 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:54,866 - Processing: fsa_data\FHRS326en-GB.xml
+2025-03-15 00:12:56,559 - \u2705 Summary: 50 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:12:56,560 - Processing: fsa_data\FHRS327en-GB.xml
+2025-03-15 00:13:02,198 - \u2705 Summary: 106 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:13:02,198 - Processing: fsa_data\FHRS328en-GB.xml
+2025-03-15 00:13:06,191 - \u2705 Summary: 115 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:13:06,191 - Processing: fsa_data\FHRS329en-GB.xml
+2025-03-15 00:13:09,035 - \u2705 Summary: 94 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:13:09,036 - Processing: fsa_data\FHRS336en-GB.xml
+2025-03-15 00:13:09,440 - \u2705 Summary: 8 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:13:09,441 - Processing: fsa_data\FHRS401en-GB.xml
+2025-03-15 00:13:18,344 - \u2705 Summary: 285 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:13:18,345 - Processing: fsa_data\FHRS402en-GB.xml
+2025-03-15 00:13:33,868 - \u2705 Summary: 505 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:13:33,869 - Processing: fsa_data\FHRS403en-GB.xml
+2025-03-15 00:13:39,365 - \u2705 Summary: 188 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:13:39,365 - Processing: fsa_data\FHRS404en-GB.xml
+2025-03-15 00:13:52,079 - \u2705 Summary: 449 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:13:52,079 - Processing: fsa_data\FHRS405en-GB.xml
+2025-03-15 00:13:54,446 - \u2705 Summary: 68 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:13:54,447 - Processing: fsa_data\FHRS406en-GB.xml
+2025-03-15 00:14:02,509 - \u2705 Summary: 265 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:14:02,509 - Processing: fsa_data\FHRS407en-GB.xml
+2025-03-15 00:14:08,485 - \u2705 Summary: 182 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:14:08,486 - Processing: fsa_data\FHRS408en-GB.xml
+2025-03-15 00:14:16,746 - \u2705 Summary: 269 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:14:16,746 - Processing: fsa_data\FHRS409en-GB.xml
+2025-03-15 00:14:24,556 - \u2705 Summary: 284 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:14:24,557 - Processing: fsa_data\FHRS410en-GB.xml
+2025-03-15 00:14:30,375 - \u2705 Summary: 190 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:14:30,376 - Processing: fsa_data\FHRS411en-GB.xml
+2025-03-15 00:14:44,816 - \u2705 Summary: 480 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:14:44,816 - Processing: fsa_data\FHRS412en-GB.xml
+2025-03-15 00:14:46,618 - \u2705 Summary: 58 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:14:46,618 - Processing: fsa_data\FHRS413en-GB.xml
+2025-03-15 00:15:04,308 - \u2705 Summary: 610 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:15:04,309 - Processing: fsa_data\FHRS414en-GB.xml
+2025-03-15 00:15:17,807 - \u2705 Summary: 491 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:15:17,807 - Processing: fsa_data\FHRS415en-GB.xml
+2025-03-15 00:15:29,955 - \u2705 Summary: 421 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:15:29,955 - Processing: fsa_data\FHRS416en-GB.xml
+2025-03-15 00:15:38,253 - \u2705 Summary: 272 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:15:38,253 - Processing: fsa_data\FHRS417en-GB.xml
+2025-03-15 00:15:42,875 - \u2705 Summary: 148 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:15:42,876 - Processing: fsa_data\FHRS418en-GB.xml
+2025-03-15 00:15:48,744 - \u2705 Summary: 216 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:15:48,744 - Processing: fsa_data\FHRS419en-GB.xml
+2025-03-15 00:15:54,502 - \u2705 Summary: 193 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:15:54,503 - Processing: fsa_data\FHRS420en-GB.xml
+2025-03-15 00:16:00,033 - \u2705 Summary: 191 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:00,033 - Processing: fsa_data\FHRS421en-GB.xml
+2025-03-15 00:16:05,226 - \u2705 Summary: 160 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:05,226 - Processing: fsa_data\FHRS422en-GB.xml
+2025-03-15 00:16:09,930 - \u2705 Summary: 162 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:09,930 - Processing: fsa_data\FHRS423en-GB.xml
+2025-03-15 00:16:16,236 - \u2705 Summary: 230 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:16,236 - Processing: fsa_data\FHRS424en-GB.xml
+2025-03-15 00:16:23,828 - \u2705 Summary: 262 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:23,828 - Processing: fsa_data\FHRS425en-GB.xml
+2025-03-15 00:16:34,376 - \u2705 Summary: 344 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:34,376 - Processing: fsa_data\FHRS426en-GB.xml
+2025-03-15 00:16:37,811 - \u2705 Summary: 113 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:37,812 - Processing: fsa_data\FHRS427en-GB.xml
+2025-03-15 00:16:41,389 - \u2705 Summary: 122 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:41,390 - Processing: fsa_data\FHRS428en-GB.xml
+2025-03-15 00:16:46,737 - \u2705 Summary: 182 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:46,737 - Processing: fsa_data\FHRS429en-GB.xml
+2025-03-15 00:16:53,065 - \u2705 Summary: 207 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:16:53,066 - Processing: fsa_data\FHRS430en-GB.xml
+2025-03-15 00:17:00,553 - \u2705 Summary: 245 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:00,553 - Processing: fsa_data\FHRS431en-GB.xml
+2025-03-15 00:17:04,983 - \u2705 Summary: 154 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:04,983 - Processing: fsa_data\FHRS432en-GB.xml
+2025-03-15 00:17:14,451 - \u2705 Summary: 331 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:14,452 - Processing: fsa_data\FHRS433en-GB.xml
+2025-03-15 00:17:19,478 - \u2705 Summary: 179 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:19,479 - Processing: fsa_data\FHRS434en-GB.xml
+2025-03-15 00:17:26,158 - \u2705 Summary: 222 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:26,159 - Processing: fsa_data\FHRS435en-GB.xml
+2025-03-15 00:17:32,825 - \u2705 Summary: 214 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:32,826 - Processing: fsa_data\FHRS436en-GB.xml
+2025-03-15 00:17:38,484 - \u2705 Summary: 181 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:38,484 - Processing: fsa_data\FHRS501en-GB.xml
+2025-03-15 00:17:39,496 - \u2705 Summary: 29 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:39,496 - Processing: fsa_data\FHRS502en-GB.xml
+2025-03-15 00:17:42,962 - \u2705 Summary: 111 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:42,962 - Processing: fsa_data\FHRS503en-GB.xml
+2025-03-15 00:17:46,676 - \u2705 Summary: 126 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:46,676 - Processing: fsa_data\FHRS504en-GB.xml
+2025-03-15 00:17:49,534 - \u2705 Summary: 84 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:49,534 - Processing: fsa_data\FHRS505en-GB.xml
+2025-03-15 00:17:54,429 - \u2705 Summary: 179 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:17:54,430 - Processing: fsa_data\FHRS506en-GB.xml
+2025-03-15 00:18:01,614 - \u2705 Summary: 250 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:01,614 - Processing: fsa_data\FHRS507en-GB.xml
+2025-03-15 00:18:04,093 - \u2705 Summary: 77 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:04,093 - Processing: fsa_data\FHRS508en-GB.xml
+2025-03-15 00:18:09,649 - \u2705 Summary: 181 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:09,649 - Processing: fsa_data\FHRS509en-GB.xml
+2025-03-15 00:18:13,844 - \u2705 Summary: 136 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:13,845 - Processing: fsa_data\FHRS510en-GB.xml
+2025-03-15 00:18:17,632 - \u2705 Summary: 118 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:17,632 - Processing: fsa_data\FHRS511en-GB.xml
+2025-03-15 00:18:21,086 - \u2705 Summary: 105 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:21,086 - Processing: fsa_data\FHRS512en-GB.xml
+2025-03-15 00:18:25,980 - \u2705 Summary: 157 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:25,980 - Processing: fsa_data\FHRS513en-GB.xml
+2025-03-15 00:18:29,456 - \u2705 Summary: 121 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:29,456 - Processing: fsa_data\FHRS514en-GB.xml
+2025-03-15 00:18:32,578 - \u2705 Summary: 97 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:32,578 - Processing: fsa_data\FHRS515en-GB.xml
+2025-03-15 00:18:34,456 - \u2705 Summary: 63 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:34,457 - Processing: fsa_data\FHRS516en-GB.xml
+2025-03-15 00:18:37,177 - \u2705 Summary: 83 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:37,177 - Processing: fsa_data\FHRS517en-GB.xml
+2025-03-15 00:18:41,243 - \u2705 Summary: 123 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:41,244 - Processing: fsa_data\FHRS518en-GB.xml
+2025-03-15 00:18:44,742 - \u2705 Summary: 109 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:44,742 - Processing: fsa_data\FHRS519en-GB.xml
+2025-03-15 00:18:49,905 - \u2705 Summary: 184 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:49,905 - Processing: fsa_data\FHRS520en-GB.xml
+2025-03-15 00:18:53,087 - \u2705 Summary: 94 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:53,087 - Processing: fsa_data\FHRS521en-GB.xml
+2025-03-15 00:18:55,873 - \u2705 Summary: 84 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:18:55,873 - Processing: fsa_data\FHRS522en-GB.xml
+2025-03-15 00:19:00,903 - \u2705 Summary: 166 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:00,904 - Processing: fsa_data\FHRS523en-GB.xml
+2025-03-15 00:19:03,440 - \u2705 Summary: 80 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:03,440 - Processing: fsa_data\FHRS524en-GB.xml
+2025-03-15 00:19:05,210 - \u2705 Summary: 49 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:05,211 - Processing: fsa_data\FHRS525en-GB.xml
+2025-03-15 00:19:07,316 - \u2705 Summary: 65 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:07,316 - Processing: fsa_data\FHRS526en-GB.xml
+2025-03-15 00:19:09,503 - \u2705 Summary: 71 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:09,504 - Processing: fsa_data\FHRS527en-GB.xml
+2025-03-15 00:19:13,570 - \u2705 Summary: 122 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:13,570 - Processing: fsa_data\FHRS528en-GB.xml
+2025-03-15 00:19:20,193 - \u2705 Summary: 206 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:20,193 - Processing: fsa_data\FHRS529en-GB.xml
+2025-03-15 00:19:21,722 - \u2705 Summary: 46 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:21,722 - Processing: fsa_data\FHRS530en-GB.xml
+2025-03-15 00:19:26,678 - \u2705 Summary: 164 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:26,679 - Processing: fsa_data\FHRS531en-GB.xml
+2025-03-15 00:19:29,541 - \u2705 Summary: 88 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:29,542 - Processing: fsa_data\FHRS532en-GB.xml
+2025-03-15 00:19:33,786 - \u2705 Summary: 143 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:33,786 - Processing: fsa_data\FHRS533en-GB.xml
+2025-03-15 00:19:37,715 - \u2705 Summary: 117 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:37,715 - Processing: fsa_data\FHRS550cy-GB.xml
+2025-03-15 00:19:42,423 - \u2705 Summary: 149 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:42,423 - Processing: fsa_data\FHRS550en-GB.xml
+2025-03-15 00:19:46,642 - \u2705 Summary: 0 inserted, 120 updated, 29 unchanged.
+2025-03-15 00:19:46,642 - Processing: fsa_data\FHRS551cy-GB.xml
+2025-03-15 00:19:49,223 - \u2705 Summary: 79 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:49,223 - Processing: fsa_data\FHRS551en-GB.xml
+2025-03-15 00:19:51,675 - \u2705 Summary: 0 inserted, 79 updated, 0 unchanged.
+2025-03-15 00:19:51,675 - Processing: fsa_data\FHRS552cy-GB.xml
+2025-03-15 00:19:54,591 - \u2705 Summary: 95 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:19:54,592 - Processing: fsa_data\FHRS552en-GB.xml
+2025-03-15 00:19:57,400 - \u2705 Summary: 0 inserted, 90 updated, 5 unchanged.
+2025-03-15 00:19:57,400 - Processing: fsa_data\FHRS553cy-GB.xml
+2025-03-15 00:20:01,302 - \u2705 Summary: 123 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:20:01,303 - Processing: fsa_data\FHRS553en-GB.xml
+2025-03-15 00:20:04,919 - \u2705 Summary: 0 inserted, 106 updated, 17 unchanged.
+2025-03-15 00:20:04,920 - Processing: fsa_data\FHRS554cy-GB.xml
+2025-03-15 00:20:09,478 - \u2705 Summary: 153 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:20:09,478 - Processing: fsa_data\FHRS554en-GB.xml
+2025-03-15 00:20:14,012 - \u2705 Summary: 0 inserted, 144 updated, 9 unchanged.
+2025-03-15 00:20:14,013 - Processing: fsa_data\FHRS555cy-GB.xml
+2025-03-15 00:20:20,388 - \u2705 Summary: 207 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:20:20,388 - Processing: fsa_data\FHRS555en-GB.xml
+2025-03-15 00:20:26,160 - \u2705 Summary: 0 inserted, 191 updated, 16 unchanged.
+2025-03-15 00:20:26,160 - Processing: fsa_data\FHRS556cy-GB.xml
+2025-03-15 00:20:32,145 - \u2705 Summary: 191 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:20:32,146 - Processing: fsa_data\FHRS556en-GB.xml
+2025-03-15 00:20:37,469 - \u2705 Summary: 0 inserted, 165 updated, 26 unchanged.
+2025-03-15 00:20:37,469 - Processing: fsa_data\FHRS557cy-GB.xml
+2025-03-15 00:20:39,878 - \u2705 Summary: 80 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:20:39,878 - Processing: fsa_data\FHRS557en-GB.xml
+2025-03-15 00:20:42,420 - \u2705 Summary: 0 inserted, 79 updated, 1 unchanged.
+2025-03-15 00:20:42,421 - Processing: fsa_data\FHRS558cy-GB.xml
+2025-03-15 00:20:49,333 - \u2705 Summary: 238 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:20:49,333 - Processing: fsa_data\FHRS558en-GB.xml
+2025-03-15 00:20:56,705 - \u2705 Summary: 0 inserted, 235 updated, 3 unchanged.
+2025-03-15 00:20:56,705 - Processing: fsa_data\FHRS559cy-GB.xml
+2025-03-15 00:20:58,529 - \u2705 Summary: 58 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:20:58,530 - Processing: fsa_data\FHRS559en-GB.xml
+2025-03-15 00:21:00,358 - \u2705 Summary: 0 inserted, 57 updated, 1 unchanged.
+2025-03-15 00:21:00,359 - Processing: fsa_data\FHRS560cy-GB.xml
+2025-03-15 00:21:05,162 - \u2705 Summary: 146 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:21:05,162 - Processing: fsa_data\FHRS560en-GB.xml
+2025-03-15 00:21:08,738 - \u2705 Summary: 0 inserted, 110 updated, 36 unchanged.
+2025-03-15 00:21:08,738 - Processing: fsa_data\FHRS561cy-GB.xml
+2025-03-15 00:21:10,951 - \u2705 Summary: 69 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:21:10,951 - Processing: fsa_data\FHRS561en-GB.xml
+2025-03-15 00:21:13,052 - \u2705 Summary: 0 inserted, 69 updated, 0 unchanged.
+2025-03-15 00:21:13,052 - Processing: fsa_data\FHRS562cy-GB.xml
+2025-03-15 00:21:16,518 - \u2705 Summary: 122 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:21:16,519 - Processing: fsa_data\FHRS562en-GB.xml
+2025-03-15 00:21:20,176 - \u2705 Summary: 0 inserted, 110 updated, 12 unchanged.
+2025-03-15 00:21:20,177 - Processing: fsa_data\FHRS563cy-GB.xml
+2025-03-15 00:21:24,992 - \u2705 Summary: 148 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:21:24,992 - Processing: fsa_data\FHRS563en-GB.xml
+2025-03-15 00:21:29,002 - \u2705 Summary: 0 inserted, 141 updated, 7 unchanged.
+2025-03-15 00:21:29,003 - Processing: fsa_data\FHRS564cy-GB.xml
+2025-03-15 00:21:32,240 - \u2705 Summary: 100 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:21:32,240 - Processing: fsa_data\FHRS564en-GB.xml
+2025-03-15 00:21:35,239 - \u2705 Summary: 0 inserted, 88 updated, 12 unchanged.
+2025-03-15 00:21:35,240 - Processing: fsa_data\FHRS565cy-GB.xml
+2025-03-15 00:21:41,194 - \u2705 Summary: 194 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:21:41,194 - Processing: fsa_data\FHRS565en-GB.xml
+2025-03-15 00:21:46,854 - \u2705 Summary: 0 inserted, 190 updated, 4 unchanged.
+2025-03-15 00:21:46,854 - Processing: fsa_data\FHRS566cy-GB.xml
+2025-03-15 00:21:54,664 - \u2705 Summary: 281 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:21:54,665 - Processing: fsa_data\FHRS566en-GB.xml
+2025-03-15 00:22:02,847 - \u2705 Summary: 0 inserted, 252 updated, 29 unchanged.
+2025-03-15 00:22:02,847 - Processing: fsa_data\FHRS567cy-GB.xml
+2025-03-15 00:22:11,035 - \u2705 Summary: 282 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:22:11,035 - Processing: fsa_data\FHRS567en-GB.xml
+2025-03-15 00:22:19,638 - \u2705 Summary: 0 inserted, 282 updated, 0 unchanged.
+2025-03-15 00:22:19,639 - Processing: fsa_data\FHRS568cy-GB.xml
+2025-03-15 00:22:26,470 - \u2705 Summary: 223 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:22:26,470 - Processing: fsa_data\FHRS568en-GB.xml
+2025-03-15 00:22:33,306 - \u2705 Summary: 0 inserted, 223 updated, 0 unchanged.
+2025-03-15 00:22:33,307 - Processing: fsa_data\FHRS569cy-GB.xml
+2025-03-15 00:22:36,096 - \u2705 Summary: 92 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:22:36,097 - Processing: fsa_data\FHRS569en-GB.xml
+2025-03-15 00:22:39,100 - \u2705 Summary: 0 inserted, 85 updated, 7 unchanged.
+2025-03-15 00:22:39,100 - Processing: fsa_data\FHRS570cy-GB.xml
+2025-03-15 00:22:42,448 - \u2705 Summary: 111 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:22:42,448 - Processing: fsa_data\FHRS570en-GB.xml
+2025-03-15 00:22:45,886 - \u2705 Summary: 0 inserted, 107 updated, 4 unchanged.
+2025-03-15 00:22:45,886 - Processing: fsa_data\FHRS571cy-GB.xml
+2025-03-15 00:22:48,410 - \u2705 Summary: 81 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:22:48,411 - Processing: fsa_data\FHRS571en-GB.xml
+2025-03-15 00:22:50,575 - \u2705 Summary: 0 inserted, 63 updated, 18 unchanged.
+2025-03-15 00:22:50,575 - Processing: fsa_data\FHRS626en-GB.xml
+2025-03-15 00:22:50,712 - \u2705 Summary: 0 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:22:50,713 - Processing: fsa_data\FHRS648en-GB.xml
+2025-03-15 00:22:50,831 - \u2705 Summary: 0 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:22:50,831 - Processing: fsa_data\FHRS701en-GB.xml
+2025-03-15 00:22:55,775 - \u2705 Summary: 122 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:22:55,775 - Processing: fsa_data\FHRS702en-GB.xml
+2025-03-15 00:23:01,339 - \u2705 Summary: 190 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:23:01,339 - Processing: fsa_data\FHRS703en-GB.xml
+2025-03-15 00:23:10,516 - \u2705 Summary: 303 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:23:10,516 - Processing: fsa_data\FHRS704en-GB.xml
+2025-03-15 00:23:16,491 - \u2705 Summary: 199 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:23:16,492 - Processing: fsa_data\FHRS705en-GB.xml
+2025-03-15 00:23:32,705 - \u2705 Summary: 537 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:23:32,705 - Processing: fsa_data\FHRS706en-GB.xml
+2025-03-15 00:23:51,238 - \u2705 Summary: 650 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:23:51,239 - Processing: fsa_data\FHRS707en-GB.xml
+2025-03-15 00:24:03,735 - \u2705 Summary: 433 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:03,735 - Processing: fsa_data\FHRS708en-GB.xml
+2025-03-15 00:24:15,894 - \u2705 Summary: 401 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:15,895 - Processing: fsa_data\FHRS709en-GB.xml
+2025-03-15 00:24:31,795 - \u2705 Summary: 506 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:31,796 - Processing: fsa_data\FHRS760en-GB.xml
+2025-03-15 00:24:37,379 - \u2705 Summary: 192 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:37,379 - Processing: fsa_data\FHRS761en-GB.xml
+2025-03-15 00:24:40,889 - \u2705 Summary: 110 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:40,889 - Processing: fsa_data\FHRS762en-GB.xml
+2025-03-15 00:24:45,004 - \u2705 Summary: 133 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:45,004 - Processing: fsa_data\FHRS763en-GB.xml
+2025-03-15 00:24:46,988 - \u2705 Summary: 58 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:46,989 - Processing: fsa_data\FHRS764en-GB.xml
+2025-03-15 00:24:48,421 - \u2705 Summary: 41 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:48,422 - Processing: fsa_data\FHRS765en-GB.xml
+2025-03-15 00:24:53,058 - \u2705 Summary: 143 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:53,058 - Processing: fsa_data\FHRS766en-GB.xml
+2025-03-15 00:24:56,778 - \u2705 Summary: 123 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:24:56,779 - Processing: fsa_data\FHRS767en-GB.xml
+2025-03-15 00:25:01,496 - \u2705 Summary: 151 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:01,497 - Processing: fsa_data\FHRS768en-GB.xml
+2025-03-15 00:25:02,792 - \u2705 Summary: 42 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:02,793 - Processing: fsa_data\FHRS769en-GB.xml
+2025-03-15 00:25:04,440 - \u2705 Summary: 54 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:04,441 - Processing: fsa_data\FHRS770en-GB.xml
+2025-03-15 00:25:09,464 - \u2705 Summary: 166 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:09,465 - Processing: fsa_data\FHRS771en-GB.xml
+2025-03-15 00:25:11,014 - \u2705 Summary: 48 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:11,015 - Processing: fsa_data\FHRS772en-GB.xml
+2025-03-15 00:25:16,163 - \u2705 Summary: 177 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:16,164 - Processing: fsa_data\FHRS773en-GB.xml
+2025-03-15 00:25:33,383 - \u2705 Summary: 547 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:33,383 - Processing: fsa_data\FHRS774en-GB.xml
+2025-03-15 00:25:36,501 - \u2705 Summary: 104 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:36,501 - Processing: fsa_data\FHRS775en-GB.xml
+2025-03-15 00:25:48,172 - \u2705 Summary: 401 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:48,172 - Processing: fsa_data\FHRS776en-GB.xml
+2025-03-15 00:25:59,087 - \u2705 Summary: 355 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:25:59,087 - Processing: fsa_data\FHRS777en-GB.xml
+2025-03-15 00:26:01,171 - \u2705 Summary: 54 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:01,171 - Processing: fsa_data\FHRS778en-GB.xml
+2025-03-15 00:26:03,140 - \u2705 Summary: 63 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:03,141 - Processing: fsa_data\FHRS779en-GB.xml
+2025-03-15 00:26:10,191 - \u2705 Summary: 229 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:10,191 - Processing: fsa_data\FHRS780en-GB.xml
+2025-03-15 00:26:16,568 - \u2705 Summary: 230 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:16,568 - Processing: fsa_data\FHRS781en-GB.xml
+2025-03-15 00:26:19,372 - \u2705 Summary: 87 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:19,372 - Processing: fsa_data\FHRS782en-GB.xml
+2025-03-15 00:26:20,946 - \u2705 Summary: 47 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:20,946 - Processing: fsa_data\FHRS783en-GB.xml
+2025-03-15 00:26:22,430 - \u2705 Summary: 47 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:22,430 - Processing: fsa_data\FHRS784en-GB.xml
+2025-03-15 00:26:24,485 - \u2705 Summary: 60 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:24,485 - Processing: fsa_data\FHRS785en-GB.xml
+2025-03-15 00:26:24,949 - \u2705 Summary: 12 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:24,949 - Processing: fsa_data\FHRS786en-GB.xml
+2025-03-15 00:26:26,780 - \u2705 Summary: 60 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:26,780 - Processing: fsa_data\FHRS787en-GB.xml
+2025-03-15 00:26:27,374 - \u2705 Summary: 15 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:27,375 - Processing: fsa_data\FHRS788en-GB.xml
+2025-03-15 00:26:31,538 - \u2705 Summary: 145 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:31,538 - Processing: fsa_data\FHRS789en-GB.xml
+2025-03-15 00:26:32,471 - \u2705 Summary: 27 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:32,471 - Processing: fsa_data\FHRS790en-GB.xml
+2025-03-15 00:26:35,188 - \u2705 Summary: 86 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:35,189 - Processing: fsa_data\FHRS791en-GB.xml
+2025-03-15 00:26:35,654 - \u2705 Summary: 11 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:35,654 - Processing: fsa_data\FHRS801en-GB.xml
+2025-03-15 00:26:37,513 - \u2705 Summary: 59 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:37,513 - Processing: fsa_data\FHRS802en-GB.xml
+2025-03-15 00:26:39,481 - \u2705 Summary: 59 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:39,481 - Processing: fsa_data\FHRS803en-GB.xml
+2025-03-15 00:26:42,297 - \u2705 Summary: 89 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:42,297 - Processing: fsa_data\FHRS804en-GB.xml
+2025-03-15 00:26:45,200 - \u2705 Summary: 92 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:45,201 - Processing: fsa_data\FHRS805en-GB.xml
+2025-03-15 00:26:47,607 - \u2705 Summary: 77 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:47,607 - Processing: fsa_data\FHRS807en-GB.xml
+2025-03-15 00:26:52,845 - \u2705 Summary: 168 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:52,845 - Processing: fsa_data\FHRS809en-GB.xml
+2025-03-15 00:26:53,452 - \u2705 Summary: 12 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:53,453 - Processing: fsa_data\FHRS811en-GB.xml
+2025-03-15 00:26:57,342 - \u2705 Summary: 125 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:26:57,343 - Processing: fsa_data\FHRS813en-GB.xml
+2025-03-15 00:27:00,715 - \u2705 Summary: 108 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:00,715 - Processing: fsa_data\FHRS814en-GB.xml
+2025-03-15 00:27:03,934 - \u2705 Summary: 113 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:03,934 - Processing: fsa_data\FHRS816en-GB.xml
+2025-03-15 00:27:07,127 - \u2705 Summary: 113 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:07,128 - Processing: fsa_data\FHRS855en-GB.xml
+2025-03-15 00:27:19,818 - \u2705 Summary: 416 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:19,818 - Processing: fsa_data\FHRS856en-GB.xml
+2025-03-15 00:27:25,330 - \u2705 Summary: 176 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:25,330 - Processing: fsa_data\FHRS857en-GB.xml
+2025-03-15 00:27:30,789 - \u2705 Summary: 177 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:30,789 - Processing: fsa_data\FHRS858en-GB.xml
+2025-03-15 00:27:37,030 - \u2705 Summary: 205 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:37,031 - Processing: fsa_data\FHRS859en-GB.xml
+2025-03-15 00:27:40,159 - \u2705 Summary: 112 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:40,159 - Processing: fsa_data\FHRS860en-GB.xml
+2025-03-15 00:27:44,326 - \u2705 Summary: 134 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:44,327 - Processing: fsa_data\FHRS861en-GB.xml
+2025-03-15 00:27:47,077 - \u2705 Summary: 86 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:47,078 - Processing: fsa_data\FHRS862en-GB.xml
+2025-03-15 00:27:51,972 - \u2705 Summary: 166 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:27:51,972 - Processing: fsa_data\FHRS863en-GB.xml
+2025-03-15 00:28:05,027 - \u2705 Summary: 422 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:05,027 - Processing: fsa_data\FHRS864en-GB.xml
+2025-03-15 00:28:09,132 - \u2705 Summary: 131 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:09,132 - Processing: fsa_data\FHRS865en-GB.xml
+2025-03-15 00:28:12,905 - \u2705 Summary: 132 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:12,905 - Processing: fsa_data\FHRS866en-GB.xml
+2025-03-15 00:28:17,672 - \u2705 Summary: 170 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:17,673 - Processing: fsa_data\FHRS867en-GB.xml
+2025-03-15 00:28:23,458 - \u2705 Summary: 188 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:23,459 - Processing: fsa_data\FHRS868en-GB.xml
+2025-03-15 00:28:30,321 - \u2705 Summary: 212 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:30,321 - Processing: fsa_data\FHRS869en-GB.xml
+2025-03-15 00:28:32,425 - \u2705 Summary: 64 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:32,425 - Processing: fsa_data\FHRS870en-GB.xml
+2025-03-15 00:28:36,079 - \u2705 Summary: 121 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:36,079 - Processing: fsa_data\FHRS871en-GB.xml
+2025-03-15 00:28:42,110 - \u2705 Summary: 195 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:42,110 - Processing: fsa_data\FHRS872en-GB.xml
+2025-03-15 00:28:49,175 - \u2705 Summary: 219 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:49,175 - Processing: fsa_data\FHRS874en-GB.xml
+2025-03-15 00:28:52,021 - \u2705 Summary: 101 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:28:52,022 - Processing: fsa_data\FHRS875en-GB.xml
+2025-03-15 00:29:02,089 - \u2705 Summary: 343 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:02,090 - Processing: fsa_data\FHRS876en-GB.xml
+2025-03-15 00:29:07,447 - \u2705 Summary: 180 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:07,448 - Processing: fsa_data\FHRS877en-GB.xml
+2025-03-15 00:29:11,920 - \u2705 Summary: 148 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:11,920 - Processing: fsa_data\FHRS878en-GB.xml
+2025-03-15 00:29:16,862 - \u2705 Summary: 162 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:16,862 - Processing: fsa_data\FHRS879en-GB.xml
+2025-03-15 00:29:18,314 - \u2705 Summary: 46 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:18,315 - Processing: fsa_data\FHRS880en-GB.xml
+2025-03-15 00:29:24,764 - \u2705 Summary: 221 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:24,764 - Processing: fsa_data\FHRS881en-GB.xml
+2025-03-15 00:29:29,059 - \u2705 Summary: 137 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:29,059 - Processing: fsa_data\FHRS882en-GB.xml
+2025-03-15 00:29:30,755 - \u2705 Summary: 52 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:30,756 - Processing: fsa_data\FHRS883en-GB.xml
+2025-03-15 00:29:35,002 - \u2705 Summary: 137 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:35,002 - Processing: fsa_data\FHRS884en-GB.xml
+2025-03-15 00:29:38,008 - \u2705 Summary: 101 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:38,008 - Processing: fsa_data\FHRS885en-GB.xml
+2025-03-15 00:29:39,049 - \u2705 Summary: 28 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:39,050 - Processing: fsa_data\FHRS886en-GB.xml
+2025-03-15 00:29:42,032 - \u2705 Summary: 95 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:42,032 - Processing: fsa_data\FHRS887en-GB.xml
+2025-03-15 00:29:44,578 - \u2705 Summary: 84 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:44,578 - Processing: fsa_data\FHRS888en-GB.xml
+2025-03-15 00:29:47,150 - \u2705 Summary: 82 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:47,150 - Processing: fsa_data\FHRS889en-GB.xml
+2025-03-15 00:29:49,738 - \u2705 Summary: 83 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:49,739 - Processing: fsa_data\FHRS890en-GB.xml
+2025-03-15 00:29:54,876 - \u2705 Summary: 182 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:54,877 - Processing: fsa_data\FHRS891en-GB.xml
+2025-03-15 00:29:59,543 - \u2705 Summary: 161 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:29:59,544 - Processing: fsa_data\FHRS892en-GB.xml
+2025-03-15 00:30:02,765 - \u2705 Summary: 110 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:30:02,765 - Processing: fsa_data\FHRS893en-GB.xml
+2025-03-15 00:30:05,396 - \u2705 Summary: 76 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:30:05,396 - Processing: fsa_data\FHRS894en-GB.xml
+2025-03-15 00:30:06,970 - \u2705 Summary: 54 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:30:06,970 - Processing: fsa_data\FHRS895en-GB.xml
+2025-03-15 00:30:12,949 - \u2705 Summary: 211 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:30:12,950 - Processing: fsa_data\FHRS896en-GB.xml
+2025-03-15 00:30:16,684 - \u2705 Summary: 112 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:30:16,685 - Processing: fsa_data\FHRS897en-GB.xml
+2025-03-15 00:30:19,050 - \u2705 Summary: 80 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:30:19,050 - Processing: fsa_data\FHRS898en-GB.xml
+2025-03-15 00:30:22,042 - \u2705 Summary: 102 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:30:22,042 - Processing: fsa_data\FHRS899en-GB.xml
+2025-03-15 00:30:29,300 - \u2705 Summary: 237 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:30:29,300 - Processing: fsa_data\FHRS900en-GB.xml
+2025-03-15 00:30:33,687 - \u2705 Summary: 148 inserted, 0 updated, 0 unchanged.
+2025-03-15 00:30:33,687 - All XML files processed successfully!

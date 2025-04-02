@@ -1,0 +1,44 @@
+== Tables ==
+menu
+restaurant
+order_item
+event
+app_user
+guest
+
+
+== Get Table Schema ==
+SELECT column_name, data_type, is_nullable, character_maximum_length
+FROM information_schema.columns
+WHERE table_name = 'available_slot';
+
+== get Table Names ==
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_type = 'BASE TABLE';
+
+== Lookups ==
+guest.role
+guest - regular participant
+co-host - Granted admin rights by organiser
+organiser - created the event; full admin rights
+
+app_user.account_level
+standard - Default free user
+premium - Paid user, extra features (event creation etc.)
+admin - System-level user (e.g internal tools)
+banned - in case of abuse
+
+
+== Environment ==
+DB_USER=splitdineuser
+DB_HOST=77.68.13.150
+DB_NAME=splitdine
+DB_PASSWORD=split123
+DB_PORT=5432
+
+DB Database: splitdine
+Server IP:  77.68.13.150
+DB User: main
+DB User PW: tr55*8
