@@ -1,0 +1,60 @@
+# =========================================
+# General (Windows/macOS/IDEs)
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+*.tmp
+
+# VS Code
+.vscode/
+
+# =========================================
+# Node.js & Next.js (splitdine_server + Next frontend)
+node_modules/
+.env
+.env.local
+dist/
+.cache/
+.next/
+out/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================================
+# Flutter (splitdine_flutter)
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+pubspec.lock
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+ios/Runner.xcworkspace/
+
+# Android
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/*.iml
+android/key.properties
+
+# Misc
+*.iml
+*.lock
+.idea/
+
+# =========================================
+# Git
+.gitignore
