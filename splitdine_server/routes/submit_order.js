@@ -102,7 +102,7 @@ router.post('/', verifyToken, async (req, res) => {
     for (const item of items) {
       const { menu_id, custom_item_name, quantity, price_at_time } = item;
 
-      if ((!menu_id && !custom_item_name) || !quantity || !price_at_time) {
+      if ((!menu_id && !custom_item_name) || quantity == null || price_at_time == null) {
         return res.status(400).json({
           return_code: "INVALID_ITEM"
         });

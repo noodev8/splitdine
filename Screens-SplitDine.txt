@@ -2,10 +2,10 @@
 Splash
 Login
 Register
-EventHub
-CreateEvent
-EventDetail
-ChooseFood
+Event_Hub
+Create_Event
+Event_Detail
+Guest_Order
 
 
 == Mermaid

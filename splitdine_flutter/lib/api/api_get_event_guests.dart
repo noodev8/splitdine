@@ -6,14 +6,15 @@ class GetEventGuestsAPI {
   static const baseUrl = APIConfig.baseUrl;
 
   static Future<Map<String, dynamic>> fetch(String token, int eventId) async {
-    final url = Uri.parse('$baseUrl/get_event_guests/$eventId');
+    final url = Uri.parse('$baseUrl/get_event_guests');
 
-    final response = await http.get(
+    final response = await http.post(
       url,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
+      body: jsonEncode({'event_id': eventId}),
     );
 
     try {

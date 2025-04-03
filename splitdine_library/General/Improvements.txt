@@ -1,0 +1,6 @@
+- Send only changes or deletes when modifying guest menu choices
+Action	API Route	Example Payload
+Add/Update	/add_or_update_item	{ event_id, user_id, item }
+Delete	/delete_item	{ event_id, user_id, item_name }
+Get Order	/get_guest_order	(you already have this)
+

@@ -23,8 +23,10 @@ class EventDetailScreen extends StatefulWidget {
 class _EventDetailScreenState extends State<EventDetailScreen> {
   Map<String, dynamic>? event;
   List<dynamic> guests = [];
+  int? currentUserId;
   bool isLoading = true;
   String error = '';
+  double combinedTotal = 0.0;
 
   @override
   void initState() {
@@ -38,6 +40,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       error = '';
     });
 
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('user');
+    if (userJson != null) {
+      final user = jsonDecode(userJson);
+      currentUserId = user['id'];
+    }
+
     final detailResult = await GetEventDetailsAPI.fetch(widget.token, widget.eventId);
     if (await handleAuthFailure(context, detailResult)) return;
 
@@ -48,6 +57,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       setState(() {
         event = detailResult['event'];
         guests = guestResult['guests'];
+        combinedTotal = _calculateCombinedTotal(guests);
         isLoading = false;
       });
     } else {
@@ -56,6 +66,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         isLoading = false;
       });
     }
+  }
+
+  double _calculateCombinedTotal(List<dynamic> guests) {
+    return guests.fold(0.0, (sum, guest) {
+      final total = guest['total_amount'];
+      return sum + (total is num ? total.toDouble() : 0.0);
+    });
   }
 
   void goToGuestOrderScreen() async {
@@ -111,13 +128,39 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         SizedBox(height: 16),
                         Text('Guests:', style: AppTextStyle.subtitle),
                         ...guests.map((guest) {
-                          return ListTile(
-                            title: Text(guest['name'] ?? 'Unknown'),
-                            subtitle: Text('${guest['email'] ?? ''} (${guest['role'] ?? 'guest'})'),
-                            trailing: guest['locked'] == true ? Icon(Icons.lock_outline) : null,
+                          final isCurrentUser = guest['user_id'] == currentUserId;
+                          final total = guest['total_amount'] ?? 0.0;
+                          return Container(
+                            color: isCurrentUser ? Colors.lightBlueAccent.withOpacity(0.1) : null,
+                            child: ListTile(
+                              title: Text(guest['name'] ?? 'Unknown'),
+                              subtitle: Text('${guest['email'] ?? ''} (${guest['role'] ?? 'guest'})'),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (guest['locked'] == true) Icon(Icons.lock_outline, size: 16),
+                                  Text(
+                                    '£${(total is num ? total.toStringAsFixed(2) : '0.00')}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           );
                         }).toList(),
-                        Spacer(),
+                        Divider(height: 30),
+                        Text(
+                          '🧾 Combined Total from Guests: £${combinedTotal.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                            fontSize: 16,
+                          ),
+                        ),
+                        SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: goToGuestOrderScreen,
                           child: Text('Choose Menu Items'),

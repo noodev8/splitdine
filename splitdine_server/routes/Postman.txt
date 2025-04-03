@@ -1,0 +1,30 @@
+== Projects inside main project ==
+cd C:\splitdine\splitdine_server
+node server.js
+
+
+== Test User 1 ==============================
+test1@test.com
+1234
+
+ID: 10
+======================================
+http://localhost:3000/login_user
+{
+  "email": "test1@test.com",
+  "password": "1234"
+}
+======================================
+
+
+http://localhost:3000/get_guest_order
+{
+  "event_id": 18
+}
+
+http://localhost:3000/get_event_guests
+{
+  "event_id": 9
+}
+
+

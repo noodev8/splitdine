@@ -1,8 +1,29 @@
-cd C:\splitdine\splitdine_server
-cd C:\splitdine\splitdine_flutter
+== Main project folder ==
+cd C:\splitdine
 
+== GIT Start ==
+git pull
+
+== GIT Done ==
+git add .
+git commit -m "Latest"
+git push
+
+== GIT Optional ==
+git status
+See what changed before committing	
+
+git log
+See a list of commits	
+
+
+== Projects inside main project ==
+cd C:\splitdine\splitdine_server
 node server.js
+
+cd C:\splitdine\splitdine_flutter
 flutter run
+
 
 
 
