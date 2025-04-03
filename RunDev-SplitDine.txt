@@ -4,7 +4,7 @@ cd C:\splitdine
 == GIT Start ==
 git pull
 
-== GIT Done ==
+== GIT Done SAVE ==
 git add .
 git commit -m "Latest"
 git push

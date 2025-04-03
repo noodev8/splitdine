@@ -10,13 +10,14 @@ class GuestOrderScreen extends StatefulWidget {
   final int userId;
 
   const GuestOrderScreen({
+    super.key,
     required this.eventId,
     required this.token,
     required this.userId,
   });
 
   @override
-  _GuestOrderScreenState createState() => _GuestOrderScreenState();
+  State<GuestOrderScreen> createState() => _GuestOrderScreenState();
 }
 
 class _GuestOrderScreenState extends State<GuestOrderScreen> {
@@ -45,9 +46,11 @@ class _GuestOrderScreenState extends State<GuestOrderScreen> {
       userId: widget.userId,
     );
 
+    if (!mounted) return;
     if (await handleAuthFailure(context, result)) return;
 
     if (result['return_code'] == 'SUCCESS') {
+      if (!mounted) return;
       setState(() {
         items = List<Map<String, dynamic>>.from(result['items']);
         total = _calculateTotal(items);
@@ -104,7 +107,7 @@ class _GuestOrderScreenState extends State<GuestOrderScreen> {
       itemNameController.clear();
     });
 
-    submitOrder(); // Auto-submit
+    submitOrder(shouldNavigateBack: false); // Don't navigate back after adding
   }
 
   void editItem(int index) {
@@ -153,7 +156,7 @@ class _GuestOrderScreenState extends State<GuestOrderScreen> {
                   total = _calculateTotal(items);
                 });
                 Navigator.pop(context);
-                submitOrder(); // Auto-submit
+                submitOrder(shouldNavigateBack: false); // Don't navigate back after editing
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Please enter valid quantity and price.')),
@@ -173,10 +176,10 @@ class _GuestOrderScreenState extends State<GuestOrderScreen> {
       total = _calculateTotal(items);
     });
 
-    submitOrder(); // Auto-submit
+    submitOrder(shouldNavigateBack: false); // Don't navigate back after removing
   }
 
-  void submitOrder() async {
+  void submitOrder({bool shouldNavigateBack = true}) async {
     final cleanedItems = items.map((item) {
       return {
         'menu_id': item['menu_id'] ?? null,
@@ -186,8 +189,6 @@ class _GuestOrderScreenState extends State<GuestOrderScreen> {
       };
     }).toList();
 
-    // print('Submitting items: ${jsonEncode(cleanedItems)}');
-
     final result = await SubmitOrderAPI.submit(
       token: widget.token,
       eventId: widget.eventId,
@@ -195,12 +196,19 @@ class _GuestOrderScreenState extends State<GuestOrderScreen> {
       items: cleanedItems,
     );
 
+    // print('Submit order API response: $result');
+
     if (await handleAuthFailure(context, result)) return;
 
     if (result['return_code'] == 'SUCCESS') {
       setState(() {
         total = result['total_amount'] ?? _calculateTotal(items);
       });
+      
+      // print('Order submitted successfully, total: $total');
+      if (shouldNavigateBack) {
+        Navigator.pop(context, true); // Pass true to indicate refresh needed
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result['message'] ?? 'Failed to submit order')),
@@ -211,80 +219,94 @@ class _GuestOrderScreenState extends State<GuestOrderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Your Order')),
-body: isLoading
-    ? Center(child: CircularProgressIndicator())
-    : GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: EdgeInsets.only(
-                left: AppPadding.screen.left,
-                right: AppPadding.screen.right,
-                top: AppPadding.screen.top,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Add Item:', style: AppTextStyle.subtitle),
-                  SizedBox(height: 8),
-                  TextField(
-                    controller: itemNameController,
-                    decoration: InputDecoration(labelText: 'Item Name'),
-                    onSubmitted: (_) => addItem(),
-                  ),
-                  SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: addItem,
-                    child: Text('Add to Order'),
-                  ),
-                  Divider(height: 30),
-                  Text('Your Items:', style: AppTextStyle.subtitle),
-                  if (items.isEmpty)
-                    Text('No items added yet.', style: AppTextStyle.subtitle)
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: NeverScrollableScrollPhysics(),
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        final itemName = item['custom_item_name'] ?? item['item_name'] ?? 'Unnamed';
-                        final price = item['price_at_time'] ?? 0.0;
-
-                        return ListTile(
-                          title: Text(itemName),
-                          subtitle: Text('Qty: ${item['quantity']}'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('£${price.toStringAsFixed(2)}'),
-                              IconButton(
-                                icon: Icon(Icons.edit, color: Colors.grey),
-                                onPressed: () => editItem(index),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.delete, color: Colors.red),
-                                onPressed: () => removeItem(index),
-                              ),
-                            ],
-                          ),
-                          onTap: () => editItem(index),
-                        );
-                      },
-                    ),
-                  Divider(height: 30),
-                  Text('💰 Total: £${total.toStringAsFixed(2)}', style: AppTextStyle.title),
-                  SizedBox(height: 20),
-                ],
-              ),
-            );
-          },
-        ),
+      appBar: AppBar(
+        title: Text('Your Order'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // Navigate back with refresh indicator
+              Navigator.pop(context, true);
+            },
+            child: Text(
+              'Done',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
+      body: isLoading
+        ? Center(child: CircularProgressIndicator())
+        : GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: AppPadding.screen.left,
+                    right: AppPadding.screen.right,
+                    top: AppPadding.screen.top,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Add Item:', style: AppTextStyle.subtitle),
+                      SizedBox(height: 8),
+                      TextField(
+                        controller: itemNameController,
+                        decoration: InputDecoration(labelText: 'Item Name'),
+                        onSubmitted: (_) => addItem(),
+                      ),
+                      SizedBox(height: 10),
+                      ElevatedButton(
+                        onPressed: addItem,
+                        child: Text('Add to Order'),
+                      ),
+                      Divider(height: 30),
+                      Text('Your Items:', style: AppTextStyle.subtitle),
+                      if (items.isEmpty)
+                        Text('No items added yet.', style: AppTextStyle.subtitle)
+                      else
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            final itemName = item['custom_item_name'] ?? item['item_name'] ?? 'Unnamed';
+                            final price = item['price_at_time'] ?? 0.0;
+
+                            return ListTile(
+                              title: Text(itemName),
+                              subtitle: Text('Qty: ${item['quantity']}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('£${price.toStringAsFixed(2)}'),
+                                  IconButton(
+                                    icon: Icon(Icons.edit, color: Colors.grey),
+                                    onPressed: () => editItem(index),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () => removeItem(index),
+                                  ),
+                                ],
+                              ),
+                              onTap: () => editItem(index),
+                            );
+                          },
+                        ),
+                      Divider(height: 30),
+                      Text('💰 Total: £${total.toStringAsFixed(2)}', style: AppTextStyle.title),
+                      SizedBox(height: 20),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
     );
   }
 }
