@@ -1,9 +1,0 @@
-flowchart TD
-    EventHub["Event Hub"] -- Create Event --> CreateEvent["Create Event Screen"]
-    EventHub -- Join Event (PIN) --> EventDetail["Event Detail"]
-    EventHub -- Tap on Event --> EventDetail
-    EventDetail -- Tap on guest --> GuestFood["Guest Food Choices"]
-    EventDetail -- Modify Own --> GuestFood
-    GuestFood --> Confirm["Order Confirmation"]
-    Confirm --> EventDetail
-    CreateEvent --> EventDetail

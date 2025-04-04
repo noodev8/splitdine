@@ -1,0 +1,12 @@
+flowchart TD
+    Entry(("App Start"))
+    EventHub["event_hub"]
+    CreateEvent["create_event"]
+    EventDetail["event_detail"]
+    GuestOrder["guest_order"]
+
+    Entry --> EventHub
+    EventHub --> CreateEvent
+    EventHub --> EventDetail
+    CreateEvent --> EventDetail
+    EventDetail --> GuestOrder

@@ -1,3 +1,15 @@
+/*
+This is the main hub (Dashboard)
+Users arrive here after login. Some (not limited to) actions available include
+- Join Event, Create Event, See Active Event list, 
+- See History Event List
+- See and manage invites (not coded yet)
+- Joining an event needs a 4 Digit PIN
+- The event list can display brief details like location, date and number of guests
+- Navigate to event details from here (event detail screen)
+- Remove event from list
+*/
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_get_user_events.dart';

@@ -1,3 +1,14 @@
+/*
+Show the Event detail. Arrives here from the Event HUB screen
+Shows the Restauarnt name, address and the Event details. Date, organiser
+The list of guests are here, including status (Attending, Declined, Invited)
+The Bill total is displayed
+Each guest menu total is displayed for them
+Any user can tap on a guest to see their choices by going to the guest_order screen
+An organiser can manage guests from here 
+- Remove, invite, lock, unlock menu choices
+Organiser can close the event or even delete it
+*/
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,13 +23,13 @@ class EventDetailScreen extends StatefulWidget {
   final String token;
 
   const EventDetailScreen({
-    Key? key,
+    super.key,
     required this.eventId,
     required this.token,
-  }) : super(key: key);
+  });
 
   @override
-  _EventDetailScreenState createState() => _EventDetailScreenState();
+  State<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
