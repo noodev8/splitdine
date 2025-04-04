@@ -1,0 +1,2 @@
+# Augment details to note per chat
+@splitdine_library\Database\SplitDine_Database_Schema.sql

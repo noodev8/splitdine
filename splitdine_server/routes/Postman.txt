@@ -17,14 +17,3 @@ http://localhost:3000/login_user
 ======================================
 
 
-http://localhost:3000/get_guest_order
-{
-  "event_id": 18
-}
-
-http://localhost:3000/get_event_guests
-{
-  "event_id": 9
-}
-
-

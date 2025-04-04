@@ -56,6 +56,17 @@ app.use("/get_event_details", get_event_details);
 const get_guest_order = require("./routes/get_guest_order");
 app.use("/get_guest_order", get_guest_order);
 
+const add_order_item = require("./routes/add_order_item");
+app.use("/add_order_item", add_order_item);
+
+const remove_order_item = require("./routes/remove_order_item");
+app.use("/remove_order_item", remove_order_item);
+
+const reset_order = require("./routes/reset_order");
+app.use("/reset_order", reset_order);
+
+const update_order_item = require("./routes/update_order_item");
+app.use("/update_order_item", update_order_item);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SplitDine-server running on port ${PORT}`));

@@ -21,6 +21,10 @@ get_event_details
 get_event_guests
 join_event
 submit_order
+remove_order_item
+update_order_item
+add_order_item
+reset_order
 lock_order_item
 lock_guest
 lock_event
