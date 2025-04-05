@@ -27,6 +27,8 @@ Return Codes:
 "UNAUTHORISED_ACTION"
 "MISSING_FIELDS"
 "INVALID_MENU_ITEM"
+"INVALID_QUANTITY"
+"INVALID_PRICE"
 "SERVER_ERROR"
 =======================================================================================================================================
 */
@@ -46,6 +48,22 @@ router.post('/', verifyToken, async (req, res) => {
     return res.status(400).json({
       return_code: "MISSING_FIELDS",
       message: "Required fields missing."
+    });
+  }
+
+  // Validate quantity is positive
+  if (quantity <= 0) {
+    return res.status(400).json({
+      return_code: "INVALID_QUANTITY",
+      message: "Quantity must be greater than zero."
+    });
+  }
+
+  // Validate price is non-negative
+  if (price_at_time < 0) {
+    return res.status(400).json({
+      return_code: "INVALID_PRICE",
+      message: "Price cannot be negative."
     });
   }
 
@@ -148,6 +166,15 @@ router.post('/', verifyToken, async (req, res) => {
     }
   } catch (err) {
     console.error('Add order item error:', err);
+    
+    // Handle specific database constraint errors
+    if (err.code === '23514' && err.detail?.includes('order_item_quantity_check')) {
+      return res.status(400).json({
+        return_code: "INVALID_QUANTITY",
+        message: "Quantity must be greater than zero."
+      });
+    }
+    
     res.status(500).json({
       return_code: "SERVER_ERROR",
       message: "Server error."

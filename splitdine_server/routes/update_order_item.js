@@ -24,6 +24,8 @@ Return Codes:
 "ITEM_NOT_FOUND"
 "ITEM_LOCKED"
 "UNAUTHORISED_ACTION"
+"INVALID_QUANTITY"
+"INVALID_PRICE"
 "SERVER_ERROR"
 =======================================================================================================================================
 */
@@ -37,10 +39,26 @@ router.post('/', verifyToken, async (req, res) => {
   const user_id_from_token = req.user.user_id;
   const { order_item_id, quantity, price_at_time } = req.body;
 
-  if (!order_item_id || (!quantity && !price_at_time)) {
+  if (!order_item_id || (!quantity && quantity !== 0 && !price_at_time)) {
     return res.status(400).json({
       return_code: "MISSING_FIELDS",
       message: "order_item_id and at least one field (quantity or price_at_time) are required."
+    });
+  }
+
+  // Validate quantity is positive if provided
+  if (quantity !== undefined && quantity <= 0) {
+    return res.status(400).json({
+      return_code: "INVALID_QUANTITY",
+      message: "Quantity must be greater than zero."
+    });
+  }
+
+  // Validate price is non-negative if provided
+  if (price_at_time !== undefined && price_at_time < 0) {
+    return res.status(400).json({
+      return_code: "INVALID_PRICE",
+      message: "Price cannot be negative."
     });
   }
 
@@ -107,6 +125,15 @@ router.post('/', verifyToken, async (req, res) => {
 
   } catch (err) {
     console.error('Update order item error:', err);
+    
+    // Handle specific database constraint errors
+    if (err.code === '23514' && err.detail?.includes('order_item_quantity_check')) {
+      return res.status(400).json({
+        return_code: "INVALID_QUANTITY",
+        message: "Quantity must be greater than zero."
+      });
+    }
+    
     res.status(500).json({
       return_code: "SERVER_ERROR",
       message: "Server error."
