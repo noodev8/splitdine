@@ -1,40 +1,27 @@
 import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
+// Import kept for easy switching to the style showcase
+import 'screens/style_showcase_screen.dart';
+import 'styles/app_styles.dart';
 
 void main() {
-  runApp(SplitDineApp());
+  runApp(const SplitDineApp());
 }
 
 class SplitDineApp extends StatelessWidget {
+  const SplitDineApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SplitDine',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        scaffoldBackgroundColor: Colors.grey[100],
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.deepPurple,
-          foregroundColor: Colors.white,
-        ),
-        textTheme: TextTheme(
-          bodyMedium: TextStyle(fontSize: 16.0),
-          headlineSmall: TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold), // ← Updated
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.deepPurple,
-            foregroundColor: Colors.white,
-            minimumSize: Size(120, 45),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-      ),
+      theme: AppStyles.getThemeData(),
+      // Normal app flow
       home: SplashScreen(),
+
+      // To see the style showcase again, comment out the line above and uncomment this line
+      // home: const StyleShowcaseScreen(),
     );
   }
 }

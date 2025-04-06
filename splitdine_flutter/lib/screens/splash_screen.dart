@@ -14,12 +14,15 @@ Go directly to event_hub_screen or login page depending if user is logged in or 
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../styles/app_styles.dart';
 import 'event_hub_screen.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
@@ -34,7 +37,10 @@ class _SplashScreenState extends State<SplashScreen> {
     final token = prefs.getString('token');
     final userJson = prefs.getString('user');
 
-    await Future.delayed(Duration(milliseconds: 1200)); // splash effect
+    await Future.delayed(const Duration(milliseconds: 1500)); // splash effect
+
+    // Check if widget is still mounted before using context
+    if (!mounted) return;
 
     if (token != null && userJson != null) {
       final user = jsonDecode(userJson);
@@ -57,21 +63,30 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppStyles.backgroundColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/SplitDine-Logo.png',
-              height: 100,
-            ),
-            SizedBox(height: 24),
+            const SizedBox(height: 20),
             Text(
               'SplitDine',
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: AppStyles.displaySmall.copyWith(
+                color: AppStyles.primaryColor,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            SizedBox(height: 16),
-            CircularProgressIndicator(),
+            const SizedBox(height: 8),
+            Text(
+              'Split the bill, not the fun',
+              style: AppStyles.bodyMedium.copyWith(
+                color: AppStyles.secondaryColor,
+              ),
+            ),
+            const SizedBox(height: 40),
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppStyles.primaryColor),
+            ),
           ],
         ),
       ),

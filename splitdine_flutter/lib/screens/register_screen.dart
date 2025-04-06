@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../api/api_register_user.dart'; // ✅ Your new modular API file
+import '../api/api_register_user.dart';
+import '../styles/app_styles.dart';
 import 'event_hub_screen.dart';
-import '../styles/styles.dart';
 
 class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
+
   @override
-  _RegisterScreenState createState() => _RegisterScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
@@ -33,6 +35,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       phoneController.text.trim(),
     );
 
+    // Check if widget is still mounted before using setState
+    if (!mounted) return;
+
     setState(() {
       isLoading = false;
     });
@@ -42,12 +47,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       prefs.setString('token', result['token']);
       prefs.setString('user', jsonEncode(result['user']));
 
-      // setState(() {
-      //   message = '✅ Registration successful!';
-      //   messageColor = Colors.green;
-      // });
+      // Brief delay for better UX
+      await Future.delayed(const Duration(milliseconds: 800));
 
-      await Future.delayed(Duration(milliseconds: 800));
+      // Check if widget is still mounted before using context
+      if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
@@ -61,7 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } else {
       setState(() {
         message = result['message'] ?? 'Registration failed.';
-        messageColor = Colors.red;
+        messageColor = AppStyles.errorColor;
       });
     }
   }
@@ -69,53 +73,146 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppStyles.backgroundColor,
       resizeToAvoidBottomInset: true,
-      appBar: AppBar(title: Text('Register')),
-      body: SingleChildScrollView(
-        padding: AppPadding.screen,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(labelText: 'Full Name'),
-            ),
-            SizedBox(height: 12),
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(labelText: 'Email'),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            SizedBox(height: 12),
-            TextField(
-              controller: phoneController,
-              decoration: InputDecoration(labelText: 'Phone'),
-              keyboardType: TextInputType.phone,
-            ),
-            SizedBox(height: 12),
-            TextField(
-              controller: passwordController,
-              decoration: InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            SizedBox(height: 20),
-            isLoading
-                ? Center(child: CircularProgressIndicator())
-                : ElevatedButton(
-                    onPressed: registerUser,
-                    child: Text('Register'),
+      appBar: AppBar(
+        title: const Text('Create Account'),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: AppStyles.surfaceColor,
+        foregroundColor: AppStyles.onSurface,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: AppStyles.paddingMedium,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 40),
+                // Welcome text
+                Text(
+                  'Join SplitDine',
+                  style: AppStyles.headlineMedium.copyWith(
+                    color: AppStyles.primaryColor,
+                    fontWeight: FontWeight.bold,
                   ),
-            SizedBox(height: 20),
-            if (message.isNotEmpty)
-              Text(
-                message,
-                style: TextStyle(
-                  color: messageColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  textAlign: TextAlign.center,
                 ),
-              ),
-          ],
+                const SizedBox(height: 8),
+                Text(
+                  'Create an account to get started',
+                  style: AppStyles.bodyMedium.copyWith(
+                    color: AppStyles.secondaryColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+
+                // Full Name field
+                TextField(
+                  controller: nameController,
+                  decoration: AppStyles.inputDecoration(
+                    'Full Name',
+                    prefixIcon: const Icon(Icons.person_outline),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Email field
+                TextField(
+                  controller: emailController,
+                  decoration: AppStyles.inputDecoration(
+                    'Email',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+
+                // Phone field
+                TextField(
+                  controller: phoneController,
+                  decoration: AppStyles.inputDecoration(
+                    'Phone',
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+
+                // Password field
+                TextField(
+                  controller: passwordController,
+                  decoration: AppStyles.inputDecoration(
+                    'Password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: const Icon(Icons.visibility_off_outlined),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 32),
+
+                // Register button
+                SizedBox(
+                  height: 50,
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ElevatedButton(
+                          onPressed: registerUser,
+                          style: AppStyles.filledButtonStyle,
+                          child: const Text('CREATE ACCOUNT'),
+                        ),
+                ),
+                const SizedBox(height: 20),
+
+                // Error message
+                if (message.isNotEmpty)
+                  Container(
+                    padding: AppStyles.paddingSmall,
+                    decoration: BoxDecoration(
+                      color: AppStyles.errorContainer,
+                      borderRadius: AppStyles.borderRadiusSmall,
+                    ),
+                    child: Text(
+                      message,
+                      style: AppStyles.bodyMedium.copyWith(
+                        color: AppStyles.errorColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                const SizedBox(height: 32),
+
+                // Terms and conditions text
+                Text(
+                  'By creating an account, you agree to our Terms of Service and Privacy Policy',
+                  style: AppStyles.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+
+                // Already have an account link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Already have an account?',
+                      style: AppStyles.bodyMedium,
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      style: AppStyles.textButtonStyle,
+                      child: const Text('Login'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

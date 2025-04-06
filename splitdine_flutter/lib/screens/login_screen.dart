@@ -2,13 +2,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_login_user.dart';
+import '../styles/app_styles.dart';
 import 'event_hub_screen.dart';
 import 'register_screen.dart';
-import '../styles/styles.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -29,6 +31,9 @@ class _LoginScreenState extends State<LoginScreen> {
       passwordController.text,
     );
 
+    // Check if widget is still mounted before using setState
+    if (!mounted) return;
+
     setState(() {
       isLoading = false;
     });
@@ -37,6 +42,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final prefs = await SharedPreferences.getInstance();
       prefs.setString('token', result['token']);
       prefs.setString('user', jsonEncode(result['user']));
+
+      // Check if widget is still mounted before using context
+      if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
@@ -50,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       setState(() {
         message = result['message'] ?? 'Login failed.';
-        messageColor = Colors.red;
+        messageColor = AppStyles.errorColor;
       });
     }
   }
@@ -58,49 +66,131 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Login')),
-      body: Padding(
-        padding: AppPadding.screen,
-        child: Column(
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(labelText: 'Email'),
-            ),
-            SizedBox(height: 12),
-            TextField(
-              controller: passwordController,
-              decoration: InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            SizedBox(height: 20),
-            isLoading
-                ? CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: loginUser,
-                    child: Text('Login'),
+      backgroundColor: AppStyles.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Login'),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: AppStyles.surfaceColor,
+        foregroundColor: AppStyles.onSurface,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: AppStyles.paddingMedium,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 40),
+                // Welcome text
+                Text(
+                  'Welcome Back',
+                  style: AppStyles.headlineMedium.copyWith(
+                    color: AppStyles.primaryColor,
+                    fontWeight: FontWeight.bold,
                   ),
-            SizedBox(height: 20),
-            if (message.isNotEmpty)
-              Text(
-                message,
-                style: TextStyle(
-                  color: messageColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  textAlign: TextAlign.center,
                 ),
-              ),
-            Spacer(),
-            TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => RegisterScreen()),
-                );
-              },
-              child: Text("Don't have an account? Register here"),
+                const SizedBox(height: 8),
+                Text(
+                  'Sign in to continue',
+                  style: AppStyles.bodyMedium.copyWith(
+                    color: AppStyles.secondaryColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+
+                // Email field
+                TextField(
+                  controller: emailController,
+                  decoration: AppStyles.inputDecoration(
+                    'Email',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+
+                // Password field
+                TextField(
+                  controller: passwordController,
+                  decoration: AppStyles.inputDecoration(
+                    'Password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: const Icon(Icons.visibility_off_outlined),
+                  ),
+                  obscureText: true,
+                ),
+
+                // Forgot password link
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      // TODO: Implement forgot password
+                    },
+                    style: AppStyles.textButtonStyle,
+                    child: const Text('Forgot Password?'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Login button
+                SizedBox(
+                  height: 50,
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ElevatedButton(
+                          onPressed: loginUser,
+                          style: AppStyles.filledButtonStyle,
+                          child: const Text('LOGIN'),
+                        ),
+                ),
+                const SizedBox(height: 20),
+
+                // Error message
+                if (message.isNotEmpty)
+                  Container(
+                    padding: AppStyles.paddingSmall,
+                    decoration: BoxDecoration(
+                      color: AppStyles.errorContainer,
+                      borderRadius: AppStyles.borderRadiusSmall,
+                    ),
+                    child: Text(
+                      message,
+                      style: AppStyles.bodyMedium.copyWith(
+                        color: AppStyles.errorColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                const SizedBox(height: 40),
+
+                // Register link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Don't have an account?",
+                      style: AppStyles.bodyMedium,
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => RegisterScreen()),
+                        );
+                      },
+                      style: AppStyles.textButtonStyle,
+                      child: const Text('Register'),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
