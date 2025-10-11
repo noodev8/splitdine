@@ -12,7 +12,6 @@ import {
   deleteGuest as apiDeleteGuest,
   addGuestItem as apiAddGuestItem,
   deleteGuestItem as apiDeleteGuestItem,
-  shouldFallbackToLocalStorage,
   register as apiRegister,
   login as apiLogin,
   logout as apiLogout,
@@ -58,6 +57,7 @@ export default function Home() {
   const [userMemberships, setUserMemberships] = useState<UserEventMembership[]>([]);
   const [currentEventId, setCurrentEventId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'host' | 'guest' | null>(null);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
 
   // Guest management state
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -102,11 +102,6 @@ export default function Home() {
   const eventNameRef = useRef<HTMLInputElement>(null);
   const joinCodeRef = useRef<HTMLInputElement>(null);
 
-  // Helper function to generate a random 6-character code
-  const generateCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
-
   // Toast notification helper
   const showToastNotification = (message: string) => {
     setToastMessage(message);
@@ -116,12 +111,7 @@ export default function Home() {
 
   // Helper function to load guests for an event (hybrid approach)
   const loadGuestsForEvent = async (eventId: string): Promise<Guest[]> => {
-    // Get local guests first
-    const event = events.find(e => e.id === eventId);
-    const localGuests = event?.guests || [];
-
     try {
-      // Try to fetch from API
       const apiGuests = await apiGetGuests(parseInt(eventId));
 
       // Convert API guests to local format
@@ -146,8 +136,8 @@ export default function Home() {
       return convertedApiGuests;
     } catch (error) {
       console.error('Error loading guests from API:', error);
-      // Use local guests on error
-      return localGuests;
+      showToastNotification('Failed to load guests. Please try again.');
+      return [];
     }
   };
 
@@ -157,54 +147,23 @@ export default function Home() {
     setCurrentUser(user);
   }, []);
 
-  // Load events and memberships from localStorage and API on mount
+  // Load events and memberships from API on mount
   useEffect(() => {
     const loadEvents = async () => {
-      // Load from localStorage first for instant display
-      const storedEvents = localStorage.getItem('splitdine_events');
-      const storedMemberships = localStorage.getItem('splitdine_memberships');
-      const storedCurrentEvent = localStorage.getItem('splitdine_current_event');
+      setIsLoadingEvents(true);
 
-      let localEvents: Event[] = [];
-      let localMemberships: UserEventMembership[] = [];
-
-      if (storedEvents) {
-        localEvents = JSON.parse(storedEvents);
-        setEvents(localEvents);
-      }
-      if (storedMemberships) {
-        localMemberships = JSON.parse(storedMemberships);
-        setUserMemberships(localMemberships);
-      }
-      if (storedCurrentEvent) {
-        const { eventId, role } = JSON.parse(storedCurrentEvent);
-        setCurrentEventId(eventId);
-        setUserRole(role);
-        // Load guests for this event from localStorage first
-        const event = localEvents.find((e: Event) => e.id === eventId);
-        if (event) {
-          setGuests(event.guests);
-        }
-      }
-
-      // Try to fetch from API (hybrid approach)
       try {
         const apiEvents = await apiGetMyEvents();
 
         // Convert API events to local format
-        const convertedApiEvents: Event[] = apiEvents.map(apiEvent => {
-          // Check if this event already exists locally (to preserve guests data temporarily)
-          const existingEvent = localEvents.find(e => e.id === apiEvent.id.toString());
-
-          return {
-            id: apiEvent.id.toString(),
-            name: apiEvent.name,
-            hostCode: apiEvent.host_code || '',
-            guestCode: apiEvent.guest_code,
-            guests: existingEvent?.guests || [], // Temporarily preserve local guests data
-            createdAt: new Date(apiEvent.created_at).getTime(),
-          };
-        });
+        const convertedApiEvents: Event[] = apiEvents.map(apiEvent => ({
+          id: apiEvent.id.toString(),
+          name: apiEvent.name,
+          hostCode: apiEvent.host_code || '',
+          guestCode: apiEvent.guest_code,
+          guests: [], // Will be loaded when user opens the event
+          createdAt: new Date(apiEvent.created_at).getTime(),
+        }));
 
         // Create memberships from API data
         const convertedApiMemberships: UserEventMembership[] = apiEvents.map(apiEvent => ({
@@ -213,88 +172,18 @@ export default function Home() {
           joinedAt: apiEvent.joined_at ? new Date(apiEvent.joined_at).getTime() : Date.now(),
         }));
 
-        // Merge: API events take priority, but keep local-only events
-        const apiEventIds = new Set(convertedApiEvents.map(e => e.id));
-        const localOnlyEvents = localEvents.filter(e => !apiEventIds.has(e.id));
-        const mergedEvents = [...convertedApiEvents, ...localOnlyEvents];
-
-        // Merge memberships: API memberships take priority
-        const apiMembershipEventIds = new Set(convertedApiMemberships.map(m => m.eventId));
-        const localOnlyMemberships = localMemberships.filter(m => !apiMembershipEventIds.has(m.eventId));
-        const mergedMemberships = [...convertedApiMemberships, ...localOnlyMemberships];
-
-        // Update state with merged data
-        setEvents(mergedEvents);
-        setUserMemberships(mergedMemberships);
-
-        // If current event is from API, load its guests from API
-        if (storedCurrentEvent) {
-          const { eventId } = JSON.parse(storedCurrentEvent);
-          const isFromApi = apiEventIds.has(eventId);
-
-          if (isFromApi) {
-            // Load guests from API for the current event
-            try {
-              const apiGuests = await apiGetGuests(parseInt(eventId));
-
-              // Convert API guests to local format
-              const convertedGuests: Guest[] = apiGuests.map(apiGuest => ({
-                id: apiGuest.id.toString(),
-                name: apiGuest.name,
-                amount: apiGuest.amount,
-                deposit: apiGuest.deposit,
-                items: apiGuest.items.map(item => ({
-                  id: item.id.toString(),
-                  note: item.note
-                })),
-                notes: apiGuest.notes,
-                paid: apiGuest.paid
-              }));
-
-              // Update guests in state and in events
-              setGuests(convertedGuests);
-              setEvents(prev => prev.map(e =>
-                e.id === eventId ? { ...e, guests: convertedGuests } : e
-              ));
-            } catch (guestError) {
-              console.error('Error loading guests from API:', guestError);
-              // Keep local guests if API fails
-            }
-          }
-        }
-
+        setEvents(convertedApiEvents);
+        setUserMemberships(convertedApiMemberships);
       } catch (error) {
         console.error('Error loading events from API:', error);
-        // Already loaded from localStorage above, so just continue with local data
-        if (!shouldFallbackToLocalStorage(error)) {
-          console.warn('API error (not a network issue):', error);
-        }
+        showToastNotification('Failed to load events. Please check your connection.');
+      } finally {
+        setIsLoadingEvents(false);
       }
     };
 
     loadEvents();
   }, []);
-
-  // Save events to localStorage whenever they change
-  useEffect(() => {
-    if (events.length > 0) {
-      localStorage.setItem('splitdine_events', JSON.stringify(events));
-    }
-  }, [events]);
-
-  // Save memberships to localStorage whenever they change
-  useEffect(() => {
-    if (userMemberships.length > 0) {
-      localStorage.setItem('splitdine_memberships', JSON.stringify(userMemberships));
-    }
-  }, [userMemberships]);
-
-  // Save current event to localStorage whenever it changes
-  useEffect(() => {
-    if (currentEventId && userRole) {
-      localStorage.setItem('splitdine_current_event', JSON.stringify({ eventId: currentEventId, role: userRole }));
-    }
-  }, [currentEventId, userRole]);
 
   // Update current event's guests whenever guests change
   useEffect(() => {
@@ -410,42 +299,7 @@ export default function Home() {
         setShowEventCreatedModal(true);
       } catch (error) {
         console.error('API error creating event:', error);
-
-        // Fallback to localStorage if API fails
-        if (shouldFallbackToLocalStorage(error)) {
-          const hostCode = generateCode();
-          const guestCode = generateCode();
-          const newEvent: Event = {
-            id: Date.now().toString(),
-            name: eventName.trim(),
-            hostCode: hostCode,
-            guestCode: guestCode,
-            guests: [],
-            createdAt: Date.now(),
-          };
-
-          const newMembership: UserEventMembership = {
-            eventId: newEvent.id,
-            role: 'host',
-            joinedAt: Date.now(),
-          };
-
-          setEvents([...events, newEvent]);
-          setUserMemberships([...userMemberships, newMembership]);
-          setCurrentEventId(newEvent.id);
-          setUserRole('host');
-          setGuests([]);
-          setEventName('');
-          setShowStartEventModal(false);
-
-          // Show the event created modal
-          setShowEventCreatedModal(true);
-
-          showToastNotification('Event created (offline mode)');
-        } else {
-          // Show error for non-network errors
-          showToastNotification('Failed to create event. Please try again.');
-        }
+        showToastNotification('Failed to create event. Please check your connection.');
       }
     }
   };
@@ -469,7 +323,7 @@ export default function Home() {
       return;
     }
 
-    // Try API first (hybrid approach)
+    // Try API call
     const result = await apiJoinEvent(code);
 
     if (result.success && result.event) {
@@ -508,43 +362,12 @@ export default function Home() {
       setShowJoinEventModal(false);
       showToastNotification(`Joined event as ${apiEvent.role}`);
     } else {
-      // API returned failure or network error - check localStorage fallback
-      console.log('API join failed:', result.error, result.return_code);
-
-      const eventByHostCode = events.find(e => e.hostCode === code);
-      const eventByGuestCode = events.find(e => e.guestCode === code);
-      const event = eventByHostCode || eventByGuestCode;
-
-      if (event) {
-        // Found in localStorage
-        const role = eventByHostCode ? 'host' : 'guest';
-
-        // Check if already a member
-        const existingMembership = userMemberships.find(m => m.eventId === event.id);
-        if (!existingMembership) {
-          const newMembership: UserEventMembership = {
-            eventId: event.id,
-            role: role,
-            joinedAt: Date.now(),
-          };
-          setUserMemberships([...userMemberships, newMembership]);
-        }
-
-        setCurrentEventId(event.id);
-        setUserRole(existingMembership?.role || role);
-        setGuests(event.guests);
-        setJoinCode('');
-        setShowJoinEventModal(false);
-
-        // Show appropriate message based on error type
-        if (result.error?.includes('network') || result.error?.includes('fetch')) {
-          showToastNotification('Joined event (offline mode)');
-        } else {
-          showToastNotification(`Joined event as ${role}`);
-        }
-      } else {
-        // Not found in localStorage either
+      // API failed - show appropriate error message
+      console.error('Failed to join event:', result.error);
+      if (result.return_code === 'EVENT_NOT_FOUND') {
         showToastNotification('Event not found. Please check the code and try again.');
+      } else {
+        showToastNotification('Failed to join event. Please check your connection.');
       }
     }
   };
@@ -553,7 +376,6 @@ export default function Home() {
     setCurrentEventId(null);
     setUserRole(null);
     setGuests([]);
-    localStorage.removeItem('splitdine_current_event');
   };
 
   const openEvent = async (eventId: string) => {
@@ -581,7 +403,6 @@ export default function Home() {
     setCurrentEventId(null);
     setUserRole(null);
     setGuests([]);
-    localStorage.removeItem('splitdine_current_event');
     setShowDeleteConfirmModal(false);
   };
 
@@ -623,26 +444,7 @@ export default function Home() {
       nameInputRef.current?.focus();
     } catch (error) {
       console.error('Error adding guest via API:', error);
-
-      // Fallback to localStorage if API fails
-      if (shouldFallbackToLocalStorage(error)) {
-        const newGuest: Guest = {
-          id: Date.now().toString(),
-          name: guestName,
-          amount: guestAmount,
-          deposit: guestDeposit,
-          items: [],
-          notes: '',
-          paid: false,
-        };
-        setGuests([...guests, newGuest]);
-        setName('');
-        setAmount('');
-        setDeposit('');
-        nameInputRef.current?.focus();
-      } else {
-        showToastNotification('Failed to add guest. Please try again.');
-      }
+      showToastNotification('Failed to add guest. Please try again.');
     }
   };
 
@@ -705,27 +507,7 @@ export default function Home() {
       itemNoteRef.current?.focus();
     } catch (error) {
       console.error('Error adding item via API:', error);
-
-      // Fallback to localStorage if API fails
-      if (shouldFallbackToLocalStorage(error)) {
-        setGuests(
-          guests.map((guest) =>
-            guest.id === editingGuestId
-              ? {
-                  ...guest,
-                  items: [
-                    ...guest.items,
-                    { id: Date.now().toString(), note: noteText },
-                  ],
-                }
-              : guest
-          )
-        );
-        setItemNote('');
-        itemNoteRef.current?.focus();
-      } else {
-        showToastNotification('Failed to add item. Please try again.');
-      }
+      showToastNotification('Failed to add item. Please try again.');
     }
   };
 
