@@ -5,7 +5,7 @@
 -- Dumped from database version 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 17.4
 
--- Started on 2025-10-11 16:02:05
+-- Started on 2025-10-11 23:25:17
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -180,7 +180,10 @@ CREATE TABLE public.events (
     guest_code character varying(10) NOT NULL,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone NOT NULL,
-    user_id integer
+    user_id integer,
+    bank_account_number character varying(50),
+    bank_sort_code character varying(20),
+    bank_account_name character varying(255)
 );
 
 
@@ -193,6 +196,33 @@ ALTER TABLE public.events OWNER TO splitdine_prod_user;
 --
 
 COMMENT ON COLUMN public.events.user_id IS 'Owner of the event (optional - for registered users)';
+
+
+--
+-- TOC entry 3513 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN events.bank_account_number; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
+--
+
+COMMENT ON COLUMN public.events.bank_account_number IS 'Bank account number for receiving payments';
+
+
+--
+-- TOC entry 3514 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN events.bank_sort_code; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
+--
+
+COMMENT ON COLUMN public.events.bank_sort_code IS 'Bank sort code (e.g., 04-00-03)';
+
+
+--
+-- TOC entry 3515 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN events.bank_account_name; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
+--
+
+COMMENT ON COLUMN public.events.bank_account_name IS 'Name on the bank account';
 
 
 --
@@ -212,7 +242,7 @@ CREATE SEQUENCE public.events_id_seq
 ALTER SEQUENCE public.events_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3513 (class 0 OID 0)
+-- TOC entry 3516 (class 0 OID 0)
 -- Dependencies: 216
 -- Name: events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -252,7 +282,7 @@ CREATE SEQUENCE public.guest_items_id_seq
 ALTER SEQUENCE public.guest_items_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3514 (class 0 OID 0)
+-- TOC entry 3517 (class 0 OID 0)
 -- Dependencies: 220
 -- Name: guest_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -297,7 +327,7 @@ CREATE SEQUENCE public.guests_id_seq
 ALTER SEQUENCE public.guests_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3515 (class 0 OID 0)
+-- TOC entry 3518 (class 0 OID 0)
 -- Dependencies: 218
 -- Name: guests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -324,7 +354,7 @@ CREATE TABLE public.user_event_memberships (
 ALTER TABLE public.user_event_memberships OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3516 (class 0 OID 0)
+-- TOC entry 3519 (class 0 OID 0)
 -- Dependencies: 223
 -- Name: COLUMN user_event_memberships.app_user_id; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -349,7 +379,7 @@ CREATE SEQUENCE public.user_event_memberships_id_seq
 ALTER SEQUENCE public.user_event_memberships_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3517 (class 0 OID 0)
+-- TOC entry 3520 (class 0 OID 0)
 -- Dependencies: 222
 -- Name: user_event_memberships_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -547,7 +577,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENC
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO splitdine_prod_user;
 
 
--- Completed on 2025-10-11 16:02:06
+-- Completed on 2025-10-11 23:25:19
 
 --
 -- PostgreSQL database dump complete

@@ -16,10 +16,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3010';
 // =============================================================================
 // Types
 // =============================================================================
-export interface ApiResponse<T = any> {
+export interface ApiResponse {
   return_code: string;
   message?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface Event {
@@ -30,6 +30,9 @@ export interface Event {
   role: 'host' | 'guest';
   created_at: string;
   joined_at?: string;
+  bank_account_number?: string;
+  bank_sort_code?: string;
+  bank_account_name?: string;
 }
 
 export interface GuestItem {
@@ -82,7 +85,7 @@ export const ensureSession = async (): Promise<string> => {
 
   // Create new session via API
   try {
-    const response = await apiCall<{ session_id: string }>('/api/session/create', {});
+    const response = await apiCall<ApiResponse & { session_id: string }>('/api/session/create', {});
 
     if (response.return_code === 'SUCCESS' && response.session_id) {
       setSessionId(response.session_id);
@@ -110,7 +113,7 @@ export const ensureSession = async (): Promise<string> => {
  */
 export const apiCall = async <T = ApiResponse>(
   endpoint: string,
-  body: Record<string, any>
+  body: Record<string, unknown>
 ): Promise<T> => {
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -149,14 +152,25 @@ export const apiCall = async <T = ApiResponse>(
 /**
  * Creates a new event
  * @param {string} eventName - Name of the event
+ * @param {string} bankAccountNumber - Bank account number (optional)
+ * @param {string} bankSortCode - Bank sort code (optional)
+ * @param {string} bankAccountName - Bank account name (optional)
  * @returns {Promise<Event>} - Created event details
  */
-export const createEvent = async (eventName: string): Promise<Event> => {
+export const createEvent = async (
+  eventName: string,
+  bankAccountNumber?: string,
+  bankSortCode?: string,
+  bankAccountName?: string
+): Promise<Event> => {
   const sessionId = await ensureSession();
 
-  const response = await apiCall<{ event: Event }>('/api/events/create', {
+  const response = await apiCall<ApiResponse & { event: Event }>('/api/events/create', {
     session_id: sessionId,
     event_name: eventName,
+    bank_account_number: bankAccountNumber,
+    bank_sort_code: bankSortCode,
+    bank_account_name: bankAccountName,
   });
 
   if (response.return_code !== 'SUCCESS') {
@@ -175,7 +189,7 @@ export const joinEvent = async (code: string): Promise<{success: boolean, event?
   try {
     const sessionId = await ensureSession();
 
-    const response = await apiCall<{ event: Event }>('/api/events/join', {
+    const response = await apiCall<ApiResponse & { event: Event }>('/api/events/join', {
       session_id: sessionId,
       code: code.trim().toUpperCase(),
     });
@@ -208,7 +222,7 @@ export const joinEvent = async (code: string): Promise<{success: boolean, event?
 export const getMyEvents = async (): Promise<Event[]> => {
   const sessionId = await ensureSession();
 
-  const response = await apiCall<{ events: Event[] }>('/api/events/get_my_events', {
+  const response = await apiCall<ApiResponse & { events: Event[] }>('/api/events/get_my_events', {
     session_id: sessionId,
   });
 
@@ -217,6 +231,37 @@ export const getMyEvents = async (): Promise<Event[]> => {
   }
 
   return response.events || [];
+};
+
+/**
+ * Updates bank details for an event (host only)
+ * @param {number} eventId - Event ID
+ * @param {string} bankAccountNumber - Bank account number (optional)
+ * @param {string} bankSortCode - Bank sort code (optional)
+ * @param {string} bankAccountName - Bank account name (optional)
+ * @returns {Promise<{bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}>}
+ */
+export const updateBankDetails = async (
+  eventId: number,
+  bankAccountNumber?: string,
+  bankSortCode?: string,
+  bankAccountName?: string
+): Promise<{bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}> => {
+  const sessionId = await ensureSession();
+
+  const response = await apiCall<ApiResponse & { event: {id: number, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string} }>('/api/events/update_bank_details', {
+    session_id: sessionId,
+    event_id: eventId,
+    bank_account_number: bankAccountNumber,
+    bank_sort_code: bankSortCode,
+    bank_account_name: bankAccountName,
+  });
+
+  if (response.return_code !== 'SUCCESS') {
+    throw new Error(response.message || 'Failed to update bank details');
+  }
+
+  return response.event;
 };
 
 // =============================================================================
@@ -230,7 +275,7 @@ export const getMyEvents = async (): Promise<Event[]> => {
 export const getGuests = async (eventId: number): Promise<Guest[]> => {
   const sessionId = await ensureSession();
 
-  const response = await apiCall<{ guests: Guest[] }>('/api/guests/get_guests', {
+  const response = await apiCall<ApiResponse & { guests: Guest[] }>('/api/guests/get_guests', {
     session_id: sessionId,
     event_id: eventId,
   });
@@ -258,7 +303,7 @@ export const addGuest = async (
 ): Promise<Guest> => {
   const sessionId = await ensureSession();
 
-  const response = await apiCall<{ guest: Guest }>('/api/guests/add_guest', {
+  const response = await apiCall<ApiResponse & { guest: Guest }>('/api/guests/add_guest', {
     session_id: sessionId,
     event_id: eventId,
     name: name,
@@ -291,7 +336,7 @@ export const updateGuest = async (
 ): Promise<Guest> => {
   const sessionId = await ensureSession();
 
-  const response = await apiCall<{ guest: Guest }>('/api/guests/update_guest', {
+  const response = await apiCall<ApiResponse & { guest: Guest }>('/api/guests/update_guest', {
     session_id: sessionId,
     guest_id: guestId,
     ...updates,
@@ -331,7 +376,7 @@ export const deleteGuest = async (guestId: number): Promise<void> => {
 export const addGuestItem = async (guestId: number, note: string): Promise<GuestItem> => {
   const sessionId = await ensureSession();
 
-  const response = await apiCall<{ item: GuestItem }>('/api/guests/add_item', {
+  const response = await apiCall<ApiResponse & { item: GuestItem }>('/api/guests/add_item', {
     session_id: sessionId,
     guest_id: guestId,
     note: note,
@@ -529,13 +574,21 @@ export const deleteAccount = async (password: string): Promise<ApiResponse> => {
  * @param {any} error - Error object
  * @returns {boolean} - True if should fallback to localStorage
  */
-export const shouldFallbackToLocalStorage = (error: any): boolean => {
+export const shouldFallbackToLocalStorage = (error: unknown): boolean => {
   // Network errors, server down, CORS issues, etc.
-  return (
-    error instanceof TypeError || // Network error
-    error?.message?.includes('fetch') ||
-    error?.message?.includes('network') ||
-    error?.message?.includes('CORS') ||
-    error?.message?.includes('ERR_CONNECTION_REFUSED')
-  );
+  if (error instanceof TypeError) {
+    return true;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String(error.message);
+    return (
+      message.includes('fetch') ||
+      message.includes('network') ||
+      message.includes('CORS') ||
+      message.includes('ERR_CONNECTION_REFUSED')
+    );
+  }
+
+  return false;
 };

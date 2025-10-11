@@ -127,7 +127,7 @@ router.post('/create', optionalAuth, async (req, res) => {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { session_id, event_name } = req.body;
+    const { session_id, event_name, bank_account_number, bank_sort_code, bank_account_name } = req.body;
 
     // Check if all required fields are present
     if (!session_id || !event_name) {
@@ -163,10 +163,10 @@ router.post('/create', optionalAuth, async (req, res) => {
 
       // Insert new event (link to user_id if authenticated)
       const eventResult = await client.query(
-        `INSERT INTO events (name, host_code, guest_code, user_id, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, NOW(), NOW())
-         RETURNING id, name, host_code, guest_code, created_at`,
-        [event_name.trim(), hostCode, guestCode, userId]
+        `INSERT INTO events (name, host_code, guest_code, user_id, bank_account_number, bank_sort_code, bank_account_name, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+         RETURNING id, name, host_code, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at`,
+        [event_name.trim(), hostCode, guestCode, userId, bank_account_number || null, bank_sort_code || null, bank_account_name || null]
       );
 
       const newEvent = eventResult.rows[0];
@@ -193,6 +193,9 @@ router.post('/create', optionalAuth, async (req, res) => {
         name: result.name,
         host_code: result.host_code,
         guest_code: result.guest_code,
+        bank_account_number: result.bank_account_number,
+        bank_sort_code: result.bank_sort_code,
+        bank_account_name: result.bank_account_name,
         created_at: result.created_at
       },
       message: 'Event created successfully'
@@ -266,7 +269,7 @@ router.post('/join', optionalAuth, async (req, res) => {
     // Find event by code (check both host and guest codes)
     // =============================================================================
     const eventResult = await query(
-      `SELECT id, name, host_code, guest_code, created_at,
+      `SELECT id, name, host_code, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at,
               CASE
                 WHEN host_code = $1 THEN 'host'
                 WHEN guest_code = $1 THEN 'guest'
@@ -303,6 +306,9 @@ router.post('/join', optionalAuth, async (req, res) => {
           name: event.name,
           host_code: membershipCheck.rows[0].role === 'host' ? event.host_code : undefined,
           guest_code: event.guest_code,
+          bank_account_number: event.bank_account_number,
+          bank_sort_code: event.bank_sort_code,
+          bank_account_name: event.bank_account_name,
           role: membershipCheck.rows[0].role,
           created_at: event.created_at
         },
@@ -333,6 +339,9 @@ router.post('/join', optionalAuth, async (req, res) => {
         name: event.name,
         host_code: event.role === 'host' ? event.host_code : undefined,
         guest_code: event.guest_code,
+        bank_account_number: event.bank_account_number,
+        bank_sort_code: event.bank_sort_code,
+        bank_account_name: event.bank_account_name,
         role: event.role,
         created_at: event.created_at
       },
@@ -408,7 +417,7 @@ router.post('/get_my_events', optionalAuth, async (req, res) => {
 
     const result = userId
       ? await query(
-          `SELECT e.id, e.name, e.host_code, e.guest_code, e.created_at,
+          `SELECT e.id, e.name, e.host_code, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.created_at,
                   m.role, m.joined_at
            FROM events e
            INNER JOIN user_event_memberships m ON e.id = m.event_id
@@ -417,7 +426,7 @@ router.post('/get_my_events', optionalAuth, async (req, res) => {
           [userId]
         )
       : await query(
-          `SELECT e.id, e.name, e.host_code, e.guest_code, e.created_at,
+          `SELECT e.id, e.name, e.host_code, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.created_at,
                   m.role, m.joined_at
            FROM events e
            INNER JOIN user_event_memberships m ON e.id = m.event_id
@@ -434,12 +443,13 @@ router.post('/get_my_events', optionalAuth, async (req, res) => {
       name: event.name,
       host_code: event.role === 'host' ? event.host_code : undefined,
       guest_code: event.guest_code,
+      bank_account_number: event.bank_account_number,
+      bank_sort_code: event.bank_sort_code,
+      bank_account_name: event.bank_account_name,
       role: event.role,
       joined_at: event.joined_at,
       created_at: event.created_at
     }));
-
-    console.log(`✓ Retrieved ${events.length} events for user ${session_id}`);
 
     // =============================================================================
     // Return success response
@@ -457,6 +467,128 @@ router.post('/get_my_events', optionalAuth, async (req, res) => {
     return res.status(200).json({
       return_code: 'SERVER_ERROR',
       message: 'An error occurred while retrieving events'
+    });
+  }
+});
+
+/*
+=======================================================================================================================================
+API Route: update_bank_details
+=======================================================================================================================================
+Method: POST
+Purpose: Updates bank details for an existing event. Only the host can update bank details.
+=======================================================================================================================================
+Request Payload:
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",  // string, required
+  "event_id": 123,                                        // integer, required
+  "bank_account_number": "12345678",                      // string, optional
+  "bank_sort_code": "04-00-03",                           // string, optional
+  "bank_account_name": "John Doe"                         // string, optional
+}
+
+Success Response:
+{
+  "return_code": "SUCCESS",
+  "event": {
+    "id": 123,
+    "bank_account_number": "12345678",
+    "bank_sort_code": "04-00-03",
+    "bank_account_name": "John Doe"
+  },
+  "message": "Bank details updated successfully"
+}
+=======================================================================================================================================
+Return Codes:
+"SUCCESS"
+"MISSING_FIELDS"
+"EVENT_NOT_FOUND"
+"UNAUTHORIZED"
+"SERVER_ERROR"
+=======================================================================================================================================
+*/
+router.post('/update_bank_details', optionalAuth, async (req, res) => {
+  try {
+    // =============================================================================
+    // Extract and validate request data
+    // =============================================================================
+    const { session_id, event_id, bank_account_number, bank_sort_code, bank_account_name } = req.body;
+
+    if (!session_id || !event_id) {
+      return res.status(200).json({
+        return_code: 'MISSING_FIELDS',
+        message: 'session_id and event_id are required'
+      });
+    }
+
+    // =============================================================================
+    // Verify user is host of the event
+    // =============================================================================
+    const membershipCheck = await query(
+      `SELECT role FROM user_event_memberships
+       WHERE user_id = $1 AND event_id = $2`,
+      [session_id, event_id]
+    );
+
+    if (membershipCheck.rows.length === 0) {
+      return res.status(200).json({
+        return_code: 'EVENT_NOT_FOUND',
+        message: 'Event not found or you are not a member'
+      });
+    }
+
+    if (membershipCheck.rows[0].role !== 'host') {
+      return res.status(200).json({
+        return_code: 'UNAUTHORIZED',
+        message: 'Only the host can update bank details'
+      });
+    }
+
+    // =============================================================================
+    // Update bank details
+    // =============================================================================
+    const updateResult = await query(
+      `UPDATE events
+       SET bank_account_number = $1,
+           bank_sort_code = $2,
+           bank_account_name = $3,
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING id, bank_account_number, bank_sort_code, bank_account_name`,
+      [bank_account_number || null, bank_sort_code || null, bank_account_name || null, event_id]
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(200).json({
+        return_code: 'EVENT_NOT_FOUND',
+        message: 'Event not found'
+      });
+    }
+
+    console.log(`✓ Bank details updated for event ${event_id}`);
+
+    // =============================================================================
+    // Return success response
+    // =============================================================================
+    return res.status(200).json({
+      return_code: 'SUCCESS',
+      event: {
+        id: updateResult.rows[0].id,
+        bank_account_number: updateResult.rows[0].bank_account_number,
+        bank_sort_code: updateResult.rows[0].bank_sort_code,
+        bank_account_name: updateResult.rows[0].bank_account_name
+      },
+      message: 'Bank details updated successfully'
+    });
+
+  } catch (error) {
+    // =============================================================================
+    // Handle unexpected errors
+    // =============================================================================
+    console.error('❌ Error in update_bank_details route:', error);
+    return res.status(200).json({
+      return_code: 'SERVER_ERROR',
+      message: 'An error occurred while updating bank details'
     });
   }
 });

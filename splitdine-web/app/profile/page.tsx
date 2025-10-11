@@ -6,8 +6,7 @@ import {
   getCurrentUser,
   updateProfile,
   changePassword,
-  deleteAccount,
-  logout
+  deleteAccount
 } from '@/lib/api-client';
 
 export default function ProfilePage() {

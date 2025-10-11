@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   createEvent as apiCreateEvent,
   joinEvent as apiJoinEvent,
   getMyEvents as apiGetMyEvents,
+  updateBankDetails as apiUpdateBankDetails,
   getGuests as apiGetGuests,
   addGuest as apiAddGuest,
   updateGuest as apiUpdateGuest,
@@ -15,8 +15,7 @@ import {
   register as apiRegister,
   login as apiLogin,
   logout as apiLogout,
-  getCurrentUser,
-  isLoggedIn
+  getCurrentUser
 } from '@/lib/api-client';
 
 interface Item {
@@ -41,6 +40,9 @@ interface Event {
   guestCode: string;
   guests: Guest[];
   createdAt: number;
+  bankAccountNumber?: string;
+  bankSortCode?: string;
+  bankAccountName?: string;
 }
 
 interface UserEventMembership {
@@ -50,7 +52,6 @@ interface UserEventMembership {
 }
 
 export default function Home() {
-  const router = useRouter();
 
   // Event system state
   const [events, setEvents] = useState<Event[]>([]);
@@ -75,11 +76,11 @@ export default function Home() {
   // Event creation/join state
   const [showStartEventModal, setShowStartEventModal] = useState(false);
   const [showJoinEventModal, setShowJoinEventModal] = useState(false);
-  const [showEventCreatedModal, setShowEventCreatedModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showRegisterRequiredModal, setShowRegisterRequiredModal] = useState(false);
   const [eventName, setEventName] = useState('');
   const [joinCode, setJoinCode] = useState('');
-  const [showCodes, setShowCodes] = useState(false);
+  const [joinCodeError, setJoinCodeError] = useState('');
 
   // Toast notification state
   const [toastMessage, setToastMessage] = useState('');
@@ -95,6 +96,19 @@ export default function Home() {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [authError, setAuthError] = useState('');
+
+  // Bank details modal state (per-event)
+  const [showBankDetailsModal, setShowBankDetailsModal] = useState(false);
+  const [showBankDetails, setShowBankDetails] = useState(false);
+  const [showEventCodes, setShowEventCodes] = useState(false);
+  const [editBankAccountNumber, setEditBankAccountNumber] = useState('');
+  const [editBankSortCode, setEditBankSortCode] = useState('');
+  const [editBankAccountName, setEditBankAccountName] = useState('');
+
+  // Event name editing state
+  const [isEditingEventName, setIsEditingEventName] = useState(false);
+  const [editEventName, setEditEventName] = useState('');
+  const eventNameInputRef = useRef<HTMLInputElement>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const itemNoteRef = useRef<HTMLInputElement>(null);
@@ -163,6 +177,9 @@ export default function Home() {
           guestCode: apiEvent.guest_code,
           guests: [], // Will be loaded when user opens the event
           createdAt: new Date(apiEvent.created_at).getTime(),
+          bankAccountNumber: apiEvent.bank_account_number,
+          bankSortCode: apiEvent.bank_sort_code,
+          bankAccountName: apiEvent.bank_account_name,
         }));
 
         // Create memberships from API data
@@ -197,6 +214,18 @@ export default function Home() {
       );
     }
   }, [guests, currentEventId]);
+
+  // Handle Escape key for Delete Confirm modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showDeleteConfirmModal) {
+        setShowDeleteConfirmModal(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showDeleteConfirmModal]);
 
   // Authentication functions
   const handleLogin = async () => {
@@ -264,6 +293,79 @@ export default function Home() {
     showToastNotification('Logged out successfully');
   };
 
+  // Bank details functions
+  const openBankDetailsModal = () => {
+    const currentEvent = events.find(e => e.id === currentEventId);
+    if (currentEvent) {
+      setEditBankAccountNumber(currentEvent.bankAccountNumber || '');
+      setEditBankSortCode(currentEvent.bankSortCode || '');
+      setEditBankAccountName(currentEvent.bankAccountName || '');
+    } else {
+      setEditBankAccountNumber('');
+      setEditBankSortCode('');
+      setEditBankAccountName('');
+    }
+    setShowBankDetailsModal(true);
+  };
+
+  const saveBankDetails = async () => {
+    if (!currentEventId) return;
+
+    try {
+      // Update bank details via API
+      await apiUpdateBankDetails(
+        parseInt(currentEventId),
+        editBankAccountNumber || undefined,
+        editBankSortCode || undefined,
+        editBankAccountName || undefined
+      );
+
+      // Update local state
+      setEvents(events.map(e =>
+        e.id === currentEventId
+          ? {
+              ...e,
+              bankAccountNumber: editBankAccountNumber || undefined,
+              bankSortCode: editBankSortCode || undefined,
+              bankAccountName: editBankAccountName || undefined
+            }
+          : e
+      ));
+
+      setShowBankDetailsModal(false);
+    } catch (error) {
+      console.error('Error updating bank details:', error);
+      showToastNotification('Failed to update bank details. Please try again.');
+    }
+  };
+
+  // Event name editing functions
+  const startEditingEventName = () => {
+    if (userRole !== 'host' || !currentEvent) return;
+    setEditEventName(currentEvent.name);
+    setIsEditingEventName(true);
+    setTimeout(() => eventNameInputRef.current?.select(), 0);
+  };
+
+  const saveEventName = () => {
+    if (!currentEventId || !editEventName.trim()) {
+      setIsEditingEventName(false);
+      return;
+    }
+
+    // Update event name in local state
+    setEvents(events.map(e =>
+      e.id === currentEventId ? { ...e, name: editEventName.trim() } : e
+    ));
+    setIsEditingEventName(false);
+    // TODO: Sync with API when backend endpoint is available
+  };
+
+  const cancelEditEventName = () => {
+    setIsEditingEventName(false);
+    setEditEventName('');
+  };
+
   // Event functions
   const startNewEvent = async () => {
     if (eventName.trim()) {
@@ -279,6 +381,9 @@ export default function Home() {
           guestCode: apiEvent.guest_code,
           guests: [],
           createdAt: new Date(apiEvent.created_at).getTime(),
+          bankAccountNumber: apiEvent.bank_account_number,
+          bankSortCode: apiEvent.bank_sort_code,
+          bankAccountName: apiEvent.bank_account_name,
         };
 
         const newMembership: UserEventMembership = {
@@ -294,9 +399,6 @@ export default function Home() {
         setGuests([]);
         setEventName('');
         setShowStartEventModal(false);
-
-        // Show the event created modal
-        setShowEventCreatedModal(true);
       } catch (error) {
         console.error('API error creating event:', error);
         showToastNotification('Failed to create event. Please check your connection.');
@@ -308,11 +410,6 @@ export default function Home() {
     const shareMessage = `Join my SplitDine event!\n\nEvent: ${currentEvent?.name}\nGuest Code: ${code}\n\nGo to https://www.splitdine.com and enter this code to join.\n\nQuestions? Email us at info@splitdine.com`;
     navigator.clipboard.writeText(shareMessage);
     showToastNotification('Guest invite copied! Ready to share.');
-  };
-
-  const copyHostCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    showToastNotification('Host code copied to clipboard.');
   };
 
   const joinEvent = async () => {
@@ -336,6 +433,9 @@ export default function Home() {
         guestCode: apiEvent.guest_code,
         guests: [],
         createdAt: new Date(apiEvent.created_at).getTime(),
+        bankAccountNumber: apiEvent.bank_account_number,
+        bankSortCode: apiEvent.bank_sort_code,
+        bankAccountName: apiEvent.bank_account_name,
       };
 
       // Check if event already exists in local state
@@ -357,17 +457,19 @@ export default function Home() {
 
       setCurrentEventId(newEvent.id);
       setUserRole(apiEvent.role);
-      setGuests(existingEvent?.guests || []);
       setJoinCode('');
+      setJoinCodeError('');
       setShowJoinEventModal(false);
-      showToastNotification(`Joined event as ${apiEvent.role}`);
+
+      // Load guests from API immediately after joining
+      const loadedGuests = await loadGuestsForEvent(newEvent.id);
+      setGuests(loadedGuests);
     } else {
       // API failed - show appropriate error message
-      console.error('Failed to join event:', result.error);
       if (result.return_code === 'EVENT_NOT_FOUND') {
-        showToastNotification('Event not found. Please check the code and try again.');
+        setJoinCodeError('Invalid code');
       } else {
-        showToastNotification('Failed to join event. Please check your connection.');
+        setJoinCodeError('Failed to join event. Please check your connection.');
       }
     }
   };
@@ -679,52 +781,82 @@ export default function Home() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 sm:mb-8">
-          {currentEvent ? (
-            <div className="text-sm text-slate-600 dark:text-slate-300">
-              {currentEvent.name}
-            </div>
-          ) : (
-            <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">
-              SplitDine
-            </h1>
-          )}
           <div className="flex items-center gap-3">
             {currentEvent && (
               <button
                 onClick={leaveEvent}
                 className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
               >
-                ← Back to Events
+                ← Home
               </button>
             )}
-            {currentUser ? (
-              <div className="relative group">
-                <button className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm">
-                  {currentUser.name}
+            {!currentEvent && (
+              <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">
+                SplitDine
+              </h1>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {currentEvent && (
+              isEditingEventName ? (
+                <input
+                  ref={eventNameInputRef}
+                  type="text"
+                  value={editEventName}
+                  onChange={(e) => setEditEventName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveEventName();
+                    if (e.key === 'Escape') cancelEditEventName();
+                  }}
+                  onBlur={saveEventName}
+                  className="px-2 py-1 text-sm text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700 border-2 border-blue-500 rounded focus:outline-none"
+                />
+              ) : (
+                <button
+                  onClick={startEditingEventName}
+                  className={`text-sm ${userRole === 'host' ? 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 cursor-pointer' : 'text-slate-600 dark:text-slate-300 cursor-default'} transition-colors flex items-center gap-1`}
+                  disabled={userRole !== 'host'}
+                >
+                  {currentEvent.name}
+                  {userRole === 'host' && (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 opacity-50">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                    </svg>
+                  )}
                 </button>
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+              )
+            )}
+            {/* Auth UI - Only show on home page */}
+            {!currentEvent && (
+              currentUser ? (
+                <div className="relative group">
+                  <button className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm">
+                    {currentUser.name}
+                  </button>
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => router.push('/profile')}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700"
+                    onClick={() => setShowLoginModal(true)}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm"
                   >
-                    Profile
+                    Log In
                   </button>
                   <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-b-lg text-sm text-slate-700 dark:text-slate-200"
+                    onClick={() => setShowRegisterModal(true)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm"
                   >
-                    Sign Out
+                    Register
                   </button>
                 </div>
-              </div>
-            ) : (
-              !currentEvent && (
-                <button
-                  onClick={() => setShowLoginModal(true)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm"
-                >
-                  Sign In
-                </button>
               )
             )}
           </div>
@@ -970,6 +1102,46 @@ export default function Home() {
           </div>
         )}
 
+        {/* Register Required Modal */}
+        {showRegisterRequiredModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
+                Create an Account
+              </h2>
+              <p className="text-slate-600 dark:text-slate-300 mb-6">
+                To create events, please register for a free account. This allows you to access your events from any device and ensures you never lose your data.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setShowRegisterRequiredModal(false);
+                    setShowRegisterModal(true);
+                  }}
+                  className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Register
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRegisterRequiredModal(false);
+                    setShowLoginModal(true);
+                  }}
+                  className="w-full px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
+                >
+                  Already have an account? Log In
+                </button>
+                <button
+                  onClick={() => setShowRegisterRequiredModal(false)}
+                  className="w-full px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Join Event Modal */}
         {showJoinEventModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -982,21 +1154,29 @@ export default function Home() {
                 type="text"
                 placeholder="Enter event code"
                 value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setJoinCode(e.target.value.toUpperCase());
+                  setJoinCodeError('');
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') joinEvent();
                   if (e.key === 'Escape') {
                     setShowJoinEventModal(false);
                     setJoinCode('');
+                    setJoinCodeError('');
                   }
                 }}
-                className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 mb-4 uppercase"
+                className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 mb-1 uppercase"
               />
+              {joinCodeError && (
+                <p className="text-red-600 dark:text-red-400 text-sm mb-3">{joinCodeError}</p>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => {
                     setShowJoinEventModal(false);
                     setJoinCode('');
+                    setJoinCodeError('');
                   }}
                   className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
                 >
@@ -1007,33 +1187,6 @@ export default function Home() {
                   className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
                 >
                   Join Event
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Event Created Success Modal - Light Version */}
-        {showEventCreatedModal && currentEvent && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-sm w-full">
-              <div className="text-center">
-                <div className="mx-auto w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-green-600 dark:text-green-400">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
-                  Event Created!
-                </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                  Press &quot;Codes&quot; below to view and share event codes
-                </p>
-                <button
-                  onClick={() => setShowEventCreatedModal(false)}
-                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                >
-                  Continue
                 </button>
               </div>
             </div>
@@ -1079,6 +1232,86 @@ export default function Home() {
           </div>
         )}
 
+        {/* Bank Details Edit Modal */}
+        {showBankDetailsModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
+                Edit Bank Details
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                These details are saved to your device and will be used for all events.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
+                    Account Number
+                  </label>
+                  <input
+                    type="text"
+                    value={editBankAccountNumber}
+                    onChange={(e) => setEditBankAccountNumber(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveBankDetails();
+                      if (e.key === 'Escape') setShowBankDetailsModal(false);
+                    }}
+                    className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
+                    Sort Code
+                  </label>
+                  <input
+                    type="text"
+                    value={editBankSortCode}
+                    onChange={(e) => setEditBankSortCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveBankDetails();
+                      if (e.key === 'Escape') setShowBankDetailsModal(false);
+                    }}
+                    placeholder="e.g., 04-00-03"
+                    className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
+                    Account Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editBankAccountName}
+                    onChange={(e) => setEditBankAccountName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveBankDetails();
+                      if (e.key === 'Escape') setShowBankDetailsModal(false);
+                    }}
+                    className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowBankDetailsModal(false)}
+                  className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveBankDetails}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!currentEvent ? (
           /* Landing Page */
           <div className="space-y-6">
@@ -1090,8 +1323,12 @@ export default function Home() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
                   onClick={() => {
-                    setShowStartEventModal(true);
-                    setTimeout(() => eventNameRef.current?.focus(), 0);
+                    if (currentUser) {
+                      setShowStartEventModal(true);
+                      setTimeout(() => eventNameRef.current?.focus(), 0);
+                    } else {
+                      setShowRegisterRequiredModal(true);
+                    }
                   }}
                   className="px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors text-lg"
                 >
@@ -1166,12 +1403,13 @@ export default function Home() {
           /* Event View */
           <>
             {/* Total */}
-            <div className={`rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6 transition-colors ${
+            <div className={`rounded-lg shadow-md mb-4 sm:mb-6 transition-colors ${
               totalBill > 0 && totalOwed === 0
                 ? 'bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-2 border-green-200 dark:border-green-700'
                 : 'bg-white dark:bg-slate-800'
             }`}>
-              <div className="flex flex-col items-center">
+              {/* Main Total */}
+              <div className="flex flex-col items-center p-4 sm:p-6">
                 <span className={`text-sm sm:text-base font-medium mb-1 ${
                   totalBill > 0 && totalOwed === 0
                     ? 'text-green-800 dark:text-green-300'
@@ -1193,62 +1431,82 @@ export default function Home() {
                     </svg>
                   )}
                 </div>
-                {totalBill > 0 && (
-                  <div className={`mt-2 text-xs font-medium ${
-                    totalOwed === 0
-                      ? 'text-green-700 dark:text-green-400'
-                      : 'text-slate-400 dark:text-slate-500'
-                  }`}>
-                    {totalOwed === 0 ? (
-                      <>✓ Fully Paid!</>
-                    ) : totalDeposits > 0 ? (
-                      <>Deposits £{totalDeposits.toFixed(2)} · Still Owed £{totalOwed.toFixed(2)}</>
-                    ) : (
-                      <>Still Owed £{totalOwed.toFixed(2)}</>
-                    )}
-                  </div>
-                )}
               </div>
+
+              {/* Deposits and Owed - Separate sections */}
+              {totalBill > 0 && (
+                <div className={`grid grid-cols-2 gap-0 border-t-2 ${
+                  totalBill > 0 && totalOwed === 0
+                    ? 'border-green-200 dark:border-green-700'
+                    : 'border-slate-200 dark:border-slate-700'
+                }`}>
+                  {/* Deposits Section */}
+                  <div className="flex flex-col items-center p-3 sm:p-4 border-r-2 border-slate-200 dark:border-slate-700">
+                    <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">
+                      Deposits
+                    </span>
+                    <span className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-200">
+                      £{totalDeposits.toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* Still Owed Section */}
+                  <div className="flex flex-col items-center p-3 sm:p-4">
+                    <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">
+                      Still Owed
+                    </span>
+                    <span className={`text-lg sm:text-xl font-bold ${
+                      totalOwed === 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-orange-600 dark:text-orange-400'
+                    }`}>
+                      £{totalOwed.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Add Guest Form */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                <input
-                  ref={nameInputRef}
-                  type="text"
-                  placeholder="Guest name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addGuest()}
-                  className="flex-1 px-4 py-3 sm:py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                />
-                <input
-                  type="number"
-                  placeholder="Total bill"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addGuest()}
-                  step="0.01"
-                  className="w-full sm:w-32 px-4 py-3 sm:py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-                <input
-                  type="number"
-                  placeholder="Deposit"
-                  value={deposit}
-                  onChange={(e) => setDeposit(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addGuest()}
-                  step="0.01"
-                  className="w-full sm:w-28 px-4 py-3 sm:py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-                <button
-                  onClick={addGuest}
-                  className="w-full sm:w-auto px-6 py-3 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                >
-                  Add
-                </button>
+            {/* Add Guest Form - Host Only */}
+            {userRole === 'host' && (
+              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    placeholder="Guest name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addGuest()}
+                    className="flex-1 px-4 py-3 sm:py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Total bill"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addGuest()}
+                    step="0.01"
+                    className="w-full sm:w-32 px-4 py-3 sm:py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Deposit"
+                    value={deposit}
+                    onChange={(e) => setDeposit(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addGuest()}
+                    step="0.01"
+                    className="w-full sm:w-28 px-4 py-3 sm:py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    onClick={addGuest}
+                    className="w-full sm:w-auto px-6 py-3 sm:py-2 bg-slate-600 hover:bg-slate-700 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Items Modal */}
             {showItemsModal && editingGuest && (
@@ -1355,9 +1613,56 @@ export default function Home() {
               </h2>
 
               {guests.length === 0 ? (
-                <p className="text-slate-500 dark:text-slate-400 text-center py-8 text-sm sm:text-base">
-                  No guests added yet. Add your first guest above!
-                </p>
+                <div className="text-center py-8 sm:py-12">
+                  {/* Icon */}
+                  <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400 dark:text-slate-500">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                    </svg>
+                  </div>
+
+                  {/* Main message */}
+                  <h3 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-2">
+                    No guests yet
+                  </h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base mb-6 max-w-sm mx-auto">
+                    Get started by adding your first guest using the form above
+                  </p>
+
+                  {/* Tips */}
+                  <div className="max-w-md mx-auto bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 text-left">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mt-0.5">
+                        <span className="text-blue-600 dark:text-blue-400 text-sm font-semibold">1</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                          Enter guest name and optionally their bill amount
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mt-0.5">
+                        <span className="text-blue-600 dark:text-blue-400 text-sm font-semibold">2</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                          Click on guest names to add menu items and notes
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mt-0.5">
+                        <span className="text-blue-600 dark:text-blue-400 text-sm font-semibold">3</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                          {userRole === 'host' ? 'Mark guests as paid when they settle up' : 'Track who has paid and what they ordered'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-3 sm:space-y-4">
                   {guests.map((guest) => (
@@ -1480,213 +1785,205 @@ export default function Home() {
               )}
             </div>
 
-            {/* Codes Card */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 mb-4 mt-6">
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1">
-                    {userRole === 'host' && (
-                      <button
-                        onClick={() => copyGuestCode(currentEvent.guestCode)}
-                        className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-                        </svg>
-                        Share
-                      </button>
-                    )}
+            {/* Bank Details - Bottom Section */}
+            <div className="mt-6 mb-4 space-y-2">
+              <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+                <button
+                  onClick={() => setShowBankDetails(!showBankDetails)}
+                  className="w-full flex items-center justify-between mb-2"
+                >
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Payment Details
                   </div>
-                  <button
-                    onClick={() => setShowCodes(!showCodes)}
-                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
+                  <div className="flex items-center gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                      className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${showBankDetails ? 'rotate-180' : ''}`}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                     </svg>
-                    Codes
-                  </button>
-                </div>
+                  </div>
+                </button>
 
-                {/* Collapsible Code Display */}
-                {showCodes && (
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {showBankDetails && (
+                  <>
+                    <div className="flex items-center justify-end gap-2 mb-2">
                       {userRole === 'host' && (
-                        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
-                          <div className="text-xs font-medium text-orange-800 dark:text-orange-300 mb-1">
-                            Host Code (For viewing on other devices)
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono font-semibold text-base text-orange-900 dark:text-orange-100">
-                              {currentEvent.hostCode}
-                            </span>
-                            <button
-                              onClick={() => copyHostCode(currentEvent.hostCode)}
-                              className="ml-2 p-1.5 hover:bg-orange-100 dark:hover:bg-orange-800/40 rounded transition-colors"
-                              title="Copy host code"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-orange-700 dark:text-orange-400">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
+                        <button
+                          onClick={openBankDetailsModal}
+                          className="p-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded transition-colors"
+                          aria-label="Edit bank details"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                          </svg>
+                        </button>
                       )}
-                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                        <div className="text-xs font-medium text-green-800 dark:text-green-300 mb-1">
-                          Guest Code {userRole === 'host' ? '(Share this)' : ''}
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono font-semibold text-base text-green-900 dark:text-green-100">
-                            {currentEvent.guestCode}
-                          </span>
-                          {userRole === 'host' && (
-                            <button
-                              onClick={() => copyGuestCode(currentEvent.guestCode)}
-                              className="ml-2 p-1.5 hover:bg-green-100 dark:hover:bg-green-800/40 rounded transition-colors"
-                              title="Copy & share guest code"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-green-700 dark:text-green-400">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <button
+                        onClick={() => {
+                          const bankDetails = `Bank Details for Payment:\n\nAccount Number: ${currentEvent?.bankAccountNumber || 'Not set'}\nSort Code: ${currentEvent?.bankSortCode || 'Not set'}\nAccount Name: ${currentEvent?.bankAccountName || 'Not set'}`;
+                          navigator.clipboard.writeText(bankDetails);
+                          showToastNotification('All bank details copied!');
+                        }}
+                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors"
+                      >
+                        Copy All
+                      </button>
                     </div>
 
-                    {/* Delete Event Button (Host Only) */}
-                    {userRole === 'host' && (
-                      <button
-                        onClick={() => setShowDeleteConfirmModal(true)}
-                        className="w-full px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                        </svg>
-                        Delete Event
-                      </button>
-                    )}
+                    <div className="space-y-2">
+                  {/* Account Number */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        Account Number
+                      </div>
+                      <div className="font-mono text-sm text-slate-700 dark:text-slate-200 tracking-wide">
+                        {currentEvent?.bankAccountNumber || 'Not set'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(currentEvent?.bankAccountNumber || '');
+                        showToastNotification('Account number copied!');
+                      }}
+                      className="ml-3 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors"
+                    >
+                      Copy
+                    </button>
                   </div>
+
+                  {/* Sort Code */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        Sort Code
+                      </div>
+                      <div className="font-mono text-sm text-slate-700 dark:text-slate-200 tracking-wide">
+                        {currentEvent?.bankSortCode || 'Not set'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(currentEvent?.bankSortCode || '');
+                        showToastNotification('Sort code copied!');
+                      }}
+                      className="ml-3 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors"
+                    >
+                      Copy
+                    </button>
+                  </div>
+
+                  {/* Account Name */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        Account Name
+                      </div>
+                      <div className="text-sm text-slate-700 dark:text-slate-200 break-words">
+                        {currentEvent?.bankAccountName || 'Not set'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(currentEvent?.bankAccountName || '');
+                        showToastNotification('Account name copied!');
+                      }}
+                      className="ml-3 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors flex-shrink-0"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
 
-            {/* Bank Details - Bottom Section */}
-            <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg shadow-md p-5 sm:p-6 mt-6 border-2 border-blue-200 dark:border-blue-700">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="flex-shrink-0 mt-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7 text-blue-600 dark:text-blue-400">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-base sm:text-lg font-semibold text-blue-900 dark:text-blue-300 mb-1">
-                    Payment Details
-                  </h3>
-                  <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-400">
-                    Use these details for deposits and payments
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {/* Copy All Button */}
+            {/* Event Codes - Footer Section */}
+            <div className="mt-6 mb-4 space-y-2">
+              <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
                 <button
-                  onClick={() => {
-                    const bankDetails = `Bank Details for Payment:\n\nAccount Number: 18053208\nSort Code: 04-00-03\nAccount Name: Brookfield Comfort - Trading as Brookfield Socials`;
-                    navigator.clipboard.writeText(bankDetails);
-                    showToastNotification('All bank details copied!');
-                  }}
-                  className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                  onClick={() => setShowEventCodes(!showEventCodes)}
+                  className="w-full flex items-center justify-between mb-2"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                  </svg>
-                  Copy All Bank Details
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Event Codes
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                      className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${showEventCodes ? 'rotate-180' : ''}`}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </div>
                 </button>
 
-                {/* Account Number */}
-                <div className="flex items-center justify-between bg-white dark:bg-slate-800/50 rounded-lg p-3">
-                  <div className="flex-1">
-                    <div className="text-xs sm:text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
-                      Account Number
-                    </div>
-                    <div className="font-mono text-lg sm:text-xl font-semibold text-blue-900 dark:text-blue-200">
-                      18053208
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText('18053208');
-                      showToastNotification('Account number copied!');
-                    }}
-                    className="ml-3 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                    </svg>
-                    Copy
-                  </button>
-                </div>
-
-                {/* Sort Code */}
-                <div className="flex items-center justify-between bg-white dark:bg-slate-800/50 rounded-lg p-3">
-                  <div className="flex-1">
-                    <div className="text-xs sm:text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
-                      Sort Code
-                    </div>
-                    <div className="font-mono text-lg sm:text-xl font-semibold text-blue-900 dark:text-blue-200">
-                      04-00-03
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText('04-00-03');
-                      showToastNotification('Sort code copied!');
-                    }}
-                    className="ml-3 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                    </svg>
-                    Copy
-                  </button>
-                </div>
-
-                {/* Account Name */}
-                <div className="flex items-center justify-between bg-white dark:bg-slate-800/50 rounded-lg p-3">
-                  <div className="flex-1">
-                    <div className="text-xs sm:text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
-                      Account Name
-                    </div>
-                    <div className="text-base sm:text-lg font-semibold text-blue-900 dark:text-blue-200 break-words">
-                      Brookfield Comfort - Trading as Brookfield Socials
+                {showEventCodes && (
+                  <div className="space-y-2">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded p-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                            Guest Code
+                          </div>
+                          <div className="font-mono text-sm text-slate-700 dark:text-slate-200 tracking-wide">
+                            {currentEvent.guestCode}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(currentEvent.guestCode);
+                            showToastNotification('Guest code copied to clipboard.');
+                          }}
+                          className="ml-3 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      {userRole === 'host' && (
+                        <button
+                          onClick={() => copyGuestCode(currentEvent.guestCode)}
+                          className="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs rounded transition-colors flex items-center justify-center gap-2"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                          </svg>
+                          Copy text to share on WhatsApp or messaging
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText('Brookfield Comfort - Trading as Brookfield Socials');
-                      showToastNotification('Account name copied!');
-                    }}
-                    className="ml-3 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2 flex-shrink-0"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                    </svg>
-                    Copy
-                  </button>
-                </div>
+                )}
               </div>
+
+              {userRole === 'host' && (
+                <button
+                  onClick={() => setShowDeleteConfirmModal(true)}
+                  className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors text-xs flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                  </svg>
+                  Delete Event
+                </button>
+              )}
             </div>
           </>
         )}
 
         {/* Toast Notification */}
         {showToast && (
-          <div className="fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2 z-[100] animate-slide-up">
+          <div className="fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2 z-[100]">
             <div className="bg-gradient-to-r from-green-600 to-green-500 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-xl shadow-2xl flex items-center gap-2 sm:gap-3 w-full sm:min-w-[280px] sm:max-w-md border-2 border-green-400/20">
               <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6 text-white">

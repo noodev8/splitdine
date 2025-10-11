@@ -23,11 +23,11 @@ const pool = new Pool(config.database);
 // =============================================================================
 
 // Log when a new client is connected to the pool (only in development)
-pool.on('connect', () => {
-  if (config.server.isDevelopment) {
-    console.log('✓ New client connected to the database pool');
-  }
-});
+// pool.on('connect', () => {
+//   if (config.server.isDevelopment) {
+//     console.log('✓ New client connected to the database pool');
+//   }
+// });
 
 // Log errors that occur on idle clients
 pool.on('error', (err) => {
