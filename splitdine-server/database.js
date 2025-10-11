@@ -22,9 +22,11 @@ const pool = new Pool(config.database);
 // Pool Event Handlers
 // =============================================================================
 
-// Log when a new client is connected to the pool
+// Log when a new client is connected to the pool (only in development)
 pool.on('connect', () => {
-  console.log('✓ New client connected to the database pool');
+  if (config.server.isDevelopment) {
+    console.log('✓ New client connected to the database pool');
+  }
 });
 
 // Log errors that occur on idle clients
@@ -43,15 +45,7 @@ pool.on('error', (err) => {
  * @returns {Promise} - Query result
  */
 const query = (text, params) => {
-  const start = Date.now();
   return pool.query(text, params)
-    .then(res => {
-      const duration = Date.now() - start;
-      if (config.server.isDevelopment) {
-        console.log('Executed query', { text, duration, rows: res.rowCount });
-      }
-      return res;
-    })
     .catch(err => {
       console.error('Database query error:', err);
       throw err;

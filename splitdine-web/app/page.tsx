@@ -1,6 +1,24 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  createEvent as apiCreateEvent,
+  joinEvent as apiJoinEvent,
+  getMyEvents as apiGetMyEvents,
+  getGuests as apiGetGuests,
+  addGuest as apiAddGuest,
+  updateGuest as apiUpdateGuest,
+  deleteGuest as apiDeleteGuest,
+  addGuestItem as apiAddGuestItem,
+  deleteGuestItem as apiDeleteGuestItem,
+  shouldFallbackToLocalStorage,
+  register as apiRegister,
+  login as apiLogin,
+  logout as apiLogout,
+  getCurrentUser,
+  isLoggedIn
+} from '@/lib/api-client';
 
 interface Item {
   id: string;
@@ -33,6 +51,8 @@ interface UserEventMembership {
 }
 
 export default function Home() {
+  const router = useRouter();
+
   // Event system state
   const [events, setEvents] = useState<Event[]>([]);
   const [userMemberships, setUserMemberships] = useState<UserEventMembership[]>([]);
@@ -65,6 +85,17 @@ export default function Home() {
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
 
+  // Authentication state
+  const [currentUser, setCurrentUser] = useState<ReturnType<typeof getCurrentUser>>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [registerName, setRegisterName] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
   const nameInputRef = useRef<HTMLInputElement>(null);
   const itemNoteRef = useRef<HTMLInputElement>(null);
   const editAmountRef = useRef<HTMLInputElement>(null);
@@ -83,31 +114,165 @@ export default function Home() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  // Load events and memberships from localStorage on mount
-  useEffect(() => {
-    const storedEvents = localStorage.getItem('splitdine_events');
-    const storedMemberships = localStorage.getItem('splitdine_memberships');
-    const storedCurrentEvent = localStorage.getItem('splitdine_current_event');
+  // Helper function to load guests for an event (hybrid approach)
+  const loadGuestsForEvent = async (eventId: string): Promise<Guest[]> => {
+    // Get local guests first
+    const event = events.find(e => e.id === eventId);
+    const localGuests = event?.guests || [];
 
-    if (storedEvents) {
-      setEvents(JSON.parse(storedEvents));
+    try {
+      // Try to fetch from API
+      const apiGuests = await apiGetGuests(parseInt(eventId));
+
+      // Convert API guests to local format
+      const convertedApiGuests: Guest[] = apiGuests.map(apiGuest => ({
+        id: apiGuest.id.toString(),
+        name: apiGuest.name,
+        amount: apiGuest.amount,
+        deposit: apiGuest.deposit,
+        items: apiGuest.items.map(item => ({
+          id: item.id.toString(),
+          note: item.note
+        })),
+        notes: apiGuest.notes,
+        paid: apiGuest.paid
+      }));
+
+      // Update event with API guests
+      setEvents(prev => prev.map(e =>
+        e.id === eventId ? { ...e, guests: convertedApiGuests } : e
+      ));
+
+      return convertedApiGuests;
+    } catch (error) {
+      console.error('Error loading guests from API:', error);
+      // Use local guests on error
+      return localGuests;
     }
-    if (storedMemberships) {
-      setUserMemberships(JSON.parse(storedMemberships));
-    }
-    if (storedCurrentEvent) {
-      const { eventId, role } = JSON.parse(storedCurrentEvent);
-      setCurrentEventId(eventId);
-      setUserRole(role);
-      // Load guests for this event
+  };
+
+  // Load current user on mount
+  useEffect(() => {
+    const user = getCurrentUser();
+    setCurrentUser(user);
+  }, []);
+
+  // Load events and memberships from localStorage and API on mount
+  useEffect(() => {
+    const loadEvents = async () => {
+      // Load from localStorage first for instant display
+      const storedEvents = localStorage.getItem('splitdine_events');
+      const storedMemberships = localStorage.getItem('splitdine_memberships');
+      const storedCurrentEvent = localStorage.getItem('splitdine_current_event');
+
+      let localEvents: Event[] = [];
+      let localMemberships: UserEventMembership[] = [];
+
       if (storedEvents) {
-        const events = JSON.parse(storedEvents);
-        const event = events.find((e: Event) => e.id === eventId);
+        localEvents = JSON.parse(storedEvents);
+        setEvents(localEvents);
+      }
+      if (storedMemberships) {
+        localMemberships = JSON.parse(storedMemberships);
+        setUserMemberships(localMemberships);
+      }
+      if (storedCurrentEvent) {
+        const { eventId, role } = JSON.parse(storedCurrentEvent);
+        setCurrentEventId(eventId);
+        setUserRole(role);
+        // Load guests for this event from localStorage first
+        const event = localEvents.find((e: Event) => e.id === eventId);
         if (event) {
           setGuests(event.guests);
         }
       }
-    }
+
+      // Try to fetch from API (hybrid approach)
+      try {
+        const apiEvents = await apiGetMyEvents();
+
+        // Convert API events to local format
+        const convertedApiEvents: Event[] = apiEvents.map(apiEvent => {
+          // Check if this event already exists locally (to preserve guests data temporarily)
+          const existingEvent = localEvents.find(e => e.id === apiEvent.id.toString());
+
+          return {
+            id: apiEvent.id.toString(),
+            name: apiEvent.name,
+            hostCode: apiEvent.host_code || '',
+            guestCode: apiEvent.guest_code,
+            guests: existingEvent?.guests || [], // Temporarily preserve local guests data
+            createdAt: new Date(apiEvent.created_at).getTime(),
+          };
+        });
+
+        // Create memberships from API data
+        const convertedApiMemberships: UserEventMembership[] = apiEvents.map(apiEvent => ({
+          eventId: apiEvent.id.toString(),
+          role: apiEvent.role,
+          joinedAt: apiEvent.joined_at ? new Date(apiEvent.joined_at).getTime() : Date.now(),
+        }));
+
+        // Merge: API events take priority, but keep local-only events
+        const apiEventIds = new Set(convertedApiEvents.map(e => e.id));
+        const localOnlyEvents = localEvents.filter(e => !apiEventIds.has(e.id));
+        const mergedEvents = [...convertedApiEvents, ...localOnlyEvents];
+
+        // Merge memberships: API memberships take priority
+        const apiMembershipEventIds = new Set(convertedApiMemberships.map(m => m.eventId));
+        const localOnlyMemberships = localMemberships.filter(m => !apiMembershipEventIds.has(m.eventId));
+        const mergedMemberships = [...convertedApiMemberships, ...localOnlyMemberships];
+
+        // Update state with merged data
+        setEvents(mergedEvents);
+        setUserMemberships(mergedMemberships);
+
+        // If current event is from API, load its guests from API
+        if (storedCurrentEvent) {
+          const { eventId } = JSON.parse(storedCurrentEvent);
+          const isFromApi = apiEventIds.has(eventId);
+
+          if (isFromApi) {
+            // Load guests from API for the current event
+            try {
+              const apiGuests = await apiGetGuests(parseInt(eventId));
+
+              // Convert API guests to local format
+              const convertedGuests: Guest[] = apiGuests.map(apiGuest => ({
+                id: apiGuest.id.toString(),
+                name: apiGuest.name,
+                amount: apiGuest.amount,
+                deposit: apiGuest.deposit,
+                items: apiGuest.items.map(item => ({
+                  id: item.id.toString(),
+                  note: item.note
+                })),
+                notes: apiGuest.notes,
+                paid: apiGuest.paid
+              }));
+
+              // Update guests in state and in events
+              setGuests(convertedGuests);
+              setEvents(prev => prev.map(e =>
+                e.id === eventId ? { ...e, guests: convertedGuests } : e
+              ));
+            } catch (guestError) {
+              console.error('Error loading guests from API:', guestError);
+              // Keep local guests if API fails
+            }
+          }
+        }
+
+      } catch (error) {
+        console.error('Error loading events from API:', error);
+        // Already loaded from localStorage above, so just continue with local data
+        if (!shouldFallbackToLocalStorage(error)) {
+          console.warn('API error (not a network issue):', error);
+        }
+      }
+    };
+
+    loadEvents();
   }, []);
 
   // Save events to localStorage whenever they change
@@ -144,36 +309,144 @@ export default function Home() {
     }
   }, [guests, currentEventId]);
 
+  // Authentication functions
+  const handleLogin = async () => {
+    setAuthError('');
+
+    if (!loginEmail.trim() || !loginPassword) {
+      setAuthError('Please enter both email and password');
+      return;
+    }
+
+    try {
+      const response = await apiLogin(loginEmail, loginPassword);
+
+      if (response.return_code === 'SUCCESS' && response.user) {
+        setCurrentUser(response.user);
+        setShowLoginModal(false);
+        setLoginEmail('');
+        setLoginPassword('');
+        showToastNotification(`Welcome back, ${response.user.name}!`);
+      } else {
+        setAuthError(response.message || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setAuthError('An error occurred during login');
+    }
+  };
+
+  const handleRegister = async () => {
+    setAuthError('');
+
+    if (!registerName.trim() || !registerEmail.trim() || !registerPassword) {
+      setAuthError('Please fill in all fields');
+      return;
+    }
+
+    if (registerPassword.length < 8) {
+      setAuthError('Password must be at least 8 characters');
+      return;
+    }
+
+    try {
+      const response = await apiRegister(registerName, registerEmail, registerPassword);
+
+      if (response.return_code === 'SUCCESS' && response.user) {
+        // After successful registration, log them in
+        setCurrentUser(response.user);
+        setShowRegisterModal(false);
+        setRegisterName('');
+        setRegisterEmail('');
+        setRegisterPassword('');
+        showToastNotification(`Welcome to SplitDine, ${response.user.name}!`);
+      } else {
+        setAuthError(response.message || 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Register error:', error);
+      setAuthError('An error occurred during registration');
+    }
+  };
+
+  const handleLogout = () => {
+    apiLogout();
+    setCurrentUser(null);
+    showToastNotification('Logged out successfully');
+  };
+
   // Event functions
-  const startNewEvent = () => {
+  const startNewEvent = async () => {
     if (eventName.trim()) {
-      const hostCode = generateCode();
-      const guestCode = generateCode();
-      const newEvent: Event = {
-        id: Date.now().toString(),
-        name: eventName.trim(),
-        hostCode: hostCode,
-        guestCode: guestCode,
-        guests: [],
-        createdAt: Date.now(),
-      };
+      try {
+        // Try API first (hybrid approach)
+        const apiEvent = await apiCreateEvent(eventName.trim());
 
-      const newMembership: UserEventMembership = {
-        eventId: newEvent.id,
-        role: 'host',
-        joinedAt: Date.now(),
-      };
+        // Convert API event to local format
+        const newEvent: Event = {
+          id: apiEvent.id.toString(),
+          name: apiEvent.name,
+          hostCode: apiEvent.host_code || '',
+          guestCode: apiEvent.guest_code,
+          guests: [],
+          createdAt: new Date(apiEvent.created_at).getTime(),
+        };
 
-      setEvents([...events, newEvent]);
-      setUserMemberships([...userMemberships, newMembership]);
-      setCurrentEventId(newEvent.id);
-      setUserRole('host');
-      setGuests([]);
-      setEventName('');
-      setShowStartEventModal(false);
+        const newMembership: UserEventMembership = {
+          eventId: newEvent.id,
+          role: 'host',
+          joinedAt: Date.now(),
+        };
 
-      // Show the event created modal
-      setShowEventCreatedModal(true);
+        setEvents([...events, newEvent]);
+        setUserMemberships([...userMemberships, newMembership]);
+        setCurrentEventId(newEvent.id);
+        setUserRole('host');
+        setGuests([]);
+        setEventName('');
+        setShowStartEventModal(false);
+
+        // Show the event created modal
+        setShowEventCreatedModal(true);
+      } catch (error) {
+        console.error('API error creating event:', error);
+
+        // Fallback to localStorage if API fails
+        if (shouldFallbackToLocalStorage(error)) {
+          const hostCode = generateCode();
+          const guestCode = generateCode();
+          const newEvent: Event = {
+            id: Date.now().toString(),
+            name: eventName.trim(),
+            hostCode: hostCode,
+            guestCode: guestCode,
+            guests: [],
+            createdAt: Date.now(),
+          };
+
+          const newMembership: UserEventMembership = {
+            eventId: newEvent.id,
+            role: 'host',
+            joinedAt: Date.now(),
+          };
+
+          setEvents([...events, newEvent]);
+          setUserMemberships([...userMemberships, newMembership]);
+          setCurrentEventId(newEvent.id);
+          setUserRole('host');
+          setGuests([]);
+          setEventName('');
+          setShowStartEventModal(false);
+
+          // Show the event created modal
+          setShowEventCreatedModal(true);
+
+          showToastNotification('Event created (offline mode)');
+        } else {
+          // Show error for non-network errors
+          showToastNotification('Failed to create event. Please try again.');
+        }
+      }
     }
   };
 
@@ -188,35 +461,91 @@ export default function Home() {
     showToastNotification('Host code copied to clipboard.');
   };
 
-  const joinEvent = () => {
+  const joinEvent = async () => {
     const code = joinCode.trim().toUpperCase();
 
-    // Check if it's a host code or guest code
-    const eventByHostCode = events.find(e => e.hostCode === code);
-    const eventByGuestCode = events.find(e => e.guestCode === code);
+    if (!code) {
+      showToastNotification('Please enter an event code');
+      return;
+    }
 
-    const event = eventByHostCode || eventByGuestCode;
-    const role = eventByHostCode ? 'host' : 'guest';
+    // Try API first (hybrid approach)
+    const result = await apiJoinEvent(code);
 
-    if (event) {
+    if (result.success && result.event) {
+      // API success - convert to local format
+      const apiEvent = result.event;
+      const newEvent: Event = {
+        id: apiEvent.id.toString(),
+        name: apiEvent.name,
+        hostCode: apiEvent.host_code || '',
+        guestCode: apiEvent.guest_code,
+        guests: [],
+        createdAt: new Date(apiEvent.created_at).getTime(),
+      };
+
+      // Check if event already exists in local state
+      const existingEvent = events.find(e => e.id === newEvent.id);
+      if (!existingEvent) {
+        setEvents([...events, newEvent]);
+      }
+
       // Check if already a member
-      const existingMembership = userMemberships.find(m => m.eventId === event.id);
+      const existingMembership = userMemberships.find(m => m.eventId === newEvent.id);
       if (!existingMembership) {
         const newMembership: UserEventMembership = {
-          eventId: event.id,
-          role: role,
+          eventId: newEvent.id,
+          role: apiEvent.role,
           joinedAt: Date.now(),
         };
         setUserMemberships([...userMemberships, newMembership]);
       }
 
-      setCurrentEventId(event.id);
-      setUserRole(existingMembership?.role || role);
-      setGuests(event.guests);
+      setCurrentEventId(newEvent.id);
+      setUserRole(apiEvent.role);
+      setGuests(existingEvent?.guests || []);
       setJoinCode('');
       setShowJoinEventModal(false);
+      showToastNotification(`Joined event as ${apiEvent.role}`);
     } else {
-      showToastNotification('Event not found. Please check the code and try again.');
+      // API returned failure or network error - check localStorage fallback
+      console.log('API join failed:', result.error, result.return_code);
+
+      const eventByHostCode = events.find(e => e.hostCode === code);
+      const eventByGuestCode = events.find(e => e.guestCode === code);
+      const event = eventByHostCode || eventByGuestCode;
+
+      if (event) {
+        // Found in localStorage
+        const role = eventByHostCode ? 'host' : 'guest';
+
+        // Check if already a member
+        const existingMembership = userMemberships.find(m => m.eventId === event.id);
+        if (!existingMembership) {
+          const newMembership: UserEventMembership = {
+            eventId: event.id,
+            role: role,
+            joinedAt: Date.now(),
+          };
+          setUserMemberships([...userMemberships, newMembership]);
+        }
+
+        setCurrentEventId(event.id);
+        setUserRole(existingMembership?.role || role);
+        setGuests(event.guests);
+        setJoinCode('');
+        setShowJoinEventModal(false);
+
+        // Show appropriate message based on error type
+        if (result.error?.includes('network') || result.error?.includes('fetch')) {
+          showToastNotification('Joined event (offline mode)');
+        } else {
+          showToastNotification(`Joined event as ${role}`);
+        }
+      } else {
+        // Not found in localStorage either
+        showToastNotification('Event not found. Please check the code and try again.');
+      }
     }
   };
 
@@ -227,14 +556,17 @@ export default function Home() {
     localStorage.removeItem('splitdine_current_event');
   };
 
-  const openEvent = (eventId: string) => {
+  const openEvent = async (eventId: string) => {
     const event = events.find(e => e.id === eventId);
     const membership = userMemberships.find(m => m.eventId === eventId);
 
     if (event && membership) {
       setCurrentEventId(eventId);
       setUserRole(membership.role);
-      setGuests(event.guests);
+
+      // Load guests from API (hybrid approach)
+      const loadedGuests = await loadGuestsForEvent(eventId);
+      setGuests(loadedGuests);
     }
   };
 
@@ -254,30 +586,86 @@ export default function Home() {
   };
 
   // Guest functions
-  const addGuest = () => {
-    if (name.trim()) {
+  const addGuest = async () => {
+    if (!name.trim() || !currentEventId) return;
+
+    const guestName = name.trim();
+    const guestAmount = parseFloat(amount) || 0;
+    const guestDeposit = parseFloat(deposit) || 0;
+
+    try {
+      // Try API first (hybrid approach)
+      const apiGuest = await apiAddGuest(
+        parseInt(currentEventId),
+        guestName,
+        guestAmount,
+        guestDeposit
+      );
+
+      // Convert API guest to local format
       const newGuest: Guest = {
-        id: Date.now().toString(),
-        name: name.trim(),
-        amount: parseFloat(amount) || 0,
-        deposit: parseFloat(deposit) || 0,
-        items: [],
-        notes: '',
-        paid: false,
+        id: apiGuest.id.toString(),
+        name: apiGuest.name,
+        amount: apiGuest.amount,
+        deposit: apiGuest.deposit,
+        items: apiGuest.items.map(item => ({
+          id: item.id.toString(),
+          note: item.note
+        })),
+        notes: apiGuest.notes,
+        paid: apiGuest.paid,
       };
+
       setGuests([...guests, newGuest]);
       setName('');
       setAmount('');
       setDeposit('');
       nameInputRef.current?.focus();
+    } catch (error) {
+      console.error('Error adding guest via API:', error);
+
+      // Fallback to localStorage if API fails
+      if (shouldFallbackToLocalStorage(error)) {
+        const newGuest: Guest = {
+          id: Date.now().toString(),
+          name: guestName,
+          amount: guestAmount,
+          deposit: guestDeposit,
+          items: [],
+          notes: '',
+          paid: false,
+        };
+        setGuests([...guests, newGuest]);
+        setName('');
+        setAmount('');
+        setDeposit('');
+        nameInputRef.current?.focus();
+      } else {
+        showToastNotification('Failed to add guest. Please try again.');
+      }
     }
   };
 
-  const removeGuest = (id: string) => {
-    if (userRole === 'host') {
-      setGuests(guests.filter((guest) => guest.id !== id));
-      if (selectedGuestId === id) {
-        setSelectedGuestId(null);
+  const removeGuest = async (id: string) => {
+    if (userRole !== 'host') return;
+
+    // Always delete from local state first (immediate UI feedback)
+    setGuests(guests.filter((guest) => guest.id !== id));
+    if (selectedGuestId === id) {
+      setSelectedGuestId(null);
+    }
+
+    // Check if this is a database guest (not local-only timestamp ID)
+    const isFromDatabase = parseInt(id) <= 2147483647; // Max PostgreSQL INTEGER
+
+    if (isFromDatabase) {
+      // Try to sync deletion with API
+      try {
+        await apiDeleteGuest(parseInt(id));
+      } catch (error) {
+        console.error('Error deleting guest from API:', error);
+        // Guest already deleted locally, so we don't need to show an error
+        // unless it's a non-network error (which would be unusual for delete)
       }
     }
   };
@@ -288,27 +676,61 @@ export default function Home() {
     setTimeout(() => itemNoteRef.current?.focus(), 0);
   };
 
-  const addItemToGuest = () => {
-    if (editingGuestId && itemNote.trim()) {
+  const addItemToGuest = async () => {
+    if (!editingGuestId || !itemNote.trim()) return;
+
+    const noteText = itemNote.trim();
+
+    try {
+      // Try API first (hybrid approach)
+      const apiItem = await apiAddGuestItem(parseInt(editingGuestId), noteText);
+
+      // Convert API item to local format and update state
+      const newItem = {
+        id: apiItem.id.toString(),
+        note: apiItem.note
+      };
+
       setGuests(
         guests.map((guest) =>
           guest.id === editingGuestId
             ? {
                 ...guest,
-                items: [
-                  ...guest.items,
-                  { id: Date.now().toString(), note: itemNote.trim() },
-                ],
+                items: [...guest.items, newItem],
               }
             : guest
         )
       );
       setItemNote('');
       itemNoteRef.current?.focus();
+    } catch (error) {
+      console.error('Error adding item via API:', error);
+
+      // Fallback to localStorage if API fails
+      if (shouldFallbackToLocalStorage(error)) {
+        setGuests(
+          guests.map((guest) =>
+            guest.id === editingGuestId
+              ? {
+                  ...guest,
+                  items: [
+                    ...guest.items,
+                    { id: Date.now().toString(), note: noteText },
+                  ],
+                }
+              : guest
+          )
+        );
+        setItemNote('');
+        itemNoteRef.current?.focus();
+      } else {
+        showToastNotification('Failed to add item. Please try again.');
+      }
     }
   };
 
-  const removeItem = (guestId: string, itemId: string) => {
+  const removeItem = async (guestId: string, itemId: string) => {
+    // Always delete from local state first (immediate UI feedback)
     setGuests(
       guests.map((guest) =>
         guest.id === guestId
@@ -319,6 +741,19 @@ export default function Home() {
           : guest
       )
     );
+
+    // Check if this is a database item (not local-only timestamp ID)
+    const isFromDatabase = parseInt(itemId) <= 2147483647; // Max PostgreSQL INTEGER
+
+    if (isFromDatabase) {
+      // Try to sync deletion with API
+      try {
+        await apiDeleteGuestItem(parseInt(itemId));
+      } catch (error) {
+        console.error('Error deleting item from API:', error);
+        // Item already deleted locally, so we don't need to show an error
+      }
+    }
   };
 
   const startEditingAmount = (guestId: string, currentAmount: number, currentDeposit: number) => {
@@ -330,22 +765,44 @@ export default function Home() {
     }
   };
 
-  const saveAmount = () => {
-    if (editingAmountId && editAmount) {
-      setGuests(
-        guests.map((guest) =>
-          guest.id === editingAmountId
-            ? {
-                ...guest,
-                amount: parseFloat(editAmount) || 0,
-                deposit: parseFloat(editDeposit) || 0
-              }
-            : guest
-        )
-      );
-      setEditingAmountId(null);
-      setEditAmount('');
-      setEditDeposit('');
+  const saveAmount = async () => {
+    if (!editingAmountId || !editAmount) return;
+
+    const newAmount = parseFloat(editAmount) || 0;
+    const newDeposit = parseFloat(editDeposit) || 0;
+
+    // Always update local state first (immediate UI feedback)
+    setGuests(
+      guests.map((guest) =>
+        guest.id === editingAmountId
+          ? {
+              ...guest,
+              amount: newAmount,
+              deposit: newDeposit
+            }
+          : guest
+      )
+    );
+
+    // Clear editing state
+    setEditingAmountId(null);
+    setEditAmount('');
+    setEditDeposit('');
+
+    // Check if this is a database guest (not local-only timestamp ID)
+    const isFromDatabase = parseInt(editingAmountId) <= 2147483647; // Max PostgreSQL INTEGER
+
+    if (isFromDatabase) {
+      // Try to sync with API
+      try {
+        await apiUpdateGuest(parseInt(editingAmountId), {
+          amount: newAmount,
+          deposit: newDeposit
+        });
+      } catch (error) {
+        console.error('Error syncing amount update to API:', error);
+        // Already updated locally, no need to show error
+      }
     }
   };
 
@@ -355,15 +812,63 @@ export default function Home() {
     setEditDeposit('');
   };
 
-  const togglePaid = (guestId: string) => {
-    if (userRole === 'host') {
-      setGuests(
-        guests.map((guest) =>
-          guest.id === guestId
-            ? { ...guest, paid: !guest.paid }
-            : guest
-        )
-      );
+  const togglePaid = async (guestId: string) => {
+    if (userRole !== 'host') return;
+
+    const guest = guests.find(g => g.id === guestId);
+    if (!guest) return;
+
+    const newPaidStatus = !guest.paid;
+
+    // Always update local state first (immediate UI feedback)
+    setGuests(
+      guests.map((g) =>
+        g.id === guestId
+          ? { ...g, paid: newPaidStatus }
+          : g
+      )
+    );
+
+    // Check if this is a database guest (not local-only timestamp ID)
+    const isFromDatabase = parseInt(guestId) <= 2147483647; // Max PostgreSQL INTEGER
+
+    if (isFromDatabase) {
+      // Try to sync with API
+      try {
+        await apiUpdateGuest(parseInt(guestId), {
+          paid: newPaidStatus
+        });
+      } catch (error) {
+        console.error('Error syncing paid status to API:', error);
+        // Already updated locally, no need to show error
+      }
+    }
+  };
+
+  const closeItemsModal = async () => {
+    if (!editingGuestId) return;
+
+    const guest = guests.find(g => g.id === editingGuestId);
+    if (!guest) return;
+
+    // Close modal first (immediate UI feedback)
+    setShowItemsModal(false);
+    setEditingGuestId(null);
+    setItemNote('');
+
+    // Check if this is a database guest (not local-only timestamp ID)
+    const isFromDatabase = parseInt(editingGuestId) <= 2147483647; // Max PostgreSQL INTEGER
+
+    if (isFromDatabase) {
+      // Try to sync notes to API
+      try {
+        await apiUpdateGuest(parseInt(editingGuestId), {
+          notes: guest.notes
+        });
+      } catch (error) {
+        console.error('Error syncing notes to API:', error);
+        // Local state already saved, no need to show error
+      }
     }
   };
 
@@ -401,14 +906,46 @@ export default function Home() {
               SplitDine
             </h1>
           )}
-          {currentEvent && (
-            <button
-              onClick={leaveEvent}
-              className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
-            >
-              ← Back to Events
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {currentEvent && (
+              <button
+                onClick={leaveEvent}
+                className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+              >
+                ← Back to Events
+              </button>
+            )}
+            {currentUser ? (
+              <div className="relative group">
+                <button className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm">
+                  {currentUser.name}
+                </button>
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                  <button
+                    onClick={() => router.push('/profile')}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700"
+                  >
+                    Profile
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-b-lg text-sm text-slate-700 dark:text-slate-200"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            ) : (
+              !currentEvent && (
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm"
+                >
+                  Sign In
+                </button>
+              )
+            )}
+          </div>
         </div>
 
         {/* Start Event Modal */}
@@ -448,6 +985,203 @@ export default function Home() {
                   className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                 >
                   Start Event
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Login Modal */}
+        {showLoginModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
+                Sign In
+              </h2>
+
+              {authError && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+                  {authError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleLogin();
+                    if (e.key === 'Escape') {
+                      setShowLoginModal(false);
+                      setLoginEmail('');
+                      setLoginPassword('');
+                      setAuthError('');
+                    }
+                  }}
+                  className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleLogin();
+                    if (e.key === 'Escape') {
+                      setShowLoginModal(false);
+                      setLoginEmail('');
+                      setLoginPassword('');
+                      setAuthError('');
+                    }
+                  }}
+                  className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowLoginModal(false);
+                    setLoginEmail('');
+                    setLoginPassword('');
+                    setAuthError('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogin}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Sign In
+                </button>
+              </div>
+
+              <div className="mt-4 text-center text-sm text-slate-600 dark:text-slate-400">
+                Don&apos;t have an account?{' '}
+                <button
+                  onClick={() => {
+                    setShowLoginModal(false);
+                    setShowRegisterModal(true);
+                    setLoginEmail('');
+                    setLoginPassword('');
+                    setAuthError('');
+                  }}
+                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                >
+                  Register
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Register Modal */}
+        {showRegisterModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
+                Create Account
+              </h2>
+
+              {authError && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+                  {authError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={registerName}
+                  onChange={(e) => setRegisterName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleRegister();
+                    if (e.key === 'Escape') {
+                      setShowRegisterModal(false);
+                      setRegisterName('');
+                      setRegisterEmail('');
+                      setRegisterPassword('');
+                      setAuthError('');
+                    }
+                  }}
+                  className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={registerEmail}
+                  onChange={(e) => setRegisterEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleRegister();
+                    if (e.key === 'Escape') {
+                      setShowRegisterModal(false);
+                      setRegisterName('');
+                      setRegisterEmail('');
+                      setRegisterPassword('');
+                      setAuthError('');
+                    }
+                  }}
+                  className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                />
+                <input
+                  type="password"
+                  placeholder="Password (min 8 characters)"
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleRegister();
+                    if (e.key === 'Escape') {
+                      setShowRegisterModal(false);
+                      setRegisterName('');
+                      setRegisterEmail('');
+                      setRegisterPassword('');
+                      setAuthError('');
+                    }
+                  }}
+                  className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowRegisterModal(false);
+                    setRegisterName('');
+                    setRegisterEmail('');
+                    setRegisterPassword('');
+                    setAuthError('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRegister}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Create Account
+                </button>
+              </div>
+
+              <div className="mt-4 text-center text-sm text-slate-600 dark:text-slate-400">
+                Already have an account?{' '}
+                <button
+                  onClick={() => {
+                    setShowRegisterModal(false);
+                    setShowLoginModal(true);
+                    setRegisterName('');
+                    setRegisterEmail('');
+                    setRegisterPassword('');
+                    setAuthError('');
+                  }}
+                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                >
+                  Sign In
                 </button>
               </div>
             </div>
@@ -497,53 +1231,29 @@ export default function Home() {
           </div>
         )}
 
-        {/* Event Created Success Modal */}
+        {/* Event Created Success Modal - Light Version */}
         {showEventCreatedModal && currentEvent && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-5 max-w-sm w-full">
-              <div className="text-center mb-4">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-sm w-full">
+              <div className="text-center">
                 <div className="mx-auto w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-3">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-green-600 dark:text-green-400">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1">
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
                   Event Created!
                 </h2>
-                <p className="text-slate-600 dark:text-slate-400 text-xs">
-                  Guest code to share
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                  Press &quot;Codes&quot; below to view and share event codes
                 </p>
+                <button
+                  onClick={() => setShowEventCreatedModal(false)}
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Continue
+                </button>
               </div>
-
-              {/* Guest Code - Compact */}
-              <div className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-lg p-4 mb-3 border border-green-200 dark:border-green-700">
-                <div className="text-center">
-                  <div className="text-3xl font-bold font-mono text-green-900 dark:text-green-100 tracking-wider mb-3">
-                    {currentEvent.guestCode}
-                  </div>
-                  <button
-                    onClick={() => copyGuestCode(currentEvent.guestCode)}
-                    className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-                    </svg>
-                    Share
-                  </button>
-                </div>
-              </div>
-
-              {/* Info message - Compact */}
-              <p className="text-xs text-slate-600 dark:text-slate-400 text-center mb-3">
-                Access codes anytime via &quot;Codes&quot; button
-              </p>
-
-              <button
-                onClick={() => setShowEventCreatedModal(false)}
-                className="w-full px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-sm font-medium rounded-lg transition-colors"
-              >
-                Got it!
-              </button>
             </div>
           </div>
         )}
@@ -752,11 +1462,7 @@ export default function Home() {
                       {editingGuest.name}
                     </h2>
                     <button
-                      onClick={() => {
-                        setShowItemsModal(false);
-                        setEditingGuestId(null);
-                        setItemNote('');
-                      }}
+                      onClick={closeItemsModal}
                       className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                       aria-label="Close"
                     >

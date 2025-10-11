@@ -102,13 +102,16 @@ app.get('/health', (req, res) => {
 // =============================================================================
 // Import and mount route modules
 const authRoutes = require('./routes/auth');
-app.use('/api/auth', authRoutes);
+const sessionRoutes = require('./routes/session');
+const eventRoutes = require('./routes/events');
 
-// TODO: Add your route imports here as you build them
-// const eventRoutes = require('./routes/events');
-// const guestRoutes = require('./routes/guests');
-// app.use('/api/events', eventRoutes);
-// app.use('/api/guests', guestRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/session', sessionRoutes);
+app.use('/api/events', eventRoutes);
+
+// Guest management routes
+const guestRoutes = require('./routes/guests');
+app.use('/api/guests', guestRoutes);
 
 // =============================================================================
 // 404 Handler

@@ -46,24 +46,24 @@ const logApiCall = (req, res, responseData, startTime) => {
   };
 
   // =============================================================================
-  // Console output formatting
+  // Console output formatting (only log errors, not success)
   // =============================================================================
-  const returnCodeEmoji = responseData?.return_code === 'SUCCESS' ? '✓' : '❌';
-  const colorCode = responseData?.return_code === 'SUCCESS' ? '\x1b[32m' : '\x1b[31m';
-  const resetCode = '\x1b[0m';
+  if (responseData?.return_code !== 'SUCCESS') {
+    const colorCode = '\x1b[31m'; // Red for errors
+    const resetCode = '\x1b[0m';
 
-  console.log(`
+    console.log(`
 ${colorCode}========================================${resetCode}
-${returnCodeEmoji} API Call Log - ${timestamp}
+❌ API Error - ${timestamp}
 ${colorCode}========================================${resetCode}
 Method:      ${logData.method}
 Endpoint:    ${logData.endpoint}
-User ID:     ${logData.userId || 'N/A'}
 Return Code: ${logData.returnCode}
 Duration:    ${logData.duration}
-IP:          ${logData.ip}
+Message:     ${responseData?.message || 'N/A'}
 ${colorCode}========================================${resetCode}
-  `);
+    `);
+  }
 
   // =============================================================================
   // TODO: Extend this to log to database or external service
