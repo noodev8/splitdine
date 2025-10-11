@@ -1110,7 +1110,22 @@ export default function Home() {
             </div>
 
             {/* My Events List */}
-            {myEvents.length > 0 && (
+            {isLoadingEvents ? (
+              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">
+                  My Events
+                </h2>
+                <div className="space-y-2">
+                  {/* Loading skeleton */}
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="p-4 bg-slate-50 dark:bg-slate-700 rounded-lg animate-pulse">
+                      <div className="h-5 bg-slate-300 dark:bg-slate-600 rounded w-3/4 mb-2"></div>
+                      <div className="h-4 bg-slate-200 dark:bg-slate-650 rounded w-1/2"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : myEvents.length > 0 ? (
               <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">
                   My Events
@@ -1145,7 +1160,7 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         ) : (
           /* Event View */
