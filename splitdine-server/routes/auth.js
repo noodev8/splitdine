@@ -873,7 +873,8 @@ router.post('/forgot_password', async (req, res) => {
     // =============================================================================
     // Send password reset email via Resend
     // =============================================================================
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const config = require('../config/config');
+    const resetLink = `${config.frontend.emailUrl}/reset-password?token=${resetToken}`;
 
     try {
       await resend.emails.send({

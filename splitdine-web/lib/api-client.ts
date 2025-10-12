@@ -55,6 +55,24 @@ export interface Guest {
 // Session Management
 // =============================================================================
 /**
+ * Generate a UUID v4 compatible with all browsers
+ * @returns {string} - UUID string
+ */
+const generateUUID = (): string => {
+  // Try modern crypto.randomUUID if available
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  // Fallback for older browsers (including mobile)
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+/**
  * Gets the current session ID from localStorage
  * @returns {string | null} - Session ID or null if not found
  */
@@ -95,8 +113,8 @@ export const ensureSession = async (): Promise<string> => {
     throw new Error('Failed to create session');
   } catch (error) {
     console.error('Error creating session:', error);
-    // Fallback: generate UUID on client side
-    const fallbackSessionId = crypto.randomUUID();
+    // Fallback: generate UUID on client side (compatible with all browsers)
+    const fallbackSessionId = generateUUID();
     setSessionId(fallbackSessionId);
     return fallbackSessionId;
   }

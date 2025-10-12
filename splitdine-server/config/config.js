@@ -48,8 +48,13 @@ const config = {
   // =============================================================================
   frontend: {
     url: process.env.FRONTEND_URL || 'http://localhost:3000',
+    emailUrl: process.env.EMAIL_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
     // Get all allowed origins for CORS
     getAllowedOrigins() {
+      // Support comma-separated URLs for multiple origins
+      if (this.url.includes(',')) {
+        return this.url.split(',').map(url => url.trim());
+      }
       return [this.url];
     }
   },
