@@ -36,10 +36,7 @@ const corsOptions = {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
 
-    const allowedOrigins = [
-      config.frontend.devUrl,
-      config.frontend.prodUrl
-    ];
+    const allowedOrigins = config.frontend.getAllowedOrigins();
 
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -48,7 +45,7 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ['POST'], // Only allow POST as per API rules
+  methods: ['GET', 'POST', 'OPTIONS'], // Allow GET for health check, OPTIONS for preflight
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
@@ -193,7 +190,7 @@ app.listen(PORT, HOST, () => {
 
 ✓ Server running on port: ${PORT}
 ✓ Environment: ${config.server.env}
-✓ Frontend URL: ${config.frontend.getUrl()}
+✓ Frontend URL: ${config.frontend.url}
 ✓ Database: ${config.database.database}
 ✓ API logging: ${config.api.logEnabled ? 'Enabled' : 'Disabled'}${networkInfo}
 

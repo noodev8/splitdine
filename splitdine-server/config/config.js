@@ -44,14 +44,13 @@ const config = {
   },
 
   // =============================================================================
-  // Frontend URLs (for CORS configuration)
+  // Frontend URL (for CORS configuration)
   // =============================================================================
   frontend: {
-    devUrl: process.env.FRONTEND_URL_DEV || 'http://localhost:3000',
-    prodUrl: process.env.FRONTEND_URL_PROD || 'https://your-app.vercel.app',
-    // Get the appropriate URL based on environment
-    getUrl() {
-      return config.server.isProduction ? this.prodUrl : this.devUrl;
+    url: process.env.FRONTEND_URL || 'http://localhost:3000',
+    // Get all allowed origins for CORS
+    getAllowedOrigins() {
+      return [this.url];
     }
   },
 

@@ -9,11 +9,16 @@ Purpose: Handles user authentication operations including login and registration
 
 const express = require('express');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const { query } = require('../database');
 const { generateToken } = require('../middleware/auth');
 const { logApiCall } = require('../utils/apiLogger');
+const { Resend } = require('resend');
 
 const router = express.Router();
+
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /*
 =======================================================================================================================================
@@ -719,6 +724,271 @@ router.post('/delete_account', async (req, res) => {
     responseData = {
       return_code: 'SERVER_ERROR',
       message: 'An error occurred while deleting account'
+    };
+    logApiCall(req, res, responseData, startTime);
+    return res.status(200).json(responseData);
+  }
+});
+
+/*
+=======================================================================================================================================
+API Route: forgot_password
+=======================================================================================================================================
+Method: POST
+Purpose: Sends a password reset email to the user with a unique token link.
+=======================================================================================================================================
+Request Payload:
+{
+  "email": "user@example.com"  // string, required
+}
+
+Success Response:
+{
+  "return_code": "SUCCESS",
+  "message": "Password reset email sent"
+}
+=======================================================================================================================================
+Return Codes:
+"SUCCESS"
+"MISSING_FIELDS"
+"USER_NOT_FOUND"
+"SERVER_ERROR"
+=======================================================================================================================================
+*/
+router.post('/forgot_password', async (req, res) => {
+  const startTime = Date.now();
+  let responseData = null;
+
+  try {
+    // =============================================================================
+    // Extract and validate request data
+    // =============================================================================
+    const { email } = req.body;
+
+    if (!email) {
+      responseData = {
+        return_code: 'MISSING_FIELDS',
+        message: 'Email is required'
+      };
+      logApiCall(req, res, responseData, startTime);
+      return res.status(200).json(responseData);
+    }
+
+    // =============================================================================
+    // Check if user exists
+    // =============================================================================
+    const userResult = await query(
+      'SELECT id, email, name FROM app_user WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
+    // Always return success even if user doesn't exist (security best practice)
+    // This prevents email enumeration attacks
+    if (userResult.rows.length === 0) {
+      responseData = {
+        return_code: 'SUCCESS',
+        message: 'If an account with that email exists, a password reset link has been sent'
+      };
+      logApiCall(req, res, responseData, startTime);
+      return res.status(200).json(responseData);
+    }
+
+    const user = userResult.rows[0];
+
+    // =============================================================================
+    // Generate secure random token
+    // =============================================================================
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    // =============================================================================
+    // Store token in app_user table
+    // =============================================================================
+    await query(
+      `UPDATE app_user
+       SET reset_token = $1, reset_token_expires = $2, updated_at = NOW()
+       WHERE id = $3`,
+      [resetToken, expiresAt, user.id]
+    );
+
+    // =============================================================================
+    // Send password reset email via Resend
+    // =============================================================================
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+    try {
+      await resend.emails.send({
+        from: `${process.env.EMAIL_NAME} <${process.env.EMAIL_FROM}>`,
+        to: user.email,
+        subject: 'Reset Your Password - SplitDine',
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
+                <h1 style="color: #1e293b; margin-top: 0;">Reset Your Password</h1>
+                <p style="font-size: 16px; margin-bottom: 20px;">Hi ${user.name},</p>
+                <p style="font-size: 16px; margin-bottom: 20px;">We received a request to reset your password for your SplitDine account. Click the button below to create a new password:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${resetLink}" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Reset Password</a>
+                </div>
+                <p style="font-size: 14px; color: #64748b; margin-bottom: 10px;">Or copy and paste this link into your browser:</p>
+                <p style="font-size: 14px; color: #2563eb; word-break: break-all; margin-bottom: 20px;">${resetLink}</p>
+                <p style="font-size: 14px; color: #64748b; margin-bottom: 0;">This link will expire in 1 hour.</p>
+                <p style="font-size: 14px; color: #64748b; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.</p>
+              </div>
+              <p style="font-size: 12px; color: #94a3b8; text-align: center;">© ${new Date().getFullYear()} SplitDine. All rights reserved.</p>
+            </body>
+          </html>
+        `
+      });
+    } catch (emailError) {
+      console.error('❌ Error sending password reset email:', emailError);
+      // Don't fail the request if email fails, but log it
+    }
+
+    // =============================================================================
+    // Return success response
+    // =============================================================================
+    responseData = {
+      return_code: 'SUCCESS',
+      message: 'If an account with that email exists, a password reset link has been sent'
+    };
+
+    logApiCall(req, res, responseData, startTime);
+    return res.status(200).json(responseData);
+
+  } catch (error) {
+    console.error('❌ Error in forgot_password route:', error);
+    responseData = {
+      return_code: 'SERVER_ERROR',
+      message: 'An error occurred while processing your request'
+    };
+    logApiCall(req, res, responseData, startTime);
+    return res.status(200).json(responseData);
+  }
+});
+
+/*
+=======================================================================================================================================
+API Route: reset_password
+=======================================================================================================================================
+Method: POST
+Purpose: Resets user password using a valid reset token.
+=======================================================================================================================================
+Request Payload:
+{
+  "token": "abc123def456...",      // string, required - reset token from email
+  "new_password": "newpassword123" // string, required - new password
+}
+
+Success Response:
+{
+  "return_code": "SUCCESS",
+  "message": "Password reset successfully"
+}
+=======================================================================================================================================
+Return Codes:
+"SUCCESS"
+"MISSING_FIELDS"
+"INVALID_TOKEN"
+"TOKEN_EXPIRED"
+"WEAK_PASSWORD"
+"SERVER_ERROR"
+=======================================================================================================================================
+*/
+router.post('/reset_password', async (req, res) => {
+  const startTime = Date.now();
+  let responseData = null;
+
+  try {
+    // =============================================================================
+    // Extract and validate request data
+    // =============================================================================
+    const { token, new_password } = req.body;
+
+    if (!token || !new_password) {
+      responseData = {
+        return_code: 'MISSING_FIELDS',
+        message: 'Token and new password are required'
+      };
+      logApiCall(req, res, responseData, startTime);
+      return res.status(200).json(responseData);
+    }
+
+    // Validate password strength
+    if (new_password.length < 8) {
+      responseData = {
+        return_code: 'WEAK_PASSWORD',
+        message: 'Password must be at least 8 characters long'
+      };
+      logApiCall(req, res, responseData, startTime);
+      return res.status(200).json(responseData);
+    }
+
+    // =============================================================================
+    // Verify token and check expiration
+    // =============================================================================
+    const tokenResult = await query(
+      `SELECT id, reset_token, reset_token_expires FROM app_user
+       WHERE reset_token = $1`,
+      [token]
+    );
+
+    if (tokenResult.rows.length === 0) {
+      responseData = {
+        return_code: 'INVALID_TOKEN',
+        message: 'Invalid or expired reset token'
+      };
+      logApiCall(req, res, responseData, startTime);
+      return res.status(200).json(responseData);
+    }
+
+    const user = tokenResult.rows[0];
+
+    // Check if token has expired
+    if (!user.reset_token_expires || new Date() > new Date(user.reset_token_expires)) {
+      responseData = {
+        return_code: 'TOKEN_EXPIRED',
+        message: 'This reset link has expired. Please request a new one.'
+      };
+      logApiCall(req, res, responseData, startTime);
+      return res.status(200).json(responseData);
+    }
+
+    // =============================================================================
+    // Hash new password and update user (clear reset token fields)
+    // =============================================================================
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(new_password, saltRounds);
+
+    await query(
+      `UPDATE app_user
+       SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL, updated_at = NOW()
+       WHERE id = $2`,
+      [newPasswordHash, user.id]
+    );
+
+    // =============================================================================
+    // Return success response
+    // =============================================================================
+    responseData = {
+      return_code: 'SUCCESS',
+      message: 'Password reset successfully. You can now log in with your new password.'
+    };
+
+    logApiCall(req, res, responseData, startTime);
+    return res.status(200).json(responseData);
+
+  } catch (error) {
+    console.error('❌ Error in reset_password route:', error);
+    responseData = {
+      return_code: 'SERVER_ERROR',
+      message: 'An error occurred while resetting password'
     };
     logApiCall(req, res, responseData, startTime);
     return res.status(200).json(responseData);

@@ -566,6 +566,34 @@ export const deleteAccount = async (password: string): Promise<ApiResponse> => {
   return response;
 };
 
+/**
+ * Request password reset email
+ * @param {string} email - User's email address
+ * @returns {Promise<ApiResponse>} - Forgot password response
+ */
+export const forgotPassword = async (email: string): Promise<ApiResponse> => {
+  const response = await apiCall<ApiResponse>('/api/auth/forgot_password', {
+    email
+  });
+
+  return response;
+};
+
+/**
+ * Reset password using token from email
+ * @param {string} token - Reset token from email link
+ * @param {string} newPassword - New password
+ * @returns {Promise<ApiResponse>} - Reset password response
+ */
+export const resetPassword = async (token: string, newPassword: string): Promise<ApiResponse> => {
+  const response = await apiCall<ApiResponse>('/api/auth/reset_password', {
+    token,
+    new_password: newPassword
+  });
+
+  return response;
+};
+
 // =============================================================================
 // Error Handling Helper
 // =============================================================================

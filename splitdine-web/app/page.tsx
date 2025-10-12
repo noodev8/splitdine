@@ -15,7 +15,8 @@ import {
   register as apiRegister,
   login as apiLogin,
   logout as apiLogout,
-  getCurrentUser
+  getCurrentUser,
+  forgotPassword as apiForgotPassword
 } from '@/lib/api-client';
 
 interface Item {
@@ -90,12 +91,15 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<ReturnType<typeof getCurrentUser>>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [authError, setAuthError] = useState('');
+  const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
 
   // Bank details modal state (per-event)
   const [showBankDetailsModal, setShowBankDetailsModal] = useState(false);
@@ -291,6 +295,34 @@ export default function Home() {
     apiLogout();
     setCurrentUser(null);
     showToastNotification('Logged out successfully');
+  };
+
+  const handleForgotPassword = async () => {
+    setAuthError('');
+
+    if (!forgotPasswordEmail.trim()) {
+      setAuthError('Please enter your email address');
+      return;
+    }
+
+    setIsSendingResetEmail(true);
+
+    try {
+      const response = await apiForgotPassword(forgotPasswordEmail);
+
+      if (response.return_code === 'SUCCESS') {
+        setShowForgotPasswordModal(false);
+        setForgotPasswordEmail('');
+        showToastNotification('Password reset link sent! Check your email.');
+      } else {
+        setAuthError(response.message || 'Failed to send reset email');
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      setAuthError('An error occurred. Please try again.');
+    } finally {
+      setIsSendingResetEmail(false);
+    }
   };
 
   // Bank details functions
@@ -908,8 +940,19 @@ export default function Home() {
 
         {/* Login Modal */}
         {showLoginModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setShowLoginModal(false);
+              setLoginEmail('');
+              setLoginPassword('');
+              setAuthError('');
+            }}
+          >
+            <div
+              className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
               <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
                 Sign In
               </h2>
@@ -955,6 +998,21 @@ export default function Home() {
                 />
               </div>
 
+              <div className="mt-2 text-right">
+                <button
+                  onClick={() => {
+                    setShowLoginModal(false);
+                    setShowForgotPasswordModal(true);
+                    setLoginEmail('');
+                    setLoginPassword('');
+                    setAuthError('');
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => {
@@ -996,8 +1054,20 @@ export default function Home() {
 
         {/* Register Modal */}
         {showRegisterModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setShowRegisterModal(false);
+              setRegisterName('');
+              setRegisterEmail('');
+              setRegisterPassword('');
+              setAuthError('');
+            }}
+          >
+            <div
+              className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
               <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
                 Create Account
               </h2>
@@ -1143,11 +1213,103 @@ export default function Home() {
           </div>
         )}
 
+        {/* Forgot Password Modal */}
+        {showForgotPasswordModal && (
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setShowForgotPasswordModal(false);
+              setForgotPasswordEmail('');
+              setAuthError('');
+            }}
+          >
+            <div
+              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-8 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                Reset Password
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                Enter your email address and we&apos;ll send you a link to reset your password.
+              </p>
+
+              {authError && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+                  {authError}
+                </div>
+              )}
+
+              <input
+                type="email"
+                placeholder="Email"
+                value={forgotPasswordEmail}
+                onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleForgotPassword();
+                  if (e.key === 'Escape') {
+                    setShowForgotPasswordModal(false);
+                    setForgotPasswordEmail('');
+                    setAuthError('');
+                  }
+                }}
+                className="w-full px-4 py-3 text-base border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100 mb-6"
+              />
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowForgotPasswordModal(false);
+                    setForgotPasswordEmail('');
+                    setAuthError('');
+                  }}
+                  disabled={isSendingResetEmail}
+                  className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleForgotPassword}
+                  disabled={isSendingResetEmail}
+                  className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSendingResetEmail ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Sending...
+                    </>
+                  ) : (
+                    'Send Reset Link'
+                  )}
+                </button>
+              </div>
+
+              <div className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
+                Remember your password?{' '}
+                <button
+                  onClick={() => {
+                    setShowForgotPasswordModal(false);
+                    setShowLoginModal(true);
+                    setForgotPasswordEmail('');
+                    setAuthError('');
+                  }}
+                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                >
+                  Sign In
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Join Event Modal */}
         {showJoinEventModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-8 max-w-md w-full">
+              <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 mb-6">
                 Join Event
               </h2>
               <input
@@ -1167,25 +1329,25 @@ export default function Home() {
                     setJoinCodeError('');
                   }
                 }}
-                className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 mb-1 uppercase"
+                className="w-full px-4 py-3 text-base border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100 mb-2 uppercase"
               />
               {joinCodeError && (
-                <p className="text-red-600 dark:text-red-400 text-sm mb-3">{joinCodeError}</p>
+                <p className="text-red-600 dark:text-red-400 text-sm mb-4">{joinCodeError}</p>
               )}
-              <div className="flex gap-3">
+              <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => {
                     setShowJoinEventModal(false);
                     setJoinCode('');
                     setJoinCodeError('');
                   }}
-                  className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
+                  className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={joinEvent}
-                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                  className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
                 >
                   Join Event
                 </button>
