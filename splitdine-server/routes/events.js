@@ -146,12 +146,9 @@ router.post('/create', optionalAuth, async (req, res) => {
     }
 
     // =============================================================================
-    // Generate unique codes for host and guest access
+    // Generate unique guest code (host code no longer needed with auth)
     // =============================================================================
-    const hostCode = await generateUniqueCode('host');
     const guestCode = await generateUniqueCode('guest');
-
-    console.log(`→ Creating event: "${event_name}" (Host: ${hostCode}, Guest: ${guestCode})`);
 
     // =============================================================================
     // Create event and membership in a transaction
@@ -161,12 +158,12 @@ router.post('/create', optionalAuth, async (req, res) => {
       // Determine if user is authenticated
       const userId = req.user ? req.user.id : null;
 
-      // Insert new event (link to user_id if authenticated)
+      // Insert new event (link to user_id if authenticated, host_code set to NULL)
       const eventResult = await client.query(
         `INSERT INTO events (name, host_code, guest_code, user_id, bank_account_number, bank_sort_code, bank_account_name, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-         RETURNING id, name, host_code, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at`,
-        [event_name.trim(), hostCode, guestCode, userId, bank_account_number || null, bank_sort_code || null, bank_account_name || null]
+         VALUES ($1, NULL, $2, $3, $4, $5, $6, NOW(), NOW())
+         RETURNING id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at`,
+        [event_name.trim(), guestCode, userId, bank_account_number || null, bank_sort_code || null, bank_account_name || null]
       );
 
       const newEvent = eventResult.rows[0];
@@ -191,7 +188,6 @@ router.post('/create', optionalAuth, async (req, res) => {
       event: {
         id: result.id,
         name: result.name,
-        host_code: result.host_code,
         guest_code: result.guest_code,
         bank_account_number: result.bank_account_number,
         bank_sort_code: result.bank_sort_code,
@@ -266,16 +262,12 @@ router.post('/join', optionalAuth, async (req, res) => {
     const upperCode = code.trim().toUpperCase();
 
     // =============================================================================
-    // Find event by code (check both host and guest codes)
+    // Find event by guest code only (hosts join via authentication)
     // =============================================================================
     const eventResult = await query(
-      `SELECT id, name, host_code, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at,
-              CASE
-                WHEN host_code = $1 THEN 'host'
-                WHEN guest_code = $1 THEN 'guest'
-              END as role
+      `SELECT id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at
        FROM events
-       WHERE host_code = $1 OR guest_code = $1`,
+       WHERE guest_code = $1`,
       [upperCode]
     );
 
@@ -304,7 +296,6 @@ router.post('/join', optionalAuth, async (req, res) => {
         event: {
           id: event.id,
           name: event.name,
-          host_code: membershipCheck.rows[0].role === 'host' ? event.host_code : undefined,
           guest_code: event.guest_code,
           bank_account_number: event.bank_account_number,
           bank_sort_code: event.bank_sort_code,
@@ -317,17 +308,17 @@ router.post('/join', optionalAuth, async (req, res) => {
     }
 
     // =============================================================================
-    // Create new membership
+    // Create new membership as guest (guests join via code)
     // =============================================================================
     const userId = req.user ? req.user.id : null;
 
     await query(
       `INSERT INTO user_event_memberships (user_id, event_id, role, app_user_id, joined_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      [session_id, event.id, event.role, userId]
+       VALUES ($1, $2, 'guest', $3, NOW())`,
+      [session_id, event.id, userId]
     );
 
-    console.log(`✓ User ${session_id} joined event ${event.id} as ${event.role}`);
+    console.log(`✓ User ${session_id} joined event ${event.id} as guest`);
 
     // =============================================================================
     // Return success response
@@ -337,12 +328,11 @@ router.post('/join', optionalAuth, async (req, res) => {
       event: {
         id: event.id,
         name: event.name,
-        host_code: event.role === 'host' ? event.host_code : undefined,
         guest_code: event.guest_code,
         bank_account_number: event.bank_account_number,
         bank_sort_code: event.bank_sort_code,
         bank_account_name: event.bank_account_name,
-        role: event.role,
+        role: 'guest',
         created_at: event.created_at
       },
       message: 'Joined event successfully'
@@ -417,7 +407,7 @@ router.post('/get_my_events', optionalAuth, async (req, res) => {
 
     const result = userId
       ? await query(
-          `SELECT e.id, e.name, e.host_code, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.created_at,
+          `SELECT e.id, e.name, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.created_at,
                   m.role, m.joined_at
            FROM events e
            INNER JOIN user_event_memberships m ON e.id = m.event_id
@@ -426,7 +416,7 @@ router.post('/get_my_events', optionalAuth, async (req, res) => {
           [userId]
         )
       : await query(
-          `SELECT e.id, e.name, e.host_code, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.created_at,
+          `SELECT e.id, e.name, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.created_at,
                   m.role, m.joined_at
            FROM events e
            INNER JOIN user_event_memberships m ON e.id = m.event_id
@@ -436,12 +426,11 @@ router.post('/get_my_events', optionalAuth, async (req, res) => {
         );
 
     // =============================================================================
-    // Format response (hide host_code from guests)
+    // Format response
     // =============================================================================
     const events = result.rows.map(event => ({
       id: event.id,
       name: event.name,
-      host_code: event.role === 'host' ? event.host_code : undefined,
       guest_code: event.guest_code,
       bank_account_number: event.bank_account_number,
       bank_sort_code: event.bank_sort_code,

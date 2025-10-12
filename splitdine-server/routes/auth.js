@@ -185,7 +185,7 @@ router.post('/register', async (req, res) => {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { name, email, password } = req.body;
+    const { name, email, password, session_id } = req.body;
 
     // Check if all required fields are present
     if (!name || !email || !password) {
@@ -243,11 +243,33 @@ router.post('/register', async (req, res) => {
     const newUser = result.rows[0];
 
     // =============================================================================
+    // Link existing anonymous memberships to new user account
+    // =============================================================================
+    if (session_id) {
+      await query(
+        `UPDATE user_event_memberships
+         SET app_user_id = $1
+         WHERE user_id = $2 AND app_user_id IS NULL`,
+        [newUser.id, session_id]
+      );
+    }
+
+    // =============================================================================
+    // Generate JWT token
+    // =============================================================================
+    const token = generateToken({
+      id: newUser.id,
+      email: newUser.email,
+      name: newUser.name
+    });
+
+    // =============================================================================
     // Return success response
     // =============================================================================
     responseData = {
       return_code: 'SUCCESS',
       message: 'User registered successfully',
+      token: token,
       user: {
         id: newUser.id,
         name: newUser.name,
@@ -697,16 +719,53 @@ router.post('/delete_account', async (req, res) => {
     // =============================================================================
     // Delete account and associated data
     // =============================================================================
-    // Note: Database has ON DELETE CASCADE for related records
-    // This will automatically delete:
-    // - user_event_memberships where app_user_id = user.id
-    // - events where user_id = user.id (and their related data)
+    // Manual cleanup of all related records (in correct order to avoid foreign key issues)
+
+    // Step 1: Get all events owned by this user
+    const userEvents = await query(
+      'SELECT id FROM events WHERE user_id = $1',
+      [decoded.id]
+    );
+
+    // Step 2: For each event, delete all related data
+    for (const event of userEvents.rows) {
+      // Delete guest_items for all guests in this event
+      await query(
+        `DELETE FROM guest_items
+         WHERE guest_id IN (SELECT id FROM guests WHERE event_id = $1)`,
+        [event.id]
+      );
+
+      // Delete guests for this event
+      await query(
+        'DELETE FROM guests WHERE event_id = $1',
+        [event.id]
+      );
+
+      // Delete user_event_memberships for this event (all users)
+      await query(
+        'DELETE FROM user_event_memberships WHERE event_id = $1',
+        [event.id]
+      );
+    }
+
+    // Step 3: Delete the events owned by this user
+    await query(
+      'DELETE FROM events WHERE user_id = $1',
+      [decoded.id]
+    );
+
+    // Step 4: Delete user_event_memberships where this user is a member (but not owner)
+    await query(
+      'DELETE FROM user_event_memberships WHERE app_user_id = $1',
+      [decoded.id]
+    );
+
+    // Step 5: Finally, delete the user account
     await query(
       'DELETE FROM app_user WHERE id = $1',
       [decoded.id]
     );
-
-    console.log(`✓ User account deleted (ID: ${decoded.id})`);
 
     // =============================================================================
     // Return success response

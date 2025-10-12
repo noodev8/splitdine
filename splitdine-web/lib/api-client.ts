@@ -434,10 +434,13 @@ export interface AuthResponse {
  * @returns {Promise<AuthResponse>} - Registration response
  */
 export const register = async (name: string, email: string, password: string): Promise<AuthResponse> => {
+  const sessionId = await ensureSession();
+
   const response = await apiCall<AuthResponse>('/api/auth/register', {
     name,
     email,
-    password
+    password,
+    session_id: sessionId
   });
 
   if (response.return_code === 'SUCCESS' && response.token) {

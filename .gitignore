@@ -74,6 +74,7 @@ splitdine-ocr-6921886ed122.json
 .claude/
 venv/
 
+
 # Environment files (keep .env.example for reference)
 .env
 .env.local
@@ -87,4 +88,4 @@ splitdine-server/.env
 splitdine-server/.env.local
 splitdine-server/.env.production
 splitdine-server/.env.development
-
+screenshot*.jpg

@@ -6,7 +6,8 @@ import {
   getCurrentUser,
   updateProfile,
   changePassword,
-  deleteAccount
+  deleteAccount,
+  logout
 } from '@/lib/api-client';
 
 export default function ProfilePage() {
@@ -114,6 +115,12 @@ export default function ProfilePage() {
     }
   };
 
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  };
+
   // Handle account deletion
   const handleDeleteAccount = async () => {
     setDeleteError('');
@@ -141,7 +148,13 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
-        <div className="text-slate-600 dark:text-slate-300">Loading...</div>
+        <div className="flex flex-col items-center gap-3">
+          <svg className="animate-spin h-8 w-8 text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <div className="text-slate-600 dark:text-slate-300 text-sm">Loading profile...</div>
+        </div>
       </div>
     );
   }
@@ -157,12 +170,12 @@ export default function ProfilePage() {
         <div className="mb-6">
           <button
             onClick={() => router.push('/')}
-            className="text-blue-600 dark:text-blue-400 hover:underline mb-4"
+            className="text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors mb-4"
           >
-            ← Back to Events
+            ← Back
           </button>
           <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
-            Account Settings
+            Profile
           </h1>
         </div>
 
@@ -329,6 +342,22 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Logout Section */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-6">
+          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
+            Session
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">
+            Sign out of your account on this device.
+          </p>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors font-medium"
+          >
+            Sign Out
+          </button>
         </div>
 
         {/* Delete Account Section */}

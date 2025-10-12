@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   createEvent as apiCreateEvent,
   joinEvent as apiJoinEvent,
@@ -14,7 +15,6 @@ import {
   deleteGuestItem as apiDeleteGuestItem,
   register as apiRegister,
   login as apiLogin,
-  logout as apiLogout,
   getCurrentUser,
   forgotPassword as apiForgotPassword
 } from '@/lib/api-client';
@@ -37,7 +37,6 @@ interface Guest {
 interface Event {
   id: string;
   name: string;
-  hostCode: string;
   guestCode: string;
   guests: Guest[];
   createdAt: number;
@@ -53,6 +52,7 @@ interface UserEventMembership {
 }
 
 export default function Home() {
+  const router = useRouter();
 
   // Event system state
   const [events, setEvents] = useState<Event[]>([]);
@@ -82,6 +82,7 @@ export default function Home() {
   const [eventName, setEventName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [joinCodeError, setJoinCodeError] = useState('');
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
 
   // Toast notification state
   const [toastMessage, setToastMessage] = useState('');
@@ -104,7 +105,6 @@ export default function Home() {
   // Bank details modal state (per-event)
   const [showBankDetailsModal, setShowBankDetailsModal] = useState(false);
   const [showBankDetails, setShowBankDetails] = useState(false);
-  const [showEventCodes, setShowEventCodes] = useState(false);
   const [editBankAccountNumber, setEditBankAccountNumber] = useState('');
   const [editBankSortCode, setEditBankSortCode] = useState('');
   const [editBankAccountName, setEditBankAccountName] = useState('');
@@ -177,7 +177,6 @@ export default function Home() {
         const convertedApiEvents: Event[] = apiEvents.map(apiEvent => ({
           id: apiEvent.id.toString(),
           name: apiEvent.name,
-          hostCode: apiEvent.host_code || '',
           guestCode: apiEvent.guest_code,
           guests: [], // Will be loaded when user opens the event
           createdAt: new Date(apiEvent.created_at).getTime(),
@@ -248,7 +247,6 @@ export default function Home() {
         setShowLoginModal(false);
         setLoginEmail('');
         setLoginPassword('');
-        showToastNotification(`Welcome back, ${response.user.name}!`);
       } else {
         setAuthError(response.message || 'Login failed');
       }
@@ -289,12 +287,6 @@ export default function Home() {
       console.error('Register error:', error);
       setAuthError('An error occurred during registration');
     }
-  };
-
-  const handleLogout = () => {
-    apiLogout();
-    setCurrentUser(null);
-    showToastNotification('Logged out successfully');
   };
 
   const handleForgotPassword = async () => {
@@ -400,7 +392,8 @@ export default function Home() {
 
   // Event functions
   const startNewEvent = async () => {
-    if (eventName.trim()) {
+    if (eventName.trim() && !isCreatingEvent) {
+      setIsCreatingEvent(true);
       try {
         // Try API first (hybrid approach)
         const apiEvent = await apiCreateEvent(eventName.trim());
@@ -409,7 +402,6 @@ export default function Home() {
         const newEvent: Event = {
           id: apiEvent.id.toString(),
           name: apiEvent.name,
-          hostCode: apiEvent.host_code || '',
           guestCode: apiEvent.guest_code,
           guests: [],
           createdAt: new Date(apiEvent.created_at).getTime(),
@@ -434,12 +426,14 @@ export default function Home() {
       } catch (error) {
         console.error('API error creating event:', error);
         showToastNotification('Failed to create event. Please check your connection.');
+      } finally {
+        setIsCreatingEvent(false);
       }
     }
   };
 
   const copyGuestCode = (code: string) => {
-    const shareMessage = `Join my SplitDine event!\n\nEvent: ${currentEvent?.name}\nGuest Code: ${code}\n\nGo to https://www.splitdine.com and enter this code to join.\n\nQuestions? Email us at info@splitdine.com`;
+    const shareMessage = `Invite guests to\nhttps://splitdine.co.uk\n\nusing event code:\n\n${code}`;
     navigator.clipboard.writeText(shareMessage);
     showToastNotification('Guest invite copied! Ready to share.');
   };
@@ -461,7 +455,6 @@ export default function Home() {
       const newEvent: Event = {
         id: apiEvent.id.toString(),
         name: apiEvent.name,
-        hostCode: apiEvent.host_code || '',
         guestCode: apiEvent.guest_code,
         guests: [],
         createdAt: new Date(apiEvent.created_at).getTime(),
@@ -862,19 +855,12 @@ export default function Home() {
           <div>
             {!currentEvent && (
               currentUser ? (
-                <div className="relative group">
-                  <button className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm">
-                    {currentUser.name}
-                  </button>
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200"
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
+                <button
+                  onClick={() => router.push('/profile')}
+                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm"
+                >
+                  Profile
+                </button>
               ) : (
                 <div className="flex items-center gap-2">
                   <button
@@ -929,9 +915,20 @@ export default function Home() {
                 </button>
                 <button
                   onClick={startNewEvent}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                  disabled={isCreatingEvent}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Start Event
+                  {isCreatingEvent ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating...
+                    </>
+                  ) : (
+                    'Start Event'
+                  )}
                 </button>
               </div>
             </div>
@@ -1866,33 +1863,66 @@ export default function Home() {
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">
                   My Events
                 </h2>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {myEvents.map((event) => (
-                    <button
+                    <div
                       key={event!.id}
-                      onClick={() => openEvent(event!.id)}
-                      className="w-full text-left p-4 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                      className="bg-slate-50 dark:bg-slate-700 rounded-lg p-6 border border-slate-200 dark:border-slate-600"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-start justify-between mb-4">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-slate-800 dark:text-slate-100 truncate">
+                          <div className="font-semibold text-lg text-slate-800 dark:text-slate-100 truncate mb-1">
                             {event!.name}
                           </div>
-                          <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                            {event!.userRole === 'host' ? (
-                              <>Host Code: {event!.hostCode}</>
-                            ) : (
-                              <>Guest Code: {event!.guestCode}</>
-                            )} · {event!.userRole === 'host' ? 'Host' : 'Guest'}
+                          <div className="text-sm text-slate-500 dark:text-slate-400">
+                            {event!.userRole === 'host' ? 'Host' : 'Guest'}
                           </div>
                         </div>
-                        <div className="flex-shrink-0 ml-4">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-400">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                          </svg>
-                        </div>
+                        <button
+                          onClick={() => openEvent(event!.id)}
+                          className="px-4 py-2 bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white rounded-lg transition-colors text-sm font-medium flex-shrink-0"
+                        >
+                          Open
+                        </button>
                       </div>
-                    </button>
+
+                      {event!.userRole === 'host' && (
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
+                          <div className="text-center mb-3">
+                            <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Invite guests to</div>
+                            <div className="text-blue-600 dark:text-blue-400 font-medium mb-3">https://splitdine.co.uk</div>
+                            <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">using event code:</div>
+                            <div className="flex items-center justify-center gap-3 mb-3">
+                              <div className="font-mono text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-wider">
+                                {event!.guestCode}
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(event!.guestCode);
+                                  showToastNotification('Code copied to clipboard');
+                                }}
+                                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded transition-colors text-sm"
+                              >
+                                Copy Code
+                              </button>
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyGuestCode(event!.guestCode);
+                            }}
+                            className="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                            </svg>
+                            Copy Message (WhatsApp, email, etc.)
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -2403,69 +2433,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Event Codes - Footer Section */}
-            <div className="mt-6 mb-4 space-y-2">
-              <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
-                <button
-                  onClick={() => setShowEventCodes(!showEventCodes)}
-                  className="w-full flex items-center justify-between mb-2"
-                >
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    Event Codes
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                      className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${showEventCodes ? 'rotate-180' : ''}`}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </div>
-                </button>
-
-                {showEventCodes && (
-                  <div className="space-y-2">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded p-2">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
-                            Guest Code
-                          </div>
-                          <div className="font-mono text-sm text-slate-700 dark:text-slate-200 tracking-wide">
-                            {currentEvent.guestCode}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(currentEvent.guestCode);
-                            showToastNotification('Guest code copied to clipboard.');
-                          }}
-                          className="ml-3 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      {userRole === 'host' && (
-                        <button
-                          onClick={() => copyGuestCode(currentEvent.guestCode)}
-                          className="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs rounded transition-colors flex items-center justify-center gap-2"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-                          </svg>
-                          Copy text to share on WhatsApp or messaging
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {userRole === 'host' && (
+            {userRole === 'host' && (
+              <div className="mt-6 mb-4">
                 <button
                   onClick={() => setShowDeleteConfirmModal(true)}
                   className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors text-xs flex items-center justify-center gap-2"
@@ -2475,8 +2444,8 @@ export default function Home() {
                   </svg>
                   Delete Event
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
 
