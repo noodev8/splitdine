@@ -1,6 +1,0 @@
-{
-  "buildCommand": "cd splitdine-web && npm run build",
-  "outputDirectory": "splitdine-web/.next",
-  "framework": "nextjs",
-  "installCommand": "cd splitdine-web && npm install"
-}
