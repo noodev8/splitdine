@@ -185,7 +185,7 @@ router.post('/register', async (req, res) => {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { name, email, password, session_id } = req.body;
+    const { name, email, password } = req.body;
 
     // Check if all required fields are present
     if (!name || !email || !password) {
@@ -241,18 +241,6 @@ router.post('/register', async (req, res) => {
     );
 
     const newUser = result.rows[0];
-
-    // =============================================================================
-    // Link existing anonymous memberships to new user account
-    // =============================================================================
-    if (session_id) {
-      await query(
-        `UPDATE user_event_memberships
-         SET app_user_id = $1
-         WHERE user_id = $2 AND app_user_id IS NULL`,
-        [newUser.id, session_id]
-      );
-    }
 
     // =============================================================================
     // Generate JWT token

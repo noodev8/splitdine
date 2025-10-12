@@ -7,6 +7,7 @@ import {
   joinEvent as apiJoinEvent,
   getMyEvents as apiGetMyEvents,
   updateBankDetails as apiUpdateBankDetails,
+  leaveEvent as apiLeaveEvent,
   getGuests as apiGetGuests,
   addGuest as apiAddGuest,
   updateGuest as apiUpdateGuest,
@@ -166,9 +167,15 @@ export default function Home() {
     setCurrentUser(user);
   }, []);
 
-  // Load events and memberships from API on mount
+  // Load events and memberships from API when user logs in
   useEffect(() => {
     const loadEvents = async () => {
+      // Only load events if user is logged in
+      if (!currentUser) {
+        setIsLoadingEvents(false);
+        return;
+      }
+
       setIsLoadingEvents(true);
 
       try {
@@ -204,7 +211,7 @@ export default function Home() {
     };
 
     loadEvents();
-  }, []);
+  }, [currentUser]);
 
   // Update current event's guests whenever guests change
   useEffect(() => {
@@ -521,6 +528,29 @@ export default function Home() {
       } else {
         setJoinCodeError('Failed to join event. Please check your connection.');
       }
+    }
+  };
+
+  const leaveEventAsGuest = async () => {
+    if (!currentEventId || userRole !== 'guest') return;
+
+    try {
+      // Call API to remove membership
+      await apiLeaveEvent(parseInt(currentEventId));
+
+      // Remove event from local state
+      setEvents(events.filter(e => e.id !== currentEventId));
+      setUserMemberships(userMemberships.filter(m => m.eventId !== currentEventId));
+
+      // Navigate back to home
+      setCurrentEventId(null);
+      setUserRole(null);
+      setGuests([]);
+
+      showToastNotification('Left event successfully');
+    } catch (error) {
+      console.error('Error leaving event:', error);
+      showToastNotification('Failed to leave event');
     }
   };
 
@@ -1217,7 +1247,7 @@ export default function Home() {
                 Create an Account
               </h2>
               <p className="text-slate-600 dark:text-slate-300 mb-6">
-                To create events, please register for a free account. This allows you to access your events from any device and ensures you never lose your data.
+                To create or join events, please register for a free account. This allows you to access your events from any device and ensures you never lose your data.
               </p>
               <div className="flex flex-col gap-3">
                 <button
@@ -1543,8 +1573,12 @@ export default function Home() {
               </button>
               <button
                 onClick={() => {
-                  setShowJoinEventModal(true);
-                  setTimeout(() => joinCodeRef.current?.focus(), 0);
+                  if (currentUser) {
+                    setShowJoinEventModal(true);
+                    setTimeout(() => joinCodeRef.current?.focus(), 0);
+                  } else {
+                    setShowRegisterRequiredModal(true);
+                  }
                 }}
                 className="w-full sm:w-auto px-8 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium rounded transition-colors"
               >
@@ -1870,8 +1904,12 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => {
-                      setShowJoinEventModal(true);
-                      setTimeout(() => joinCodeRef.current?.focus(), 0);
+                      if (currentUser) {
+                        setShowJoinEventModal(true);
+                        setTimeout(() => joinCodeRef.current?.focus(), 0);
+                      } else {
+                        setShowRegisterRequiredModal(true);
+                      }
                     }}
                     className="w-full sm:w-auto px-8 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium rounded transition-colors"
                   >
@@ -2482,6 +2520,20 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                   </svg>
                   Delete Event
+                </button>
+              </div>
+            )}
+
+            {userRole === 'guest' && (
+              <div className="mt-6 mb-4">
+                <button
+                  onClick={leaveEventAsGuest}
+                  className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors text-xs flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                  </svg>
+                  Leave Event
                 </button>
               </div>
             )}

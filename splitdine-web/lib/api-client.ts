@@ -52,75 +52,6 @@ export interface Guest {
 }
 
 // =============================================================================
-// Session Management
-// =============================================================================
-/**
- * Generate a UUID v4 compatible with all browsers
- * @returns {string} - UUID string
- */
-const generateUUID = (): string => {
-  // Try modern crypto.randomUUID if available
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-
-  // Fallback for older browsers (including mobile)
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
-
-/**
- * Gets the current session ID from localStorage
- * @returns {string | null} - Session ID or null if not found
- */
-export const getSessionId = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('session_id');
-};
-
-/**
- * Saves session ID to localStorage
- * @param {string} sessionId - The session ID to save
- */
-export const setSessionId = (sessionId: string): void => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('session_id', sessionId);
-};
-
-/**
- * Creates a new anonymous session or retrieves existing one
- * @returns {Promise<string>} - Session ID
- */
-export const ensureSession = async (): Promise<string> => {
-  // Check if we already have a session
-  const existingSession = getSessionId();
-  if (existingSession) {
-    return existingSession;
-  }
-
-  // Create new session via API
-  try {
-    const response = await apiCall<ApiResponse & { session_id: string }>('/api/session/create', {});
-
-    if (response.return_code === 'SUCCESS' && response.session_id) {
-      setSessionId(response.session_id);
-      return response.session_id;
-    }
-
-    throw new Error('Failed to create session');
-  } catch (error) {
-    console.error('Error creating session:', error);
-    // Fallback: generate UUID on client side (compatible with all browsers)
-    const fallbackSessionId = generateUUID();
-    setSessionId(fallbackSessionId);
-    return fallbackSessionId;
-  }
-};
-
-// =============================================================================
 // Core API Call Function
 // =============================================================================
 /**
@@ -169,6 +100,7 @@ export const apiCall = async <T = ApiResponse>(
 // =============================================================================
 /**
  * Creates a new event
+ * Requires authentication.
  * @param {string} eventName - Name of the event
  * @param {string} bankAccountNumber - Bank account number (optional)
  * @param {string} bankSortCode - Bank sort code (optional)
@@ -181,10 +113,7 @@ export const createEvent = async (
   bankSortCode?: string,
   bankAccountName?: string
 ): Promise<Event> => {
-  const sessionId = await ensureSession();
-
   const response = await apiCall<ApiResponse & { event: Event }>('/api/events/create', {
-    session_id: sessionId,
     event_name: eventName,
     bank_account_number: bankAccountNumber,
     bank_sort_code: bankSortCode,
@@ -199,16 +128,14 @@ export const createEvent = async (
 };
 
 /**
- * Joins an existing event using a code
- * @param {string} code - Host or guest code
+ * Joins an existing event using a guest code
+ * Requires authentication.
+ * @param {string} code - Guest code
  * @returns {Promise<{success: boolean, event?: Event, error?: string}>} - Result with event or error
  */
 export const joinEvent = async (code: string): Promise<{success: boolean, event?: Event, error?: string, return_code?: string}> => {
   try {
-    const sessionId = await ensureSession();
-
     const response = await apiCall<ApiResponse & { event: Event }>('/api/events/join', {
-      session_id: sessionId,
       code: code.trim().toUpperCase(),
     });
 
@@ -234,15 +161,12 @@ export const joinEvent = async (code: string): Promise<{success: boolean, event?
 };
 
 /**
- * Retrieves all events the user is a member of
+ * Retrieves all events the authenticated user is a member of
+ * Requires authentication.
  * @returns {Promise<Event[]>} - Array of events
  */
 export const getMyEvents = async (): Promise<Event[]> => {
-  const sessionId = await ensureSession();
-
-  const response = await apiCall<ApiResponse & { events: Event[] }>('/api/events/get_my_events', {
-    session_id: sessionId,
-  });
+  const response = await apiCall<ApiResponse & { events: Event[] }>('/api/events/get_my_events', {});
 
   if (response.return_code !== 'SUCCESS') {
     throw new Error(response.message || 'Failed to retrieve events');
@@ -253,6 +177,7 @@ export const getMyEvents = async (): Promise<Event[]> => {
 
 /**
  * Updates bank details for an event (host only)
+ * Requires authentication.
  * @param {number} eventId - Event ID
  * @param {string} bankAccountNumber - Bank account number (optional)
  * @param {string} bankSortCode - Bank sort code (optional)
@@ -265,10 +190,7 @@ export const updateBankDetails = async (
   bankSortCode?: string,
   bankAccountName?: string
 ): Promise<{bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}> => {
-  const sessionId = await ensureSession();
-
   const response = await apiCall<ApiResponse & { event: {id: number, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string} }>('/api/events/update_bank_details', {
-    session_id: sessionId,
     event_id: eventId,
     bank_account_number: bankAccountNumber,
     bank_sort_code: bankSortCode,
@@ -282,20 +204,36 @@ export const updateBankDetails = async (
   return response.event;
 };
 
+/**
+ * Leaves an event (guest only)
+ * Requires authentication.
+ * @param {number} eventId - Event ID
+ * @returns {Promise<ApiResponse>} - Leave event response
+ */
+export const leaveEvent = async (eventId: number): Promise<ApiResponse> => {
+  const response = await apiCall<ApiResponse>('/api/events/leave_event', {
+    event_id: eventId,
+  });
+
+  if (response.return_code !== 'SUCCESS') {
+    throw new Error(response.message || 'Failed to leave event');
+  }
+
+  return response;
+};
+
 // =============================================================================
 // Guest API Functions
 // =============================================================================
 /**
  * Retrieves all guests for a specific event
+ * Requires authentication.
  * @param {number} eventId - Event ID
  * @returns {Promise<{success: boolean, guests?: Guest[], error?: string}>} - Result with guests or error
  */
 export const getGuests = async (eventId: number): Promise<{success: boolean, guests?: Guest[], error?: string}> => {
   try {
-    const sessionId = await ensureSession();
-
     const response = await apiCall<ApiResponse & { guests: Guest[] }>('/api/guests/get_guests', {
-      session_id: sessionId,
       event_id: eventId,
     });
 
@@ -321,6 +259,7 @@ export const getGuests = async (eventId: number): Promise<{success: boolean, gue
 
 /**
  * Adds a new guest to an event
+ * Requires authentication.
  * @param {number} eventId - Event ID
  * @param {string} name - Guest name
  * @param {number} amount - Total bill amount (optional)
@@ -333,10 +272,7 @@ export const addGuest = async (
   amount?: number,
   deposit?: number
 ): Promise<Guest> => {
-  const sessionId = await ensureSession();
-
   const response = await apiCall<ApiResponse & { guest: Guest }>('/api/guests/add_guest', {
-    session_id: sessionId,
     event_id: eventId,
     name: name,
     amount: amount || 0,
@@ -352,6 +288,7 @@ export const addGuest = async (
 
 /**
  * Updates guest details
+ * Requires authentication.
  * @param {number} guestId - Guest ID
  * @param {object} updates - Fields to update
  * @returns {Promise<Guest>} - Updated guest
@@ -366,10 +303,7 @@ export const updateGuest = async (
     paid?: boolean;
   }
 ): Promise<Guest> => {
-  const sessionId = await ensureSession();
-
   const response = await apiCall<ApiResponse & { guest: Guest }>('/api/guests/update_guest', {
-    session_id: sessionId,
     guest_id: guestId,
     ...updates,
   });
@@ -383,14 +317,12 @@ export const updateGuest = async (
 
 /**
  * Deletes a guest from an event
+ * Requires authentication.
  * @param {number} guestId - Guest ID
  * @returns {Promise<void>}
  */
 export const deleteGuest = async (guestId: number): Promise<void> => {
-  const sessionId = await ensureSession();
-
   const response = await apiCall<ApiResponse>('/api/guests/delete_guest', {
-    session_id: sessionId,
     guest_id: guestId,
   });
 
@@ -401,15 +333,13 @@ export const deleteGuest = async (guestId: number): Promise<void> => {
 
 /**
  * Adds an item to a guest
+ * Requires authentication.
  * @param {number} guestId - Guest ID
  * @param {string} note - Item note/description
  * @returns {Promise<GuestItem>} - Created item
  */
 export const addGuestItem = async (guestId: number, note: string): Promise<GuestItem> => {
-  const sessionId = await ensureSession();
-
   const response = await apiCall<ApiResponse & { item: GuestItem }>('/api/guests/add_item', {
-    session_id: sessionId,
     guest_id: guestId,
     note: note,
   });
@@ -423,14 +353,12 @@ export const addGuestItem = async (guestId: number, note: string): Promise<Guest
 
 /**
  * Deletes an item from a guest
+ * Requires authentication.
  * @param {number} itemId - Item ID
  * @returns {Promise<void>}
  */
 export const deleteGuestItem = async (itemId: number): Promise<void> => {
-  const sessionId = await ensureSession();
-
   const response = await apiCall<ApiResponse>('/api/guests/delete_item', {
-    session_id: sessionId,
     item_id: itemId,
   });
 
@@ -466,13 +394,10 @@ export interface AuthResponse {
  * @returns {Promise<AuthResponse>} - Registration response
  */
 export const register = async (name: string, email: string, password: string): Promise<AuthResponse> => {
-  const sessionId = await ensureSession();
-
   const response = await apiCall<AuthResponse>('/api/auth/register', {
     name,
     email,
-    password,
-    session_id: sessionId
+    password
   });
 
   if (response.return_code === 'SUCCESS' && response.token) {

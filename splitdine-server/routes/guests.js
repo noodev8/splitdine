@@ -4,74 +4,30 @@ Guests Routes
 =======================================================================================================================================
 Purpose: Handles all guest-related operations including adding, updating, deleting guests and their items.
          Guests represent participants in a dining event.
+         All routes require authentication.
 =======================================================================================================================================
 */
 
 const express = require('express');
 const { query } = require('../database');
 const { withTransaction } = require('../utils/transaction');
+const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
-
-// =============================================================================
-// Optional Authentication Middleware
-// =============================================================================
-/**
- * Middleware that attempts to verify JWT token if present
- * Unlike verifyToken, this doesn't fail if no token - just adds req.user if valid
- */
-const optionalAuth = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-
-  if (!authHeader) {
-    return next();
-  }
-
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return next();
-  }
-
-  const token = parts[1];
-  const jwt = require('jsonwebtoken');
-  const config = require('../config/config');
-
-  try {
-    const decoded = jwt.verify(token, config.jwt.secret);
-    req.user = decoded;
-  } catch (error) {
-    // Invalid/expired token - continue as anonymous
-  }
-
-  next();
-};
 
 // =============================================================================
 // Helper function to check event membership
 // =============================================================================
 /**
- * Checks if user is a member of an event
- * For authenticated users: checks by app_user_id
- * For anonymous users: checks by session_id (user_id) with app_user_id IS NULL
+ * Checks if authenticated user is a member of an event by app_user_id
  */
-const checkMembership = async (session_id, event_id, userId) => {
-  if (userId) {
-    // Authenticated user - check by app_user_id
-    const result = await query(
-      `SELECT id FROM user_event_memberships
-       WHERE app_user_id = $1 AND event_id = $2`,
-      [userId, event_id]
-    );
-    return result.rows.length > 0;
-  } else {
-    // Anonymous user - check by session_id
-    const result = await query(
-      `SELECT id FROM user_event_memberships
-       WHERE user_id = $1 AND event_id = $2 AND app_user_id IS NULL`,
-      [session_id, event_id]
-    );
-    return result.rows.length > 0;
-  }
+const checkMembership = async (userId, event_id) => {
+  const result = await query(
+    `SELECT id FROM user_event_memberships
+     WHERE app_user_id = $1 AND event_id = $2`,
+    [userId, event_id]
+  );
+  return result.rows.length > 0;
 };
 
 /*
@@ -80,10 +36,10 @@ API Route: get_guests
 =======================================================================================================================================
 Method: POST
 Purpose: Retrieves all guests for a specific event, including their items.
+         Requires authentication.
 =======================================================================================================================================
 Request Payload:
 {
-  "session_id": "550e8400-e29b-41d4-a716-446655440000",  // string, required
   "event_id": 123                                        // integer, required
 }
 
@@ -113,28 +69,29 @@ Return Codes:
 "SUCCESS"
 "MISSING_FIELDS"
 "NOT_MEMBER"
+"UNAUTHORIZED"
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/get_guests', optionalAuth, async (req, res) => {
+router.post('/get_guests', verifyToken, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { session_id, event_id } = req.body;
+    const { event_id } = req.body;
+    const userId = req.user.id; // User is authenticated
 
-    if (!session_id || !event_id) {
+    if (!event_id) {
       return res.status(200).json({
         return_code: 'MISSING_FIELDS',
-        message: 'session_id and event_id are required'
+        message: 'event_id is required'
       });
     }
 
     // =============================================================================
     // Verify user is a member of the event
     // =============================================================================
-    const userId = req.user ? req.user.id : null;
-    const isMember = await checkMembership(session_id, event_id, userId);
+    const isMember = await checkMembership(userId, event_id);
 
     if (!isMember) {
       return res.status(200).json({
@@ -239,17 +196,18 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/add_guest', optionalAuth, async (req, res) => {
+router.post('/add_guest', verifyToken, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { session_id, event_id, name, amount = 0, deposit = 0 } = req.body;
+    const { event_id, name, amount = 0, deposit = 0 } = req.body;
+    const userId = req.user.id; // User is authenticated
 
-    if (!session_id || !event_id || !name) {
+    if (!event_id || !name) {
       return res.status(200).json({
         return_code: 'MISSING_FIELDS',
-        message: 'session_id, event_id, and name are required'
+        message: 'event_id and name are required'
       });
     }
 
@@ -264,8 +222,7 @@ router.post('/add_guest', optionalAuth, async (req, res) => {
     // =============================================================================
     // Verify user is a member of the event
     // =============================================================================
-    const userId = req.user ? req.user.id : null;
-    const isMember = await checkMembership(session_id, event_id, userId);
+    const isMember = await checkMembership(userId, event_id);
 
     if (!isMember) {
       return res.status(200).json({
@@ -357,17 +314,18 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/update_guest', optionalAuth, async (req, res) => {
+router.post('/update_guest', verifyToken, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { session_id, guest_id, name, amount, deposit, notes, paid } = req.body;
+    const { guest_id, name, amount, deposit, notes, paid } = req.body;
+    const userId = req.user.id; // User is authenticated
 
-    if (!session_id || !guest_id) {
+    if (!guest_id) {
       return res.status(200).json({
         return_code: 'MISSING_FIELDS',
-        message: 'session_id and guest_id are required'
+        message: 'guest_id is required'
       });
     }
 
@@ -391,8 +349,7 @@ router.post('/update_guest', optionalAuth, async (req, res) => {
     const guest = guestResult.rows[0];
 
     // Verify user is a member of the event
-    const userId = req.user ? req.user.id : null;
-    const isMember = await checkMembership(session_id, guest.event_id, userId);
+    const isMember = await checkMembership(userId, guest.event_id);
 
     if (!isMember) {
       return res.status(200).json({
@@ -526,17 +483,18 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/delete_guest', optionalAuth, async (req, res) => {
+router.post('/delete_guest', verifyToken, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { session_id, guest_id } = req.body;
+    const { guest_id } = req.body;
+    const userId = req.user.id; // User is authenticated
 
-    if (!session_id || !guest_id) {
+    if (!guest_id) {
       return res.status(200).json({
         return_code: 'MISSING_FIELDS',
-        message: 'session_id and guest_id are required'
+        message: 'guest_id is required'
       });
     }
 
@@ -558,8 +516,7 @@ router.post('/delete_guest', optionalAuth, async (req, res) => {
     const eventId = guestResult.rows[0].event_id;
 
     // Verify user is a member of the event
-    const userId = req.user ? req.user.id : null;
-    const isMember = await checkMembership(session_id, eventId, userId);
+    const isMember = await checkMembership(userId, eventId);
 
     if (!isMember) {
       return res.status(200).json({
@@ -637,17 +594,18 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/add_item', optionalAuth, async (req, res) => {
+router.post('/add_item', verifyToken, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { session_id, guest_id, note } = req.body;
+    const { guest_id, note } = req.body;
+    const userId = req.user.id; // User is authenticated
 
-    if (!session_id || !guest_id || !note) {
+    if (!guest_id || !note) {
       return res.status(200).json({
         return_code: 'MISSING_FIELDS',
-        message: 'session_id, guest_id, and note are required'
+        message: 'guest_id and note are required'
       });
     }
 
@@ -677,8 +635,7 @@ router.post('/add_item', optionalAuth, async (req, res) => {
     const eventId = guestResult.rows[0].event_id;
 
     // Verify user is a member of the event
-    const userId = req.user ? req.user.id : null;
-    const isMember = await checkMembership(session_id, eventId, userId);
+    const isMember = await checkMembership(userId, eventId);
 
     if (!isMember) {
       return res.status(200).json({
@@ -750,17 +707,18 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/delete_item', optionalAuth, async (req, res) => {
+router.post('/delete_item', verifyToken, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { session_id, item_id } = req.body;
+    const { item_id } = req.body;
+    const userId = req.user.id; // User is authenticated
 
-    if (!session_id || !item_id) {
+    if (!item_id) {
       return res.status(200).json({
         return_code: 'MISSING_FIELDS',
-        message: 'session_id and item_id are required'
+        message: 'item_id is required'
       });
     }
 
@@ -785,8 +743,7 @@ router.post('/delete_item', optionalAuth, async (req, res) => {
     const item = itemResult.rows[0];
 
     // Verify user is a member of the event
-    const userId = req.user ? req.user.id : null;
-    const isMember = await checkMembership(session_id, item.event_id, userId);
+    const isMember = await checkMembership(userId, item.event_id);
 
     if (!isMember) {
       return res.status(200).json({

@@ -74,8 +74,6 @@ const verifyToken = (req, res, next) => {
       // This makes user data available to all subsequent middleware and route handlers
       req.user = decoded;
 
-      console.log(`✓ Token verified for user ID: ${decoded.id}`);
-
       // Proceed to next middleware/route handler
       next();
     });
