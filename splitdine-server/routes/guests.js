@@ -13,6 +13,67 @@ const { withTransaction } = require('../utils/transaction');
 
 const router = express.Router();
 
+// =============================================================================
+// Optional Authentication Middleware
+// =============================================================================
+/**
+ * Middleware that attempts to verify JWT token if present
+ * Unlike verifyToken, this doesn't fail if no token - just adds req.user if valid
+ */
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+
+  if (!authHeader) {
+    return next();
+  }
+
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return next();
+  }
+
+  const token = parts[1];
+  const jwt = require('jsonwebtoken');
+  const config = require('../config/config');
+
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret);
+    req.user = decoded;
+  } catch (error) {
+    // Invalid/expired token - continue as anonymous
+  }
+
+  next();
+};
+
+// =============================================================================
+// Helper function to check event membership
+// =============================================================================
+/**
+ * Checks if user is a member of an event
+ * For authenticated users: checks by app_user_id
+ * For anonymous users: checks by session_id (user_id) with app_user_id IS NULL
+ */
+const checkMembership = async (session_id, event_id, userId) => {
+  if (userId) {
+    // Authenticated user - check by app_user_id
+    const result = await query(
+      `SELECT id FROM user_event_memberships
+       WHERE app_user_id = $1 AND event_id = $2`,
+      [userId, event_id]
+    );
+    return result.rows.length > 0;
+  } else {
+    // Anonymous user - check by session_id
+    const result = await query(
+      `SELECT id FROM user_event_memberships
+       WHERE user_id = $1 AND event_id = $2 AND app_user_id IS NULL`,
+      [session_id, event_id]
+    );
+    return result.rows.length > 0;
+  }
+};
+
 /*
 =======================================================================================================================================
 API Route: get_guests
@@ -55,7 +116,7 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/get_guests', async (req, res) => {
+router.post('/get_guests', optionalAuth, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
@@ -72,13 +133,10 @@ router.post('/get_guests', async (req, res) => {
     // =============================================================================
     // Verify user is a member of the event
     // =============================================================================
-    const membershipCheck = await query(
-      `SELECT id FROM user_event_memberships
-       WHERE user_id = $1 AND event_id = $2`,
-      [session_id, event_id]
-    );
+    const userId = req.user ? req.user.id : null;
+    const isMember = await checkMembership(session_id, event_id, userId);
 
-    if (membershipCheck.rows.length === 0) {
+    if (!isMember) {
       return res.status(200).json({
         return_code: 'NOT_MEMBER',
         message: 'You are not a member of this event'
@@ -181,7 +239,7 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/add_guest', async (req, res) => {
+router.post('/add_guest', optionalAuth, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
@@ -206,13 +264,10 @@ router.post('/add_guest', async (req, res) => {
     // =============================================================================
     // Verify user is a member of the event
     // =============================================================================
-    const membershipCheck = await query(
-      `SELECT id FROM user_event_memberships
-       WHERE user_id = $1 AND event_id = $2`,
-      [session_id, event_id]
-    );
+    const userId = req.user ? req.user.id : null;
+    const isMember = await checkMembership(session_id, event_id, userId);
 
-    if (membershipCheck.rows.length === 0) {
+    if (!isMember) {
       return res.status(200).json({
         return_code: 'NOT_MEMBER',
         message: 'You are not a member of this event'
@@ -302,7 +357,7 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/update_guest', async (req, res) => {
+router.post('/update_guest', optionalAuth, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
@@ -336,13 +391,10 @@ router.post('/update_guest', async (req, res) => {
     const guest = guestResult.rows[0];
 
     // Verify user is a member of the event
-    const membershipCheck = await query(
-      `SELECT id FROM user_event_memberships
-       WHERE user_id = $1 AND event_id = $2`,
-      [session_id, guest.event_id]
-    );
+    const userId = req.user ? req.user.id : null;
+    const isMember = await checkMembership(session_id, guest.event_id, userId);
 
-    if (membershipCheck.rows.length === 0) {
+    if (!isMember) {
       return res.status(200).json({
         return_code: 'NOT_MEMBER',
         message: 'You are not a member of this event'
@@ -474,7 +526,7 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/delete_guest', async (req, res) => {
+router.post('/delete_guest', optionalAuth, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
@@ -506,13 +558,10 @@ router.post('/delete_guest', async (req, res) => {
     const eventId = guestResult.rows[0].event_id;
 
     // Verify user is a member of the event
-    const membershipCheck = await query(
-      `SELECT id FROM user_event_memberships
-       WHERE user_id = $1 AND event_id = $2`,
-      [session_id, eventId]
-    );
+    const userId = req.user ? req.user.id : null;
+    const isMember = await checkMembership(session_id, eventId, userId);
 
-    if (membershipCheck.rows.length === 0) {
+    if (!isMember) {
       return res.status(200).json({
         return_code: 'NOT_MEMBER',
         message: 'You are not a member of this event'
@@ -588,7 +637,7 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/add_item', async (req, res) => {
+router.post('/add_item', optionalAuth, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
@@ -628,13 +677,10 @@ router.post('/add_item', async (req, res) => {
     const eventId = guestResult.rows[0].event_id;
 
     // Verify user is a member of the event
-    const membershipCheck = await query(
-      `SELECT id FROM user_event_memberships
-       WHERE user_id = $1 AND event_id = $2`,
-      [session_id, eventId]
-    );
+    const userId = req.user ? req.user.id : null;
+    const isMember = await checkMembership(session_id, eventId, userId);
 
-    if (membershipCheck.rows.length === 0) {
+    if (!isMember) {
       return res.status(200).json({
         return_code: 'NOT_MEMBER',
         message: 'You are not a member of this event'
@@ -704,7 +750,7 @@ Return Codes:
 "SERVER_ERROR"
 =======================================================================================================================================
 */
-router.post('/delete_item', async (req, res) => {
+router.post('/delete_item', optionalAuth, async (req, res) => {
   try {
     // =============================================================================
     // Extract and validate request data
@@ -739,13 +785,10 @@ router.post('/delete_item', async (req, res) => {
     const item = itemResult.rows[0];
 
     // Verify user is a member of the event
-    const membershipCheck = await query(
-      `SELECT id FROM user_event_memberships
-       WHERE user_id = $1 AND event_id = $2`,
-      [session_id, item.event_id]
-    );
+    const userId = req.user ? req.user.id : null;
+    const isMember = await checkMembership(session_id, item.event_id, userId);
 
-    if (membershipCheck.rows.length === 0) {
+    if (!isMember) {
       return res.status(200).json({
         return_code: 'NOT_MEMBER',
         message: 'You are not a member of this event'

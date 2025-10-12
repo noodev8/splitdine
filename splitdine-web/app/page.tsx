@@ -130,34 +130,34 @@ export default function Home() {
 
   // Helper function to load guests for an event (hybrid approach)
   const loadGuestsForEvent = async (eventId: string): Promise<Guest[]> => {
-    try {
-      const apiGuests = await apiGetGuests(parseInt(eventId));
+    const result = await apiGetGuests(parseInt(eventId));
 
-      // Convert API guests to local format
-      const convertedApiGuests: Guest[] = apiGuests.map(apiGuest => ({
-        id: apiGuest.id.toString(),
-        name: apiGuest.name,
-        amount: apiGuest.amount,
-        deposit: apiGuest.deposit,
-        items: apiGuest.items.map(item => ({
-          id: item.id.toString(),
-          note: item.note
-        })),
-        notes: apiGuest.notes,
-        paid: apiGuest.paid
-      }));
-
-      // Update event with API guests
-      setEvents(prev => prev.map(e =>
-        e.id === eventId ? { ...e, guests: convertedApiGuests } : e
-      ));
-
-      return convertedApiGuests;
-    } catch (error) {
-      console.error('Error loading guests from API:', error);
-      showToastNotification('Failed to load guests. Please try again.');
+    if (!result.success) {
+      // Show error to user with toast notification
+      showToastNotification(result.error || 'Failed to load guests');
       return [];
     }
+
+    // Convert API guests to local format
+    const convertedApiGuests: Guest[] = result.guests!.map(apiGuest => ({
+      id: apiGuest.id.toString(),
+      name: apiGuest.name,
+      amount: apiGuest.amount,
+      deposit: apiGuest.deposit,
+      items: apiGuest.items.map(item => ({
+        id: item.id.toString(),
+        note: item.note
+      })),
+      notes: apiGuest.notes,
+      paid: apiGuest.paid
+    }));
+
+    // Update event with API guests
+    setEvents(prev => prev.map(e =>
+      e.id === eventId ? { ...e, guests: convertedApiGuests } : e
+    ));
+
+    return convertedApiGuests;
   };
 
   // Load current user on mount

@@ -288,21 +288,35 @@ export const updateBankDetails = async (
 /**
  * Retrieves all guests for a specific event
  * @param {number} eventId - Event ID
- * @returns {Promise<Guest[]>} - Array of guests with their items
+ * @returns {Promise<{success: boolean, guests?: Guest[], error?: string}>} - Result with guests or error
  */
-export const getGuests = async (eventId: number): Promise<Guest[]> => {
-  const sessionId = await ensureSession();
+export const getGuests = async (eventId: number): Promise<{success: boolean, guests?: Guest[], error?: string}> => {
+  try {
+    const sessionId = await ensureSession();
 
-  const response = await apiCall<ApiResponse & { guests: Guest[] }>('/api/guests/get_guests', {
-    session_id: sessionId,
-    event_id: eventId,
-  });
+    const response = await apiCall<ApiResponse & { guests: Guest[] }>('/api/guests/get_guests', {
+      session_id: sessionId,
+      event_id: eventId,
+    });
 
-  if (response.return_code !== 'SUCCESS') {
-    throw new Error(response.message || 'Failed to retrieve guests');
+    if (response.return_code !== 'SUCCESS') {
+      return {
+        success: false,
+        error: response.message || 'Failed to retrieve guests'
+      };
+    }
+
+    return {
+      success: true,
+      guests: response.guests || []
+    };
+  } catch {
+    // Only network errors reach here
+    return {
+      success: false,
+      error: 'Network error - please check your connection'
+    };
   }
-
-  return response.guests || [];
 };
 
 /**
