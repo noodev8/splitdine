@@ -1,0 +1,7 @@
+== splitdine
+cd /apps/splitdine/
+git pull
+rsync -av --delete --exclude='.env' --exclude='node_modules' --exclude='.git' --exclude='tests' --exclude='docs' --exclude='.github' /apps/splitdine/splitdine-server/ /apps/production/splitdine-server/
+cd /apps/production/splitdine-server
+npm install
+pm2 restart server.js --name splitdine_prod
