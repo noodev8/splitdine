@@ -178,8 +178,14 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // Start Server
 // =============================================================================
 const PORT = config.server.port;
+const HOST = '0.0.0.0'; // Listen on all network interfaces
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
+  const localUrl = `http://localhost:${PORT}`;
+  const networkInfo = config.server.isProduction
+    ? '\n✓ Listening on all network interfaces (0.0.0.0)\n✓ Accessible via your VPS public IP/domain on port ' + PORT
+    : '\n✓ Local development server';
+
   console.log(`
 ╔════════════════════════════════════════════════════════════════╗
 ║                    SplitDine API Server                        ║
@@ -189,10 +195,10 @@ app.listen(PORT, () => {
 ✓ Environment: ${config.server.env}
 ✓ Frontend URL: ${config.frontend.getUrl()}
 ✓ Database: ${config.database.database}
-✓ API logging: ${config.api.logEnabled ? 'Enabled' : 'Disabled'}
+✓ API logging: ${config.api.logEnabled ? 'Enabled' : 'Disabled'}${networkInfo}
 
-Available at: http://localhost:${PORT}
-Health check: http://localhost:${PORT}/health
+Local URL: ${localUrl}
+Health check: ${localUrl}/health
 
 Press CTRL+C to stop the server
   `);

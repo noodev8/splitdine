@@ -122,8 +122,6 @@ router.post('/get_guests', async (req, res) => {
       })
     );
 
-    console.log(`✓ Retrieved ${guests.length} guests for event ${event_id}`);
-
     // =============================================================================
     // Return success response
     // =============================================================================
@@ -232,8 +230,6 @@ router.post('/add_guest', async (req, res) => {
     );
 
     const newGuest = result.rows[0];
-
-    console.log(`✓ Guest "${name}" added to event ${event_id} (ID: ${newGuest.id})`);
 
     // =============================================================================
     // Return success response
@@ -422,8 +418,6 @@ router.post('/update_guest', async (req, res) => {
     const result = await query(updateQuery, values);
     const updatedGuest = result.rows[0];
 
-    console.log(`✓ Guest ${guest_id} updated in event ${guest.event_id}`);
-
     // =============================================================================
     // Return success response
     // =============================================================================
@@ -542,8 +536,6 @@ router.post('/delete_guest', async (req, res) => {
       );
     });
 
-    console.log(`✓ Guest ${guest_id} deleted from event ${eventId}`);
-
     // =============================================================================
     // Return success response
     // =============================================================================
@@ -661,8 +653,6 @@ router.post('/add_item', async (req, res) => {
 
     const newItem = result.rows[0];
 
-    console.log(`✓ Item added to guest ${guest_id}: "${note}"`);
-
     // =============================================================================
     // Return success response
     // =============================================================================
@@ -769,8 +759,6 @@ router.post('/delete_item', async (req, res) => {
       `DELETE FROM guest_items WHERE id = $1`,
       [item_id]
     );
-
-    console.log(`✓ Item ${item_id} deleted from guest ${item.guest_id}`);
 
     // =============================================================================
     // Return success response

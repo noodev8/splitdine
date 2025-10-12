@@ -781,56 +781,57 @@ export default function Home() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 sm:mb-8">
-          <div className="flex items-center gap-3">
-            {currentEvent && (
-              <button
-                onClick={leaveEvent}
-                className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
-              >
-                ← Home
-              </button>
-            )}
-            {!currentEvent && (
-              <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">
+          {/* Left side - Logo or Home button + Event Name */}
+          <div className="flex items-center gap-4">
+            {currentEvent ? (
+              <>
+                <button
+                  onClick={leaveEvent}
+                  className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+                >
+                  ← Home
+                </button>
+                {isEditingEventName ? (
+                  <input
+                    ref={eventNameInputRef}
+                    type="text"
+                    value={editEventName}
+                    onChange={(e) => setEditEventName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveEventName();
+                      if (e.key === 'Escape') cancelEditEventName();
+                    }}
+                    onBlur={saveEventName}
+                    className="px-2 py-1 text-sm text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700 border-2 border-blue-500 rounded focus:outline-none"
+                  />
+                ) : (
+                  <button
+                    onClick={startEditingEventName}
+                    className={`text-sm ${userRole === 'host' ? 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 cursor-pointer' : 'text-slate-600 dark:text-slate-300 cursor-default'} transition-colors flex items-center gap-1`}
+                    disabled={userRole !== 'host'}
+                  >
+                    {currentEvent.name}
+                    {userRole === 'host' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 opacity-50">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                      </svg>
+                    )}
+                  </button>
+                )}
+              </>
+            ) : (
+              <h1 className="text-2xl sm:text-3xl font-semibold text-slate-800 dark:text-slate-100">
                 SplitDine
               </h1>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            {currentEvent && (
-              isEditingEventName ? (
-                <input
-                  ref={eventNameInputRef}
-                  type="text"
-                  value={editEventName}
-                  onChange={(e) => setEditEventName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveEventName();
-                    if (e.key === 'Escape') cancelEditEventName();
-                  }}
-                  onBlur={saveEventName}
-                  className="px-2 py-1 text-sm text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700 border-2 border-blue-500 rounded focus:outline-none"
-                />
-              ) : (
-                <button
-                  onClick={startEditingEventName}
-                  className={`text-sm ${userRole === 'host' ? 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 cursor-pointer' : 'text-slate-600 dark:text-slate-300 cursor-default'} transition-colors flex items-center gap-1`}
-                  disabled={userRole !== 'host'}
-                >
-                  {currentEvent.name}
-                  {userRole === 'host' && (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 opacity-50">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                    </svg>
-                  )}
-                </button>
-              )
-            )}
-            {/* Auth UI - Only show on home page */}
+
+          {/* Right side - Auth buttons on home page only */}
+          <div>
             {!currentEvent && (
               currentUser ? (
                 <div className="relative group">
-                  <button className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm">
+                  <button className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm">
                     {currentUser.name}
                   </button>
                   <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
@@ -846,13 +847,13 @@ export default function Home() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setShowLoginModal(true)}
-                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm"
+                    className="px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors font-medium text-sm"
                   >
                     Log In
                   </button>
                   <button
                     onClick={() => setShowRegisterModal(true)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm"
+                    className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors font-medium text-sm"
                   >
                     Register
                   </button>
@@ -1314,40 +1315,376 @@ export default function Home() {
 
         {!currentEvent ? (
           /* Landing Page */
-          <div className="space-y-6">
-            {/* Start/Join Buttons */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6 sm:p-8">
-              <h2 className="text-xl sm:text-2xl font-semibold text-slate-800 dark:text-slate-100 mb-6 text-center">
-                Welcome! Get started:
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button
-                  onClick={() => {
-                    if (currentUser) {
-                      setShowStartEventModal(true);
-                      setTimeout(() => eventNameRef.current?.focus(), 0);
-                    } else {
-                      setShowRegisterRequiredModal(true);
-                    }
-                  }}
-                  className="px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors text-lg"
-                >
-                  Start New Event
-                </button>
-                <button
-                  onClick={() => {
-                    setShowJoinEventModal(true);
-                    setTimeout(() => joinCodeRef.current?.focus(), 0);
-                  }}
-                  className="px-6 py-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors text-lg"
-                >
-                  Join Event
-                </button>
+          <div className="space-y-8">
+            {/* Hero Section - Only show for anonymous users */}
+            {!currentUser && (
+              <div className="max-w-3xl mx-auto text-center pt-8 pb-4">
+                <h1 className="text-3xl sm:text-4xl font-light text-slate-800 dark:text-slate-100 mb-3 tracking-tight">
+                  Bill Splitting Made Easy
+                </h1>
+                <p className="text-base text-slate-600 dark:text-slate-400 font-light">
+                  Smooth and seamless for guests, hosts, and restaurants
+                </p>
               </div>
+            )}
+
+            {/* Action Buttons - Above the fold */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
+              <button
+                onClick={() => {
+                  if (currentUser) {
+                    setShowStartEventModal(true);
+                    setTimeout(() => eventNameRef.current?.focus(), 0);
+                  } else {
+                    setShowRegisterRequiredModal(true);
+                  }
+                }}
+                className="w-full sm:w-auto px-8 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded transition-colors"
+              >
+                Start Event
+              </button>
+              <button
+                onClick={() => {
+                  setShowJoinEventModal(true);
+                  setTimeout(() => joinCodeRef.current?.focus(), 0);
+                }}
+                className="w-full sm:w-auto px-8 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium rounded transition-colors"
+              >
+                Join Event
+              </button>
             </div>
 
-            {/* My Events List */}
-            {isLoadingEvents ? (
+            {/* Features Section - Only show for anonymous users */}
+            {!currentUser && (
+              <div className="max-w-4xl mx-auto pt-12 pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="text-center">
+                    <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-2 tracking-wide uppercase">
+                      For Guests
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-light leading-relaxed">
+                      Manage your payments and share of the bill easily
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-2 tracking-wide uppercase">
+                      For Hosts
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-light leading-relaxed">
+                      Manage the final bill seamlessly
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-2 tracking-wide uppercase">
+                      Free
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-light leading-relaxed">
+                      Register once, create unlimited events
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* How It Works Section - Only show for anonymous users */}
+            {!currentUser && (
+              <div className="max-w-4xl mx-auto pt-16 pb-8">
+                <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-8 sm:p-12">
+                  <h2 className="text-2xl font-light text-center text-slate-800 dark:text-slate-100 mb-12">
+                    How It Works
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                  <div className="text-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                      <span className="text-lg font-medium text-slate-700 dark:text-slate-300">1</span>
+                    </div>
+                    <h3 className="text-base font-medium text-slate-800 dark:text-slate-200 mb-2">
+                      Create Event
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                      Register and start a new event for your meal or gathering
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                      <span className="text-lg font-medium text-slate-700 dark:text-slate-300">2</span>
+                    </div>
+                    <h3 className="text-base font-medium text-slate-800 dark:text-slate-200 mb-2">
+                      Add Guests
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                      Share the code with guests who track their items and amounts
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                      <span className="text-lg font-medium text-slate-700 dark:text-slate-300">3</span>
+                    </div>
+                    <h3 className="text-base font-medium text-slate-800 dark:text-slate-200 mb-2">
+                      Settle Up
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                      Share payment details and everyone pays their fair share
+                    </p>
+                  </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Use Cases Section - Only show for anonymous users */}
+            {!currentUser && (
+              <div className="max-w-4xl mx-auto pt-8 pb-8">
+                <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-8">
+                  <h2 className="text-2xl font-light text-center text-slate-800 dark:text-slate-100 mb-10">
+                    Perfect For Any Group Meal
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                      <h3 className="text-base font-medium text-slate-800 dark:text-slate-100 mb-3">
+                        Restaurant Dinners
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                        Friends splitting the bill after a night out
+                      </p>
+                    </div>
+                    <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                      <h3 className="text-base font-medium text-slate-800 dark:text-slate-100 mb-3">
+                        Office Lunches
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                        Team orders where everyone pays their share
+                      </p>
+                    </div>
+                    <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                      <h3 className="text-base font-medium text-slate-800 dark:text-slate-100 mb-3">
+                        Group Celebrations
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                        Birthday parties, reunions, and special events
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Feature Showcase - Only show for anonymous users */}
+            {!currentUser && (
+              <div className="max-w-5xl mx-auto pt-8 pb-8">
+                <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-8">
+                  <h2 className="text-2xl font-light text-center text-slate-800 dark:text-slate-100 mb-10">
+                    Simple Interface
+                  </h2>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Guest View Mockup */}
+                    <div>
+                      <h3 className="text-base font-medium text-slate-800 dark:text-slate-100 mb-4 text-center">
+                        Guest View
+                      </h3>
+                      <div className="border-2 border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-white dark:bg-slate-900">
+                        {/* Total Bill */}
+                        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 mb-3">
+                          <div className="text-center">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Restaurant Bill Total</div>
+                            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">£84.00</div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-0 mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                            <div className="text-center border-r border-slate-200 dark:border-slate-700">
+                              <div className="text-xs text-slate-500 dark:text-slate-400">Deposits</div>
+                              <div className="text-base font-bold text-slate-700 dark:text-slate-200">£15.00</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs text-slate-500 dark:text-slate-400">Still Owed</div>
+                              <div className="text-base font-bold text-orange-600 dark:text-orange-400">£69.00</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Guest List */}
+                        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+                          <div className="text-xs font-medium text-slate-700 dark:text-slate-200 mb-2">Guests (3)</div>
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center p-2 bg-white dark:bg-slate-700 rounded">
+                              <span className="text-sm text-slate-800 dark:text-slate-100">Sarah</span>
+                              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">£28.00</span>
+                            </div>
+                            <div className="flex justify-between items-center p-2 bg-white dark:bg-slate-700 rounded">
+                              <span className="text-sm text-slate-800 dark:text-slate-100">Mike</span>
+                              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">£18.50</span>
+                            </div>
+                            <div className="flex justify-between items-center p-2 bg-white dark:bg-slate-700 rounded border-2 border-blue-200 dark:border-blue-700">
+                              <span className="text-sm text-slate-800 dark:text-slate-100">Emma</span>
+                              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">£22.50</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Payment Details */}
+                        <div className="mt-3 bg-slate-50 dark:bg-slate-800 rounded-lg p-2">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 text-center">Payment Details ▼</div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-3 font-light">
+                        See your share and track payments
+                      </p>
+                    </div>
+
+                    {/* Host View Mockup */}
+                    <div>
+                      <h3 className="text-base font-medium text-slate-800 dark:text-slate-100 mb-4 text-center">
+                        Host Dashboard
+                      </h3>
+                      <div className="border-2 border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-white dark:bg-slate-900">
+                        {/* Total Bill - Same as guest */}
+                        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 mb-3">
+                          <div className="text-center">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Restaurant Bill Total</div>
+                            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">£84.00</div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-0 mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                            <div className="text-center border-r border-slate-200 dark:border-slate-700">
+                              <div className="text-xs text-slate-500 dark:text-slate-400">Deposits</div>
+                              <div className="text-base font-bold text-slate-700 dark:text-slate-200">£15.00</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs text-slate-500 dark:text-slate-400">Still Owed</div>
+                              <div className="text-base font-bold text-orange-600 dark:text-orange-400">£69.00</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Add Guest Form */}
+                        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 mb-3">
+                          <div className="flex gap-2">
+                            <div className="flex-1 h-7 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded flex items-center px-2">
+                              <span className="text-xs text-slate-400">Guest name</span>
+                            </div>
+                            <div className="w-16 h-7 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded flex items-center px-2">
+                              <span className="text-xs text-slate-400">£0</span>
+                            </div>
+                            <div className="h-7 px-3 bg-blue-600 rounded flex items-center">
+                              <span className="text-xs text-white font-medium">Add</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Guest List */}
+                        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+                          <div className="text-xs font-medium text-slate-700 dark:text-slate-200 mb-2">Guests (3)</div>
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center p-2 bg-white dark:bg-slate-700 rounded">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-green-500 bg-green-500 rounded flex items-center justify-center">
+                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                  </svg>
+                                </div>
+                                <span className="text-sm text-slate-400 dark:text-slate-500 line-through">Sarah</span>
+                              </div>
+                              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">£28.00</span>
+                            </div>
+                            <div className="flex justify-between items-center p-2 bg-white dark:bg-slate-700 rounded">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-slate-300 dark:border-slate-600 rounded"></div>
+                                <span className="text-sm text-slate-800 dark:text-slate-100">Mike</span>
+                              </div>
+                              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">£18.50</span>
+                            </div>
+                            <div className="flex justify-between items-center p-2 bg-white dark:bg-slate-700 rounded">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-slate-300 dark:border-slate-600 rounded"></div>
+                                <span className="text-sm text-slate-800 dark:text-slate-100">Emma</span>
+                              </div>
+                              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">£22.50</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-3 font-light">
+                        Add guests and track who has paid
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Social Proof Section - Only show for anonymous users */}
+            {!currentUser && (
+              <div className="max-w-4xl mx-auto pt-8 pb-16">
+                <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-8 sm:p-12">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                    <div>
+                      <div className="text-2xl font-light text-slate-800 dark:text-slate-100 mb-2">
+                        No More Math
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                        Automatic calculations mean no awkward moments
+                      </p>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-light text-slate-800 dark:text-slate-100 mb-2">
+                        Save Time
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                        Quick setup and instant sharing for everyone
+                      </p>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-light text-slate-800 dark:text-slate-100 mb-2">
+                        Fair & Clear
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                        Everyone sees exactly what they owe
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Bottom CTA - Only show for anonymous users */}
+            {!currentUser && (
+              <div className="max-w-3xl mx-auto pt-8 pb-16">
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-light text-slate-800 dark:text-slate-100 mb-3">
+                    Ready to get started?
+                  </h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
+                    Create an event or join one in seconds
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
+                  <button
+                    onClick={() => {
+                      if (currentUser) {
+                        setShowStartEventModal(true);
+                        setTimeout(() => eventNameRef.current?.focus(), 0);
+                      } else {
+                        setShowRegisterRequiredModal(true);
+                      }
+                    }}
+                    className="w-full sm:w-auto px-8 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded transition-colors"
+                  >
+                    Start Event
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowJoinEventModal(true);
+                      setTimeout(() => joinCodeRef.current?.focus(), 0);
+                    }}
+                    className="w-full sm:w-auto px-8 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium rounded transition-colors"
+                  >
+                    Join Event
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* My Events List - Only show for logged-in users */}
+            {currentUser && isLoadingEvents ? (
               <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">
                   My Events
@@ -1362,7 +1699,7 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            ) : myEvents.length > 0 ? (
+            ) : currentUser && myEvents.length > 0 ? (
               <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">
                   My Events
@@ -1500,7 +1837,7 @@ export default function Home() {
                   />
                   <button
                     onClick={addGuest}
-                    className="w-full sm:w-auto px-6 py-3 sm:py-2 bg-slate-600 hover:bg-slate-700 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-medium rounded-lg transition-colors"
+                    className="w-full sm:w-auto px-6 py-3 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                   >
                     Add
                   </button>
