@@ -8,6 +8,8 @@ import {
   getMyEvents as apiGetMyEvents,
   updateBankDetails as apiUpdateBankDetails,
   leaveEvent as apiLeaveEvent,
+  updateEventSettings as apiUpdateEventSettings,
+  deleteEvent as apiDeleteEvent,
   getGuests as apiGetGuests,
   addGuest as apiAddGuest,
   updateGuest as apiUpdateGuest,
@@ -23,6 +25,7 @@ import {
 interface Item {
   id: string;
   note: string;
+  price?: number | null;
 }
 
 interface Guest {
@@ -65,10 +68,9 @@ export default function Home() {
   // Guest management state
   const [guests, setGuests] = useState<Guest[]>([]);
   const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [deposit, setDeposit] = useState('');
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [itemNote, setItemNote] = useState('');
+  const [itemPrice, setItemPrice] = useState<string>('');
   const [editingAmountId, setEditingAmountId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editDeposit, setEditDeposit] = useState('');
@@ -85,6 +87,27 @@ export default function Home() {
   const [joinCodeError, setJoinCodeError] = useState('');
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [isNavigatingToProfile, setIsNavigatingToProfile] = useState(false);
+
+  // Event settings state
+  const [showEventSettings, setShowEventSettings] = useState(false);
+  const [settingsEventName, setSettingsEventName] = useState('');
+  const [settingsBankAccountNumber, setSettingsBankAccountNumber] = useState('');
+  const [settingsBankSortCode, setSettingsBankSortCode] = useState('');
+  const [settingsBankAccountName, setSettingsBankAccountName] = useState('');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Calculator modal state
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [calculatorValue, setCalculatorValue] = useState('');
+  const [calculatorField, setCalculatorField] = useState<'amount' | 'deposit' | null>(null);
+  const [calculatorGuestId, setCalculatorGuestId] = useState<string | null>(null);
+  const [isFirstInput, setIsFirstInput] = useState(true);
+
+  // Payment details modal state
+  const [showPaymentDetailsModal, setShowPaymentDetailsModal] = useState(false);
+
+  // Guest details page state
+  const [viewingGuestId, setViewingGuestId] = useState<string | null>(null);
 
   // Toast notification state
   const [toastMessage, setToastMessage] = useState('');
@@ -106,15 +129,9 @@ export default function Home() {
 
   // Bank details modal state (per-event)
   const [showBankDetailsModal, setShowBankDetailsModal] = useState(false);
-  const [showBankDetails, setShowBankDetails] = useState(false);
   const [editBankAccountNumber, setEditBankAccountNumber] = useState('');
   const [editBankSortCode, setEditBankSortCode] = useState('');
   const [editBankAccountName, setEditBankAccountName] = useState('');
-
-  // Event name editing state
-  const [isEditingEventName, setIsEditingEventName] = useState(false);
-  const [editEventName, setEditEventName] = useState('');
-  const eventNameInputRef = useRef<HTMLInputElement>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const itemNoteRef = useRef<HTMLInputElement>(null);
@@ -259,6 +276,7 @@ export default function Home() {
         // Reload events after successful login
         try {
           const apiEvents = await apiGetMyEvents();
+
           const convertedApiEvents: Event[] = apiEvents.map(apiEvent => ({
             id: apiEvent.id.toString(),
             name: apiEvent.name,
@@ -269,6 +287,7 @@ export default function Home() {
             bankSortCode: apiEvent.bank_sort_code,
             bankAccountName: apiEvent.bank_account_name,
           }));
+
           const convertedApiMemberships: UserEventMembership[] = apiEvents.map(apiEvent => ({
             eventId: apiEvent.id.toString(),
             role: apiEvent.role,
@@ -350,19 +369,19 @@ export default function Home() {
   };
 
   // Bank details functions
-  const openBankDetailsModal = () => {
-    const currentEvent = events.find(e => e.id === currentEventId);
-    if (currentEvent) {
-      setEditBankAccountNumber(currentEvent.bankAccountNumber || '');
-      setEditBankSortCode(currentEvent.bankSortCode || '');
-      setEditBankAccountName(currentEvent.bankAccountName || '');
-    } else {
-      setEditBankAccountNumber('');
-      setEditBankSortCode('');
-      setEditBankAccountName('');
-    }
-    setShowBankDetailsModal(true);
-  };
+  // const openBankDetailsModal = () => {
+  //   const currentEvent = events.find(e => e.id === currentEventId);
+  //   if (currentEvent) {
+  //     setEditBankAccountNumber(currentEvent.bankAccountNumber || '');
+  //     setEditBankSortCode(currentEvent.bankSortCode || '');
+  //     setEditBankAccountName(currentEvent.bankAccountName || '');
+  //   } else {
+  //     setEditBankAccountNumber('');
+  //     setEditBankSortCode('');
+  //     setEditBankAccountName('');
+  //   }
+  //   setShowBankDetailsModal(true);
+  // };
 
   const saveBankDetails = async () => {
     if (!currentEventId) return;
@@ -393,33 +412,6 @@ export default function Home() {
       console.error('Error updating bank details:', error);
       showToastNotification('Failed to update bank details. Please try again.');
     }
-  };
-
-  // Event name editing functions
-  const startEditingEventName = () => {
-    if (userRole !== 'host' || !currentEvent) return;
-    setEditEventName(currentEvent.name);
-    setIsEditingEventName(true);
-    setTimeout(() => eventNameInputRef.current?.select(), 0);
-  };
-
-  const saveEventName = () => {
-    if (!currentEventId || !editEventName.trim()) {
-      setIsEditingEventName(false);
-      return;
-    }
-
-    // Update event name in local state
-    setEvents(events.map(e =>
-      e.id === currentEventId ? { ...e, name: editEventName.trim() } : e
-    ));
-    setIsEditingEventName(false);
-    // TODO: Sync with API when backend endpoint is available
-  };
-
-  const cancelEditEventName = () => {
-    setIsEditingEventName(false);
-    setEditEventName('');
   };
 
   // Event functions
@@ -554,11 +546,11 @@ export default function Home() {
     }
   };
 
-  const leaveEvent = () => {
-    setCurrentEventId(null);
-    setUserRole(null);
-    setGuests([]);
-  };
+  // const leaveEvent = () => {
+  //   setCurrentEventId(null);
+  //   setUserRole(null);
+  //   setGuests([]);
+  // };
 
   const openEvent = async (eventId: string) => {
     const event = events.find(e => e.id === eventId);
@@ -574,18 +566,78 @@ export default function Home() {
     }
   };
 
-  const confirmDeleteEvent = () => {
+  const confirmDeleteEvent = async () => {
     if (!currentEventId || userRole !== 'host') return;
 
-    // Remove event from events list
-    setEvents(events.filter(e => e.id !== currentEventId));
-    // Remove all memberships for this event
-    setUserMemberships(userMemberships.filter(m => m.eventId !== currentEventId));
-    // Clear current event
-    setCurrentEventId(null);
-    setUserRole(null);
-    setGuests([]);
-    setShowDeleteConfirmModal(false);
+    try {
+      // Call API to delete event from database
+      await apiDeleteEvent(parseInt(currentEventId));
+
+      // Remove event from UI state
+      setEvents(events.filter(e => e.id !== currentEventId));
+      // Remove all memberships for this event
+      setUserMemberships(userMemberships.filter(m => m.eventId !== currentEventId));
+      // Clear current event
+      setCurrentEventId(null);
+      setUserRole(null);
+      setGuests([]);
+      setShowDeleteConfirmModal(false);
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      showToastNotification('Failed to delete event. Please try again.');
+      setShowDeleteConfirmModal(false);
+    }
+  };
+
+  // const openEventSettings = () => {
+  //   if (!currentEventId) return;
+  //   const event = events.find(e => e.id === currentEventId);
+  //   if (!event) return;
+
+  //   // Pre-fill settings with current values
+  //   setSettingsEventName(event.name);
+  //   setSettingsBankAccountNumber(event.bankAccountNumber || '');
+  //   setSettingsBankSortCode(event.bankSortCode || '');
+  //   setSettingsBankAccountName(event.bankAccountName || '');
+  //   setShowEventSettings(true);
+  // };
+
+  const closeEventSettings = () => {
+    setShowEventSettings(false);
+  };
+
+  const saveEventSettings = async () => {
+    if (!currentEventId || isSavingSettings) return;
+
+    setIsSavingSettings(true);
+    try {
+      const updatedEvent = await apiUpdateEventSettings(parseInt(currentEventId), {
+        event_name: settingsEventName,
+        bank_account_number: settingsBankAccountNumber,
+        bank_sort_code: settingsBankSortCode,
+        bank_account_name: settingsBankAccountName,
+      });
+
+      // Update local state
+      setEvents(events.map(e =>
+        e.id === currentEventId
+          ? {
+              ...e,
+              name: updatedEvent.name,
+              bankAccountNumber: updatedEvent.bank_account_number,
+              bankSortCode: updatedEvent.bank_sort_code,
+              bankAccountName: updatedEvent.bank_account_name,
+            }
+          : e
+      ));
+
+      setShowEventSettings(false);
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      // Error state shown in UI, no toast
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   // Guest functions
@@ -593,16 +645,14 @@ export default function Home() {
     if (!name.trim() || !currentEventId) return;
 
     const guestName = name.trim();
-    const guestAmount = parseFloat(amount) || 0;
-    const guestDeposit = parseFloat(deposit) || 0;
 
     try {
-      // Try API first (hybrid approach)
+      // Add guest with only name, amount and deposit default to 0
       const apiGuest = await apiAddGuest(
         parseInt(currentEventId),
         guestName,
-        guestAmount,
-        guestDeposit
+        0, // amount defaults to 0
+        0  // deposit defaults to 0
       );
 
       // Convert API guest to local format
@@ -621,9 +671,6 @@ export default function Home() {
 
       setGuests([...guests, newGuest]);
       setName('');
-      setAmount('');
-      setDeposit('');
-      nameInputRef.current?.focus();
     } catch (error) {
       console.error('Error adding guest via API:', error);
       showToastNotification('Failed to add guest. Please try again.');
@@ -654,25 +701,27 @@ export default function Home() {
     }
   };
 
-  const selectGuest = (id: string) => {
-    setEditingGuestId(id);
-    setShowItemsModal(true);
-    setTimeout(() => itemNoteRef.current?.focus(), 0);
-  };
+  // const selectGuest = (id: string) => {
+  //   setEditingGuestId(id);
+  //   setShowItemsModal(true);
+  //   setTimeout(() => itemNoteRef.current?.focus(), 0);
+  // };
 
   const addItemToGuest = async () => {
     if (!editingGuestId || !itemNote.trim()) return;
 
     const noteText = itemNote.trim();
+    const priceValue = itemPrice.trim() ? parseFloat(itemPrice) : undefined;
 
     try {
       // Try API first (hybrid approach)
-      const apiItem = await apiAddGuestItem(parseInt(editingGuestId), noteText);
+      const apiItem = await apiAddGuestItem(parseInt(editingGuestId), noteText, priceValue);
 
       // Convert API item to local format and update state
       const newItem = {
         id: apiItem.id.toString(),
-        note: apiItem.note
+        note: apiItem.note,
+        price: apiItem.price
       };
 
       setGuests(
@@ -686,6 +735,7 @@ export default function Home() {
         )
       );
       setItemNote('');
+      setItemPrice('');
       itemNoteRef.current?.focus();
     } catch (error) {
       console.error('Error adding item via API:', error);
@@ -720,14 +770,79 @@ export default function Home() {
     }
   };
 
-  const startEditingAmount = (guestId: string, currentAmount: number, currentDeposit: number) => {
-    if (userRole === 'host') {
-      setEditingAmountId(guestId);
-      setEditAmount(currentAmount.toString());
-      setEditDeposit(currentDeposit.toString());
-      setTimeout(() => editAmountRef.current?.select(), 0);
+  // Calculator modal functions
+  const openCalculator = (field: 'amount' | 'deposit', guestId: string, currentValue: number) => {
+    setCalculatorField(field);
+    setCalculatorGuestId(guestId);
+    setCalculatorValue(currentValue === 0 ? '' : currentValue.toString());
+    setIsFirstInput(true);
+    setShowCalculator(true);
+  };
+
+  const handleCalculatorNumberPress = (num: string) => {
+    if (isFirstInput) {
+      setCalculatorValue(num);
+      setIsFirstInput(false);
+    } else {
+      // Prevent multiple decimal points
+      if (num === '.' && calculatorValue.includes('.')) return;
+      setCalculatorValue(calculatorValue + num);
     }
   };
+
+  const handleCalculatorBackspace = () => {
+    if (calculatorValue.length > 0) {
+      setCalculatorValue(calculatorValue.slice(0, -1));
+      setIsFirstInput(false);
+    }
+  };
+
+  const handleCalculatorOK = async () => {
+    if (!calculatorGuestId || !calculatorField) return;
+
+    const numValue = calculatorValue === '' ? 0 : parseFloat(calculatorValue);
+
+    if (calculatorField === 'amount') {
+      setGuests(guests.map(g =>
+        g.id === calculatorGuestId ? { ...g, amount: isNaN(numValue) ? 0 : numValue } : g
+      ));
+      try {
+        await apiUpdateGuest(parseInt(calculatorGuestId), { amount: isNaN(numValue) ? 0 : numValue });
+      } catch (error) {
+        console.error('Error updating guest:', error);
+      }
+    } else if (calculatorField === 'deposit') {
+      setGuests(guests.map(g =>
+        g.id === calculatorGuestId ? { ...g, deposit: isNaN(numValue) ? 0 : numValue } : g
+      ));
+      try {
+        await apiUpdateGuest(parseInt(calculatorGuestId), { deposit: isNaN(numValue) ? 0 : numValue });
+      } catch (error) {
+        console.error('Error updating guest:', error);
+      }
+    }
+
+    setShowCalculator(false);
+    setCalculatorValue('');
+    setCalculatorField(null);
+    setCalculatorGuestId(null);
+  };
+
+  const handleCalculatorCancel = () => {
+    setShowCalculator(false);
+    setCalculatorValue('');
+    setCalculatorField(null);
+    setCalculatorGuestId(null);
+  };
+
+  // const startEditingAmount = (guestId: string, currentAmount: number, currentDeposit: number) => {
+  //   if (userRole === 'host') {
+  //     setEditingAmountId(guestId);
+  //     setEditAmount(currentAmount.toString());
+  //     setEditDeposit(currentDeposit.toString());
+  //     setTimeout(() => editAmountRef.current?.select(), 0);
+  //   }
+  // };
 
   const saveAmount = async () => {
     if (!editingAmountId || !editAmount) return;
@@ -837,10 +952,15 @@ export default function Home() {
   };
 
   const totalBill = guests.reduce((sum, guest) => sum + guest.amount, 0);
-  const totalDeposits = guests.reduce((sum, guest) => sum + guest.deposit, 0);
+  const totalPaid = guests.reduce((sum, guest) => {
+    if (guest.paid) {
+      return sum + guest.amount;
+    }
+    return sum;
+  }, 0);
   const totalOwed = guests.reduce((sum, guest) => {
     if (!guest.paid) {
-      return sum + (guest.amount - guest.deposit);
+      return sum + guest.amount;
     }
     return sum;
   }, 0);
@@ -856,60 +976,156 @@ export default function Home() {
     .filter(e => e !== null)
     .sort((a, b) => b!.joinedAt - a!.joinedAt);
 
+  // Show settings screen if open
+  if (showEventSettings && currentEvent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 sm:p-8">
+        <div className="max-w-2xl mx-auto">
+          {/* Settings Header */}
+          <div className="flex items-center justify-between mb-6">
+            <button
+              onClick={closeEventSettings}
+              className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+            >
+              ← Back
+            </button>
+            <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Event Settings</h1>
+            <div className="w-16"></div>
+          </div>
+
+          {/* Settings Form */}
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6 space-y-6">
+            {/* Event Name */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Event Name
+              </label>
+              <input
+                type="text"
+                value={settingsEventName}
+                onChange={(e) => setSettingsEventName(e.target.value)}
+                className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                placeholder="e.g., Pizza Express - Oct 11"
+              />
+            </div>
+
+            {/* Guest Code (Read-only) */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Guest Code
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={currentEvent.guestCode}
+                  readOnly
+                  className="flex-1 px-4 py-3 text-base font-mono bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(currentEvent.guestCode);
+                  }}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg transition-colors text-sm font-medium"
+                >
+                  Copy
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Share this code with guests to let them join the event
+              </p>
+            </div>
+
+            {/* Bank Details Section */}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4">Bank Details</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
+                    Account Number
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsBankAccountNumber}
+                    onChange={(e) => setSettingsBankAccountNumber(e.target.value)}
+                    className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                    placeholder="12345678"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
+                    Sort Code
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsBankSortCode}
+                    onChange={(e) => setSettingsBankSortCode(e.target.value)}
+                    className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                    placeholder="04-00-03"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
+                    Account Name
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsBankAccountName}
+                    onChange={(e) => setSettingsBankAccountName(e.target.value)}
+                    className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                    placeholder="John Doe"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="pt-4">
+              <button
+                onClick={saveEventSettings}
+                disabled={isSavingSettings || !settingsEventName.trim()}
+                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+              >
+                {isSavingSettings ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+
+            {/* Danger Zone - Delete Event */}
+            <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
+              <h3 className="text-sm font-medium text-red-600 dark:text-red-400 mb-2">Danger Zone</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                Once you delete an event, there is no going back. All guest data and payment information will be permanently deleted.
+              </p>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirmModal(true);
+                  setShowEventSettings(false);
+                }}
+                className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+              >
+                Delete Event
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 sm:p-8">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8">
-          {/* Left side - Logo or Home button + Event Name */}
-          <div className="flex items-center gap-4">
-            {currentEvent ? (
-              <>
-                <button
-                  onClick={leaveEvent}
-                  className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
-                >
-                  ← Home
-                </button>
-                {isEditingEventName ? (
-                  <input
-                    ref={eventNameInputRef}
-                    type="text"
-                    value={editEventName}
-                    onChange={(e) => setEditEventName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveEventName();
-                      if (e.key === 'Escape') cancelEditEventName();
-                    }}
-                    onBlur={saveEventName}
-                    className="px-2 py-1 text-sm text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700 border-2 border-blue-500 rounded focus:outline-none"
-                  />
-                ) : (
-                  <button
-                    onClick={startEditingEventName}
-                    className={`text-sm ${userRole === 'host' ? 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 cursor-pointer' : 'text-slate-600 dark:text-slate-300 cursor-default'} transition-colors flex items-center gap-1`}
-                    disabled={userRole !== 'host'}
-                  >
-                    {currentEvent.name}
-                    {userRole === 'host' && (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 opacity-50">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                      </svg>
-                    )}
-                  </button>
-                )}
-              </>
-            ) : (
-              <h1 className="text-2xl sm:text-3xl font-semibold text-slate-800 dark:text-slate-100">
-                SplitDine
-              </h1>
-            )}
-          </div>
+        {/* Header - Only show on home page */}
+        {!currentEvent && (
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-slate-800 dark:text-slate-100">
+              SplitDine
+            </h1>
 
-          {/* Right side - Auth buttons on home page only */}
-          <div>
-            {!currentEvent && (
-              currentUser ? (
+            <div>
+              {currentUser ? (
                 <button
                   onClick={() => {
                     setIsNavigatingToProfile(true);
@@ -945,10 +1161,10 @@ export default function Home() {
                     Register
                   </button>
                 </div>
-              )
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Start Event Modal */}
         {showStartEventModal && (
@@ -1445,7 +1661,10 @@ export default function Home() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowDeleteConfirmModal(false)}
+                  onClick={() => {
+                    setShowDeleteConfirmModal(false);
+                    setShowEventSettings(true);
+                  }}
                   className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-sm font-medium rounded-lg transition-colors"
                 >
                   Cancel
@@ -2008,7 +2227,271 @@ export default function Home() {
         ) : (
           /* Event View */
           <>
-            {/* Total */}
+            {viewingGuestId ? (
+              /* Guest Details Page */
+              (() => {
+                const viewingGuest = guests.find(g => g.id === viewingGuestId);
+                if (!viewingGuest) return null;
+
+                return (
+                  <>
+                    {/* Guest Name */}
+                    <div className="mb-4">
+                      <h2 className="text-xl sm:text-2xl font-light text-slate-600 dark:text-slate-400 text-center">
+                        {viewingGuest.name}
+                      </h2>
+                    </div>
+
+                    {/* Bill Overview */}
+                    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border-2 border-slate-200 dark:border-slate-700 p-4 sm:p-6 mb-6">
+                      <div className="space-y-4">
+                        {/* Balance - Prominent Display */}
+                        <div>
+                          <div className="flex flex-col items-center px-3 py-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <span className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                              Balance
+                            </span>
+                            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                              £{(viewingGuest.amount - viewingGuest.deposit).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Bill Total and Deposit - Side by Side */}
+                        <div className="border-t border-slate-200 dark:border-slate-700 pt-4 grid grid-cols-2 gap-4">
+                          {/* Bill Total */}
+                          <div className="text-center">
+                            <label className="block text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">
+                              Bill Total
+                            </label>
+                            <div
+                              onClick={() => userRole === 'host' && openCalculator('amount', viewingGuestId, viewingGuest.amount)}
+                              className={`w-full px-4 py-4 text-xl font-semibold rounded-lg text-slate-800 dark:text-slate-100 ${
+                                userRole === 'host'
+                                  ? 'bg-slate-50 dark:bg-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500'
+                                  : 'bg-slate-50 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              £{viewingGuest.amount.toFixed(2)}
+                              {userRole === 'host' && (
+                                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tap to edit</div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Deposit */}
+                          <div className="text-center">
+                            <label className="block text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">
+                              Deposit
+                            </label>
+                            <div
+                              onClick={() => userRole === 'host' && openCalculator('deposit', viewingGuestId, viewingGuest.deposit)}
+                              className={`w-full px-4 py-4 text-xl font-semibold rounded-lg text-slate-800 dark:text-slate-100 ${
+                                userRole === 'host'
+                                  ? 'bg-slate-50 dark:bg-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500'
+                                  : 'bg-slate-50 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              £{viewingGuest.deposit.toFixed(2)}
+                              {userRole === 'host' && (
+                                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tap to edit</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Item Breakdown - Reference Section */}
+                    <div className="bg-slate-50 dark:bg-slate-900 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 p-4 sm:p-6">
+                      <div className="flex items-baseline gap-2 mb-3">
+                        <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                          Item Breakdown
+                        </h3>
+                        <span className="text-xs text-slate-500 dark:text-slate-500 italic">
+                          (for reference)
+                        </span>
+                      </div>
+                        {viewingGuest.items.length > 0 && (
+                          <div className="mb-3">
+                            <div className="space-y-2 mb-3">
+                              {viewingGuest.items.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg"
+                                >
+                                  <div className="flex-1">
+                                    <span className="text-slate-700 dark:text-slate-200">
+                                      {item.note}
+                                    </span>
+                                    {item.price !== null && item.price !== undefined && (
+                                      <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">
+                                        £{item.price.toFixed(2)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {userRole === 'host' && (
+                                    <button
+                                      onClick={() => removeItem(viewingGuest.id, item.id)}
+                                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
+                                      aria-label="Remove item"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            {(() => {
+                              const itemsTotal = viewingGuest.items.reduce((sum, item) => {
+                                return sum + (item.price || 0);
+                              }, 0);
+
+                              if (itemsTotal > 0) {
+                                const difference = itemsTotal - viewingGuest.amount;
+                                return (
+                                  <div className="border-t border-slate-200 dark:border-slate-600 pt-3 mt-3 space-y-2">
+                                    <div className="flex justify-between items-center px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                      <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                                        Bill Total
+                                      </span>
+                                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                        £{viewingGuest.amount.toFixed(2)}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center px-3">
+                                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                                        Items Subtotal
+                                      </span>
+                                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                        £{itemsTotal.toFixed(2)}
+                                      </span>
+                                    </div>
+                                    {Math.abs(difference) > 0.01 && (
+                                      <div className="flex justify-between items-center px-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                        <span className="text-sm text-slate-600 dark:text-slate-400">
+                                          {difference < 0 ? 'Missing' : 'Extra'}
+                                        </span>
+                                        <span className={`text-sm font-medium ${difference < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                          {difference < 0 ? '-' : ''}£{Math.abs(difference).toFixed(2)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        )}
+                        {userRole === 'host' && (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              placeholder="Item (e.g., Steak)"
+                              value={itemNote}
+                              onChange={(e) => setItemNote(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  setEditingGuestId(viewingGuestId);
+                                  addItemToGuest();
+                                }
+                              }}
+                              className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                            />
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                placeholder="Price"
+                                value={itemPrice}
+                                onChange={(e) => setItemPrice(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setEditingGuestId(viewingGuestId);
+                                    addItemToGuest();
+                                  }
+                                }}
+                                step="0.01"
+                                className="w-24 px-3 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                              />
+                              <button
+                                onClick={() => {
+                                  setEditingGuestId(viewingGuestId);
+                                  addItemToGuest();
+                                }}
+                                disabled={!itemNote.trim()}
+                                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                      {/* Pre-order Notes */}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          Pre-order / Notes
+                        </label>
+                        <textarea
+                          value={viewingGuest.notes}
+                          onChange={(e) => {
+                            setGuests(guests.map(g =>
+                              g.id === viewingGuestId ? { ...g, notes: e.target.value } : g
+                            ));
+                          }}
+                          onBlur={async () => {
+                            try {
+                              await apiUpdateGuest(
+                                parseInt(viewingGuestId),
+                                {
+                                  notes: viewingGuest.notes,
+                                }
+                              );
+                            } catch (error) {
+                              console.error('Error updating guest notes:', error);
+                            }
+                          }}
+                          placeholder="e.g., Vegetarian option, no onions..."
+                          rows={4}
+                          maxLength={500}
+                          readOnly={userRole !== 'host'}
+                          className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 resize-none"
+                        />
+                        <div className="text-xs text-slate-400 dark:text-slate-500 mt-1 text-right">
+                          {viewingGuest.notes.length}/500
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Back Button */}
+                    <div className="mt-6">
+                      <button
+                        onClick={() => setViewingGuestId(null)}
+                        className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                        </svg>
+                        Back to Event
+                      </button>
+                    </div>
+                  </>
+                );
+              })()
+            ) : (
+              /* Event Dashboard */
+              <>
+                {/* Event Name */}
+                <div className="mb-4">
+                  <h2 className="text-xl sm:text-2xl font-light text-slate-600 dark:text-slate-400 text-center">
+                    {currentEvent?.name}
+                  </h2>
+                </div>
+
+            {/* Total Card */}
             <div className={`rounded-lg shadow-md mb-4 sm:mb-6 transition-colors ${
               totalBill > 0 && totalOwed === 0
                 ? 'bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-2 border-green-200 dark:border-green-700'
@@ -2021,7 +2504,7 @@ export default function Home() {
                     ? 'text-green-800 dark:text-green-300'
                     : 'text-slate-600 dark:text-slate-400'
                 }`}>
-                  Restaurant Bill Total
+                  Bill Total
                 </span>
                 <div className="flex items-center gap-2">
                   <span className={`text-3xl sm:text-4xl font-bold ${
@@ -2046,13 +2529,13 @@ export default function Home() {
                     ? 'border-green-200 dark:border-green-700'
                     : 'border-slate-200 dark:border-slate-700'
                 }`}>
-                  {/* Deposits Section */}
+                  {/* Paid Section */}
                   <div className="flex flex-col items-center p-3 sm:p-4 border-r-2 border-slate-200 dark:border-slate-700">
                     <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">
-                      Deposits
+                      Paid
                     </span>
                     <span className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-200">
-                      £{totalDeposits.toFixed(2)}
+                      £{totalPaid.toFixed(2)}
                     </span>
                   </div>
 
@@ -2072,47 +2555,6 @@ export default function Home() {
                 </div>
               )}
             </div>
-
-            {/* Add Guest Form - Host Only */}
-            {userRole === 'host' && (
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <input
-                    ref={nameInputRef}
-                    type="text"
-                    placeholder="Guest name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addGuest()}
-                    className="flex-1 px-4 py-3 sm:py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Total bill"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addGuest()}
-                    step="0.01"
-                    className="w-full sm:w-32 px-4 py-3 sm:py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Deposit"
-                    value={deposit}
-                    onChange={(e) => setDeposit(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addGuest()}
-                    step="0.01"
-                    className="w-full sm:w-28 px-4 py-3 sm:py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <button
-                    onClick={addGuest}
-                    className="w-full sm:w-auto px-6 py-3 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Items Modal */}
             {showItemsModal && editingGuest && (
@@ -2214,10 +2656,6 @@ export default function Home() {
 
             {/* Guest List */}
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-3 sm:mb-4">
-                Guests ({guests.length})
-              </h2>
-
               {guests.length === 0 ? (
                 <div className="text-center py-8 sm:py-12">
                   {/* Icon */}
@@ -2231,43 +2669,9 @@ export default function Home() {
                   <h3 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-2">
                     No guests yet
                   </h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base mb-6 max-w-sm mx-auto">
-                    Get started by adding your first guest using the form above
+                  <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base max-w-sm mx-auto">
+                    Get started by adding your first guest
                   </p>
-
-                  {/* Tips */}
-                  <div className="max-w-md mx-auto bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 text-left">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mt-0.5">
-                        <span className="text-blue-600 dark:text-blue-400 text-sm font-semibold">1</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-slate-600 dark:text-slate-300">
-                          Enter guest name and optionally their bill amount
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mt-0.5">
-                        <span className="text-blue-600 dark:text-blue-400 text-sm font-semibold">2</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-slate-600 dark:text-slate-300">
-                          Click on guest names to add menu items and notes
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mt-0.5">
-                        <span className="text-blue-600 dark:text-blue-400 text-sm font-semibold">3</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-slate-600 dark:text-slate-300">
-                          {userRole === 'host' ? 'Mark guests as paid when they settle up' : 'Track who has paid and what they ordered'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 <div className="space-y-3 sm:space-y-4">
@@ -2300,7 +2704,7 @@ export default function Home() {
                             </button>
                           )}
                           <button
-                            onClick={() => selectGuest(guest.id)}
+                            onClick={() => setViewingGuestId(guest.id)}
                             className="flex-1 text-left min-w-0"
                           >
                             <span className={`font-medium text-xl sm:text-2xl break-words transition-colors ${
@@ -2356,20 +2760,12 @@ export default function Home() {
                             </div>
                           ) : (
                             <button
-                              onClick={() =>
-                                startEditingAmount(guest.id, guest.amount, guest.deposit)
-                              }
+                              onClick={() => setViewingGuestId(guest.id)}
                               className="flex flex-col items-end"
-                              disabled={userRole !== 'host'}
                             >
-                              <span className={`text-xl sm:text-2xl font-semibold ${userRole === 'host' ? 'text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400' : 'text-slate-700 dark:text-slate-200'} transition-colors`}>
+                              <span className="text-xl sm:text-2xl font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                                 £{(guest.amount - guest.deposit).toFixed(2)}
                               </span>
-                              {guest.deposit > 0 && (
-                                <span className="text-xs text-slate-400 dark:text-slate-500">
-                                  £{guest.amount.toFixed(2)} - £{guest.deposit.toFixed(2)} deposit
-                                </span>
-                              )}
                             </button>
                           )}
                           {userRole === 'host' && (
@@ -2391,64 +2787,198 @@ export default function Home() {
               )}
             </div>
 
-            {/* Bank Details - Bottom Section */}
-            <div className="mt-6 mb-4 space-y-2">
-              <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+            {/* Add Guest - Host Only */}
+            {userRole === 'host' && (
+              <div className="mt-4 sm:mt-6">
+                <div className="flex gap-2">
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    placeholder="Guest name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addGuest();
+                    }}
+                    className="flex-1 px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                  />
+                  <button
+                    onClick={addGuest}
+                    disabled={!name.trim()}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Payment Details Button */}
+            <div className="mt-6 mb-4">
+              <button
+                onClick={() => setShowPaymentDetailsModal(true)}
+                className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                </svg>
+                Payment Details
+              </button>
+            </div>
+
+            {/* Bottom Navigation */}
+            <div className="mt-6 mb-4 space-y-3">
+              {/* Home Button - visible to all users */}
+              <button
+                onClick={() => {
+                  setCurrentEventId(null);
+                  setUserRole(null);
+                  setGuests([]);
+                }}
+                className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                </svg>
+                Home
+              </button>
+
+              {/* Settings Button - visible only to hosts */}
+              {userRole === 'host' && (
                 <button
-                  onClick={() => setShowBankDetails(!showBankDetails)}
-                  className="w-full flex items-center justify-between mb-2"
+                  onClick={() => setShowEventSettings(true)}
+                  className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
                 >
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    Payment Details
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                      className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${showBankDetails ? 'rotate-180' : ''}`}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Settings
                 </button>
+              )}
 
-                {showBankDetails && (
-                  <>
-                    <div className="flex items-center justify-end gap-2 mb-2">
-                      {userRole === 'host' && (
-                        <button
-                          onClick={openBankDetailsModal}
-                          className="p-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded transition-colors"
-                          aria-label="Edit bank details"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          const bankDetails = `Bank Details for Payment:\n\nAccount Number: ${currentEvent?.bankAccountNumber || 'Not set'}\nSort Code: ${currentEvent?.bankSortCode || 'Not set'}\nAccount Name: ${currentEvent?.bankAccountName || 'Not set'}`;
-                          navigator.clipboard.writeText(bankDetails);
-                          showToastNotification('All bank details copied!');
-                        }}
-                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors"
-                      >
-                        Copy All
-                      </button>
-                    </div>
+              {/* Leave Event Button - visible only to guests */}
+              {userRole === 'guest' && (
+                <button
+                  onClick={leaveEventAsGuest}
+                  className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                  </svg>
+                  Leave Event
+                </button>
+              )}
+            </div>
+              </>
+            )}
+          </>
+        )}
 
-                    <div className="space-y-2">
+        {/* Calculator Modal */}
+        {showCalculator && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleCalculatorCancel}>
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                    {calculatorField === 'amount' ? 'Bill Total' : 'Paid'}
+                  </h3>
+                  <button
+                    onClick={handleCalculatorCancel}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                    aria-label="Close"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Display */}
+                <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                  <div className="text-right text-3xl font-semibold text-slate-800 dark:text-slate-100">
+                    £{calculatorValue || '0'}
+                  </div>
+                </div>
+
+                {/* Number Pad */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => handleCalculatorNumberPress(num)}
+                      className="p-4 text-xl font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors"
+                    >
+                      {num}
+                    </button>
+                  ))}
+                  <button
+                    onClick={handleCalculatorBackspace}
+                    className="p-4 text-xl font-semibold bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg transition-colors flex items-center justify-center"
+                  >
+                    ←
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorNumberPress('0')}
+                    className="p-4 text-xl font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors"
+                  >
+                    0
+                  </button>
+                  <button
+                    onClick={() => handleCalculatorNumberPress('.')}
+                    className="p-4 text-xl font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors"
+                  >
+                    .
+                  </button>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleCalculatorCancel}
+                    className="px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCalculatorOK}
+                    className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Details Modal */}
+        {showPaymentDetailsModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowPaymentDetailsModal(false)}>
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Payment Details</h3>
+                  <button
+                    onClick={() => setShowPaymentDetailsModal(false)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                    aria-label="Close"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
                   {/* Account Number */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                     <div className="flex-1">
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                         Account Number
                       </div>
-                      <div className="font-mono text-sm text-slate-700 dark:text-slate-200 tracking-wide">
+                      <div className="font-mono text-base text-slate-800 dark:text-slate-200 tracking-wide">
                         {currentEvent?.bankAccountNumber || 'Not set'}
                       </div>
                     </div>
@@ -2457,19 +2987,19 @@ export default function Home() {
                         navigator.clipboard.writeText(currentEvent?.bankAccountNumber || '');
                         showToastNotification('Account number copied!');
                       }}
-                      className="ml-3 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors"
+                      className="ml-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 text-sm rounded transition-colors"
                     >
                       Copy
                     </button>
                   </div>
 
                   {/* Sort Code */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                     <div className="flex-1">
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                         Sort Code
                       </div>
-                      <div className="font-mono text-sm text-slate-700 dark:text-slate-200 tracking-wide">
+                      <div className="font-mono text-base text-slate-800 dark:text-slate-200 tracking-wide">
                         {currentEvent?.bankSortCode || 'Not set'}
                       </div>
                     </div>
@@ -2478,19 +3008,19 @@ export default function Home() {
                         navigator.clipboard.writeText(currentEvent?.bankSortCode || '');
                         showToastNotification('Sort code copied!');
                       }}
-                      className="ml-3 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors"
+                      className="ml-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 text-sm rounded transition-colors"
                     >
                       Copy
                     </button>
                   </div>
 
                   {/* Account Name */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                         Account Name
                       </div>
-                      <div className="text-sm text-slate-700 dark:text-slate-200 break-words">
+                      <div className="text-base text-slate-800 dark:text-slate-200 break-words">
                         {currentEvent?.bankAccountName || 'Not set'}
                       </div>
                     </div>
@@ -2499,45 +3029,29 @@ export default function Home() {
                         navigator.clipboard.writeText(currentEvent?.bankAccountName || '');
                         showToastNotification('Account name copied!');
                       }}
-                      className="ml-3 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs rounded transition-colors flex-shrink-0"
+                      className="ml-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 text-sm rounded transition-colors flex-shrink-0"
                     >
                       Copy
                     </button>
                   </div>
-                    </div>
-                  </>
-                )}
+                </div>
+
+                {/* Copy All Button */}
+                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <button
+                    onClick={() => {
+                      const bankDetails = `Bank Details for Payment:\n\nAccount Number: ${currentEvent?.bankAccountNumber || 'Not set'}\nSort Code: ${currentEvent?.bankSortCode || 'Not set'}\nAccount Name: ${currentEvent?.bankAccountName || 'Not set'}`;
+                      navigator.clipboard.writeText(bankDetails);
+                      showToastNotification('All bank details copied!');
+                    }}
+                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Copy All Details
+                  </button>
+                </div>
               </div>
             </div>
-
-            {userRole === 'host' && (
-              <div className="mt-6 mb-4">
-                <button
-                  onClick={() => setShowDeleteConfirmModal(true)}
-                  className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors text-xs flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                  </svg>
-                  Delete Event
-                </button>
-              </div>
-            )}
-
-            {userRole === 'guest' && (
-              <div className="mt-6 mb-4">
-                <button
-                  onClick={leaveEventAsGuest}
-                  className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors text-xs flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-                  </svg>
-                  Leave Event
-                </button>
-              </div>
-            )}
-          </>
+          </div>
         )}
 
         {/* Toast Notification */}

@@ -5,7 +5,7 @@
 -- Dumped from database version 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 17.4
 
--- Started on 2025-10-11 23:25:17
+-- Started on 2025-10-13 02:05:23
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -176,7 +176,7 @@ ALTER SEQUENCE public.app_user_id_seq OWNED BY public.app_user.id;
 CREATE TABLE public.events (
     id integer NOT NULL,
     name character varying(255) NOT NULL,
-    host_code character varying(10) NOT NULL,
+    host_code character varying(10),
     guest_code character varying(10) NOT NULL,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone NOT NULL,
@@ -259,7 +259,8 @@ CREATE TABLE public.guest_items (
     id integer NOT NULL,
     guest_id integer NOT NULL,
     note character varying(500) NOT NULL,
-    created_at timestamp with time zone NOT NULL
+    created_at timestamp with time zone NOT NULL,
+    price numeric(10,2)
 );
 
 
@@ -342,11 +343,10 @@ ALTER SEQUENCE public.guests_id_seq OWNED BY public.guests.id;
 
 CREATE TABLE public.user_event_memberships (
     id integer NOT NULL,
-    user_id character varying(255) NOT NULL,
     event_id integer NOT NULL,
     role character varying(10) NOT NULL,
     joined_at timestamp with time zone NOT NULL,
-    app_user_id integer,
+    app_user_id integer NOT NULL,
     CONSTRAINT user_event_memberships_role_check CHECK (((role)::text = ANY ((ARRAY['host'::character varying, 'guest'::character varying])::text[])))
 );
 
@@ -359,7 +359,7 @@ ALTER TABLE public.user_event_memberships OWNER TO splitdine_prod_user;
 -- Name: COLUMN user_event_memberships.app_user_id; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
 
-COMMENT ON COLUMN public.user_event_memberships.app_user_id IS 'User account ID (optional - for registered users). Separate from user_id which stores session_id';
+COMMENT ON COLUMN public.user_event_memberships.app_user_id IS 'User account ID (required for all users)';
 
 
 --
@@ -428,7 +428,7 @@ ALTER TABLE ONLY public.user_event_memberships ALTER COLUMN id SET DEFAULT nextv
 
 
 --
--- TOC entry 3350 (class 2606 OID 21883)
+-- TOC entry 3349 (class 2606 OID 21883)
 -- Name: app_user app_user_email_key; Type: CONSTRAINT; Schema: public; Owner: splitdine_prod_user
 --
 
@@ -437,7 +437,7 @@ ALTER TABLE ONLY public.app_user
 
 
 --
--- TOC entry 3352 (class 2606 OID 21881)
+-- TOC entry 3351 (class 2606 OID 21881)
 -- Name: app_user app_user_pkey; Type: CONSTRAINT; Schema: public; Owner: splitdine_prod_user
 --
 
@@ -473,7 +473,7 @@ ALTER TABLE ONLY public.guests
 
 
 --
--- TOC entry 3348 (class 2606 OID 21852)
+-- TOC entry 3347 (class 2606 OID 21852)
 -- Name: user_event_memberships user_event_memberships_pkey; Type: CONSTRAINT; Schema: public; Owner: splitdine_prod_user
 --
 
@@ -482,11 +482,19 @@ ALTER TABLE ONLY public.user_event_memberships
 
 
 --
--- TOC entry 3353 (class 1259 OID 21884)
+-- TOC entry 3352 (class 1259 OID 21884)
 -- Name: idx_app_user_email; Type: INDEX; Schema: public; Owner: splitdine_prod_user
 --
 
 CREATE INDEX idx_app_user_email ON public.app_user USING btree (email);
+
+
+--
+-- TOC entry 3353 (class 1259 OID 21894)
+-- Name: idx_app_user_reset_token; Type: INDEX; Schema: public; Owner: splitdine_prod_user
+--
+
+CREATE INDEX idx_app_user_reset_token ON public.app_user USING btree (reset_token) WHERE (reset_token IS NOT NULL);
 
 
 --
@@ -530,7 +538,15 @@ CREATE INDEX idx_guests_event_id ON public.guests USING btree (event_id);
 
 
 --
--- TOC entry 3343 (class 1259 OID 21886)
+-- TOC entry 3343 (class 1259 OID 21896)
+-- Name: idx_memberships_app_user_event; Type: INDEX; Schema: public; Owner: splitdine_prod_user
+--
+
+CREATE UNIQUE INDEX idx_memberships_app_user_event ON public.user_event_memberships USING btree (app_user_id, event_id);
+
+
+--
+-- TOC entry 3344 (class 1259 OID 21886)
 -- Name: idx_memberships_app_user_id; Type: INDEX; Schema: public; Owner: splitdine_prod_user
 --
 
@@ -538,27 +554,11 @@ CREATE INDEX idx_memberships_app_user_id ON public.user_event_memberships USING 
 
 
 --
--- TOC entry 3344 (class 1259 OID 21854)
+-- TOC entry 3345 (class 1259 OID 21854)
 -- Name: idx_memberships_event_id; Type: INDEX; Schema: public; Owner: splitdine_prod_user
 --
 
 CREATE INDEX idx_memberships_event_id ON public.user_event_memberships USING btree (event_id);
-
-
---
--- TOC entry 3345 (class 1259 OID 21855)
--- Name: idx_memberships_user_event; Type: INDEX; Schema: public; Owner: splitdine_prod_user
---
-
-CREATE UNIQUE INDEX idx_memberships_user_event ON public.user_event_memberships USING btree (user_id, event_id);
-
-
---
--- TOC entry 3346 (class 1259 OID 21853)
--- Name: idx_memberships_user_id; Type: INDEX; Schema: public; Owner: splitdine_prod_user
---
-
-CREATE INDEX idx_memberships_user_id ON public.user_event_memberships USING btree (user_id);
 
 
 --
@@ -577,7 +577,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENC
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO splitdine_prod_user;
 
 
--- Completed on 2025-10-11 23:25:19
+-- Completed on 2025-10-13 02:05:25
 
 --
 -- PostgreSQL database dump complete

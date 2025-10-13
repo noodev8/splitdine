@@ -58,7 +58,8 @@ Success Response:
       "items": [                                         // array, guest items
         {
           "id": 1,                                       // integer, item ID
-          "note": "Starter"                              // string, item note
+          "note": "Starter",                             // string, item note
+          "price": 12.50                                 // number, optional, item price
         }
       ]
     }
@@ -117,7 +118,7 @@ router.post('/get_guests', verifyToken, async (req, res) => {
     const guests = await Promise.all(
       guestsResult.rows.map(async (guest) => {
         const itemsResult = await query(
-          `SELECT id, note
+          `SELECT id, note, price
            FROM guest_items
            WHERE guest_id = $1
            ORDER BY created_at ASC`,
@@ -132,7 +133,11 @@ router.post('/get_guests', verifyToken, async (req, res) => {
           deposit: parseFloat(guest.deposit),
           notes: guest.notes || '',
           paid: guest.paid,
-          items: itemsResult.rows
+          items: itemsResult.rows.map(item => ({
+            id: item.id,
+            note: item.note,
+            price: item.price ? parseFloat(item.price) : null
+          }))
         };
       })
     );
@@ -573,7 +578,8 @@ Request Payload:
 {
   "session_id": "550e8400-e29b-41d4-a716-446655440000",  // string, required
   "guest_id": 1,                                         // integer, required
-  "note": "Starter - Soup"                               // string, required
+  "note": "Starter - Soup",                              // string, required
+  "price": 12.50                                         // number, optional, item price
 }
 
 Success Response:
@@ -581,7 +587,8 @@ Success Response:
   "return_code": "SUCCESS",
   "item": {
     "id": 1,
-    "note": "Starter - Soup"
+    "note": "Starter - Soup",
+    "price": 12.50
   },
   "message": "Item added successfully"
 }
@@ -599,7 +606,7 @@ router.post('/add_item', verifyToken, async (req, res) => {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { guest_id, note } = req.body;
+    const { guest_id, note, price } = req.body;
     const userId = req.user.id; // User is authenticated
 
     if (!guest_id || !note) {
@@ -648,10 +655,10 @@ router.post('/add_item', verifyToken, async (req, res) => {
     // Add item to guest
     // =============================================================================
     const result = await query(
-      `INSERT INTO guest_items (guest_id, note, created_at)
-       VALUES ($1, $2, NOW())
-       RETURNING id, note`,
-      [guest_id, note.trim()]
+      `INSERT INTO guest_items (guest_id, note, price, created_at)
+       VALUES ($1, $2, $3, NOW())
+       RETURNING id, note, price`,
+      [guest_id, note.trim(), price !== undefined ? price : null]
     );
 
     const newItem = result.rows[0];
@@ -663,7 +670,8 @@ router.post('/add_item', verifyToken, async (req, res) => {
       return_code: 'SUCCESS',
       item: {
         id: newItem.id,
-        note: newItem.note
+        note: newItem.note,
+        price: newItem.price ? parseFloat(newItem.price) : null
       },
       message: 'Item added successfully'
     });

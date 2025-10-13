@@ -131,9 +131,9 @@ router.post('/create', verifyToken, async (req, res) => {
 
       // Create host membership for creator
       await client.query(
-        `INSERT INTO user_event_memberships (event_id, role, user_id, app_user_id, joined_at)
-         VALUES ($1, $2, $3, $4, NOW())`,
-        [newEvent.id, 'host', userId.toString(), userId]
+        `INSERT INTO user_event_memberships (event_id, role, app_user_id, joined_at)
+         VALUES ($1, $2, $3, NOW())`,
+        [newEvent.id, 'host', userId]
       );
 
       return newEvent;
@@ -273,9 +273,9 @@ router.post('/join', verifyToken, async (req, res) => {
     // Create new membership as guest
     // =============================================================================
     await query(
-      `INSERT INTO user_event_memberships (event_id, role, user_id, app_user_id, joined_at)
-       VALUES ($1, 'guest', $2, $3, NOW())`,
-      [event.id, userId.toString(), userId]
+      `INSERT INTO user_event_memberships (event_id, role, app_user_id, joined_at)
+       VALUES ($1, 'guest', $2, NOW())`,
+      [event.id, userId]
     );
 
     // =============================================================================
@@ -517,6 +517,186 @@ router.post('/update_bank_details', verifyToken, async (req, res) => {
 
 /*
 =======================================================================================================================================
+API Route: update_event_settings
+=======================================================================================================================================
+Method: POST
+Purpose: Updates basic event settings including name and bank details.
+         Only the host can update event settings.
+         Requires authentication.
+=======================================================================================================================================
+Request Payload:
+{
+  "event_id": 123,                                        // integer, required
+  "event_name": "New Event Name",                         // string, optional
+  "bank_account_number": "12345678",                      // string, optional
+  "bank_sort_code": "04-00-03",                           // string, optional
+  "bank_account_name": "John Doe"                         // string, optional
+}
+
+Success Response:
+{
+  "return_code": "SUCCESS",
+  "event": {
+    "id": 123,
+    "name": "New Event Name",
+    "bank_account_number": "12345678",
+    "bank_sort_code": "04-00-03",
+    "bank_account_name": "John Doe"
+  },
+  "message": "Event settings updated successfully"
+}
+=======================================================================================================================================
+Return Codes:
+"SUCCESS"
+"MISSING_FIELDS"
+"INVALID_EVENT_NAME"
+"EVENT_NOT_FOUND"
+"UNAUTHORIZED"
+"SERVER_ERROR"
+=======================================================================================================================================
+*/
+router.post('/update_event_settings', verifyToken, async (req, res) => {
+  try {
+    // =============================================================================
+    // Extract and validate request data
+    // =============================================================================
+    const { event_id, event_name, bank_account_number, bank_sort_code, bank_account_name } = req.body;
+    const userId = req.user.id; // User is authenticated
+
+    if (!event_id) {
+      return res.status(200).json({
+        return_code: 'MISSING_FIELDS',
+        message: 'event_id is required'
+      });
+    }
+
+    // =============================================================================
+    // Verify user is host of the event
+    // =============================================================================
+    const membershipCheck = await query(
+      `SELECT role FROM user_event_memberships
+       WHERE app_user_id = $1 AND event_id = $2`,
+      [userId, event_id]
+    );
+
+    if (membershipCheck.rows.length === 0) {
+      return res.status(200).json({
+        return_code: 'EVENT_NOT_FOUND',
+        message: 'Event not found or you are not a member'
+      });
+    }
+
+    if (membershipCheck.rows[0].role !== 'host') {
+      return res.status(200).json({
+        return_code: 'UNAUTHORIZED',
+        message: 'Only the host can update event settings'
+      });
+    }
+
+    // =============================================================================
+    // Validate event name if provided
+    // =============================================================================
+    if (event_name !== undefined) {
+      if (typeof event_name !== 'string' || event_name.trim().length === 0) {
+        return res.status(200).json({
+          return_code: 'INVALID_EVENT_NAME',
+          message: 'Event name cannot be empty'
+        });
+      }
+    }
+
+    // =============================================================================
+    // Build dynamic update query
+    // =============================================================================
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (event_name !== undefined) {
+      updates.push(`name = $${paramCount}`);
+      values.push(event_name.trim());
+      paramCount++;
+    }
+
+    if (bank_account_number !== undefined) {
+      updates.push(`bank_account_number = $${paramCount}`);
+      values.push(bank_account_number || null);
+      paramCount++;
+    }
+
+    if (bank_sort_code !== undefined) {
+      updates.push(`bank_sort_code = $${paramCount}`);
+      values.push(bank_sort_code || null);
+      paramCount++;
+    }
+
+    if (bank_account_name !== undefined) {
+      updates.push(`bank_account_name = $${paramCount}`);
+      values.push(bank_account_name || null);
+      paramCount++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(200).json({
+        return_code: 'MISSING_FIELDS',
+        message: 'No fields to update'
+      });
+    }
+
+    // Add updated_at timestamp
+    updates.push(`updated_at = NOW()`);
+
+    // Add event_id as final parameter
+    values.push(event_id);
+
+    // =============================================================================
+    // Execute update query
+    // =============================================================================
+    const updateQuery = `
+      UPDATE events
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING id, name, bank_account_number, bank_sort_code, bank_account_name
+    `;
+
+    const updateResult = await query(updateQuery, values);
+
+    if (updateResult.rows.length === 0) {
+      return res.status(200).json({
+        return_code: 'EVENT_NOT_FOUND',
+        message: 'Event not found'
+      });
+    }
+
+    // =============================================================================
+    // Return success response
+    // =============================================================================
+    return res.status(200).json({
+      return_code: 'SUCCESS',
+      event: {
+        id: updateResult.rows[0].id,
+        name: updateResult.rows[0].name,
+        bank_account_number: updateResult.rows[0].bank_account_number,
+        bank_sort_code: updateResult.rows[0].bank_sort_code,
+        bank_account_name: updateResult.rows[0].bank_account_name
+      },
+      message: 'Event settings updated successfully'
+    });
+
+  } catch (error) {
+    // =============================================================================
+    // Handle unexpected errors
+    // =============================================================================
+    console.error('❌ Error in update_event_settings route:', error);
+    return res.status(200).json({
+      return_code: 'SERVER_ERROR',
+      message: 'An error occurred while updating event settings'
+    });
+  }
+});
+
+/*
+=======================================================================================================================================
 API Route: leave_event
 =======================================================================================================================================
 Method: POST
@@ -610,6 +790,115 @@ router.post('/leave_event', verifyToken, async (req, res) => {
     return res.status(200).json({
       return_code: 'SERVER_ERROR',
       message: 'An error occurred while leaving event'
+    });
+  }
+});
+
+/*
+=======================================================================================================================================
+API Route: delete_event
+=======================================================================================================================================
+Method: POST
+Purpose: Deletes an event and all associated data (guests, items, memberships).
+         Only the host can delete an event.
+         Requires authentication.
+=======================================================================================================================================
+Request Payload:
+{
+  "event_id": 123                                        // integer, required
+}
+
+Success Response:
+{
+  "return_code": "SUCCESS",
+  "message": "Event deleted successfully"
+}
+=======================================================================================================================================
+Return Codes:
+"SUCCESS"
+"MISSING_FIELDS"
+"EVENT_NOT_FOUND"
+"UNAUTHORIZED"
+"SERVER_ERROR"
+=======================================================================================================================================
+*/
+router.post('/delete_event', verifyToken, async (req, res) => {
+  try {
+    // =============================================================================
+    // Extract and validate request data
+    // =============================================================================
+    const { event_id } = req.body;
+    const userId = req.user.id; // User is authenticated
+
+    if (!event_id) {
+      return res.status(200).json({
+        return_code: 'MISSING_FIELDS',
+        message: 'event_id is required'
+      });
+    }
+
+    // =============================================================================
+    // Verify user is host of the event
+    // =============================================================================
+    const membershipCheck = await query(
+      `SELECT role FROM user_event_memberships
+       WHERE app_user_id = $1 AND event_id = $2`,
+      [userId, event_id]
+    );
+
+    if (membershipCheck.rows.length === 0) {
+      return res.status(200).json({
+        return_code: 'EVENT_NOT_FOUND',
+        message: 'Event not found or you are not a member'
+      });
+    }
+
+    if (membershipCheck.rows[0].role !== 'host') {
+      return res.status(200).json({
+        return_code: 'UNAUTHORIZED',
+        message: 'Only the host can delete an event'
+      });
+    }
+
+    // =============================================================================
+    // Delete event and all associated data in a transaction
+    // Database CASCADE will handle:
+    // - guests table (ON DELETE CASCADE via event_id FK)
+    // - guest_items table (ON DELETE CASCADE via guest_id FK)
+    // - user_event_memberships (no CASCADE, so manual delete)
+    // =============================================================================
+    await withTransaction(async (client) => {
+      // Delete all memberships for this event
+      await client.query(
+        `DELETE FROM user_event_memberships WHERE event_id = $1`,
+        [event_id]
+      );
+
+      // Delete the event (CASCADE will delete guests and guest_items)
+      await client.query(
+        `DELETE FROM events WHERE id = $1`,
+        [event_id]
+      );
+    });
+
+    console.log(`✓ Event ${event_id} deleted successfully`);
+
+    // =============================================================================
+    // Return success response
+    // =============================================================================
+    return res.status(200).json({
+      return_code: 'SUCCESS',
+      message: 'Event deleted successfully'
+    });
+
+  } catch (error) {
+    // =============================================================================
+    // Handle unexpected errors
+    // =============================================================================
+    console.error('❌ Error in delete_event route:', error);
+    return res.status(200).json({
+      return_code: 'SERVER_ERROR',
+      message: 'An error occurred while deleting event'
     });
   }
 });

@@ -99,11 +99,9 @@ app.get('/health', (req, res) => {
 // =============================================================================
 // Import and mount route modules
 const authRoutes = require('./routes/auth');
-const sessionRoutes = require('./routes/session');
 const eventRoutes = require('./routes/events');
 
 app.use('/api/auth', authRoutes);
-app.use('/api/session', sessionRoutes);
 app.use('/api/events', eventRoutes);
 
 // Guest management routes

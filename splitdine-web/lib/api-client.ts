@@ -38,6 +38,7 @@ export interface Event {
 export interface GuestItem {
   id: number;
   note: string;
+  price?: number | null;
 }
 
 export interface Guest {
@@ -222,6 +223,52 @@ export const leaveEvent = async (eventId: number): Promise<ApiResponse> => {
   return response;
 };
 
+/**
+ * Updates event settings (host only)
+ * Requires authentication.
+ * @param {number} eventId - Event ID
+ * @param {object} settings - Settings to update
+ * @returns {Promise<{id: number, name: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}>}
+ */
+export const updateEventSettings = async (
+  eventId: number,
+  settings: {
+    event_name?: string;
+    bank_account_number?: string;
+    bank_sort_code?: string;
+    bank_account_name?: string;
+  }
+): Promise<{id: number, name: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}> => {
+  const response = await apiCall<ApiResponse & { event: {id: number, name: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string} }>('/api/events/update_event_settings', {
+    event_id: eventId,
+    ...settings,
+  });
+
+  if (response.return_code !== 'SUCCESS') {
+    throw new Error(response.message || 'Failed to update event settings');
+  }
+
+  return response.event;
+};
+
+/**
+ * Deletes an event and all associated data (host only)
+ * Requires authentication.
+ * @param {number} eventId - Event ID
+ * @returns {Promise<ApiResponse>} - Delete event response
+ */
+export const deleteEvent = async (eventId: number): Promise<ApiResponse> => {
+  const response = await apiCall<ApiResponse>('/api/events/delete_event', {
+    event_id: eventId,
+  });
+
+  if (response.return_code !== 'SUCCESS') {
+    throw new Error(response.message || 'Failed to delete event');
+  }
+
+  return response;
+};
+
 // =============================================================================
 // Guest API Functions
 // =============================================================================
@@ -336,12 +383,14 @@ export const deleteGuest = async (guestId: number): Promise<void> => {
  * Requires authentication.
  * @param {number} guestId - Guest ID
  * @param {string} note - Item note/description
+ * @param {number} price - Item price (optional)
  * @returns {Promise<GuestItem>} - Created item
  */
-export const addGuestItem = async (guestId: number, note: string): Promise<GuestItem> => {
+export const addGuestItem = async (guestId: number, note: string, price?: number): Promise<GuestItem> => {
   const response = await apiCall<ApiResponse & { item: GuestItem }>('/api/guests/add_item', {
     guest_id: guestId,
     note: note,
+    ...(price !== undefined && { price }),
   });
 
   if (response.return_code !== 'SUCCESS') {
