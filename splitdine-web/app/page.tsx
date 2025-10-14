@@ -16,6 +16,9 @@ import {
   deleteGuest as apiDeleteGuest,
   addGuestItem as apiAddGuestItem,
   deleteGuestItem as apiDeleteGuestItem,
+  claimGuest as apiClaimGuest,
+  unclaimGuest as apiUnclaimGuest,
+  getMyClaimedGuest as apiGetMyClaimedGuest,
   register as apiRegister,
   login as apiLogin,
   getCurrentUser,
@@ -36,6 +39,7 @@ interface Guest {
   items: Item[];
   notes: string;
   paid: boolean;
+  app_user_id?: number | null;
 }
 
 interface Event {
@@ -44,6 +48,7 @@ interface Event {
   guestCode: string;
   guests: Guest[];
   createdAt: number;
+  paymentMethod?: 'venue' | 'bank_transfer';
   bankAccountNumber?: string;
   bankSortCode?: string;
   bankAccountName?: string;
@@ -53,6 +58,177 @@ interface UserEventMembership {
   eventId: string;
   role: 'host' | 'guest';
   joinedAt: number;
+}
+
+// Event list item component
+interface EventListItemProps {
+  event: Event & { userRole: 'host' | 'guest' };
+  onOpenEvent: (eventId: string) => void;
+  onDeleteEvent: (eventId: string) => void;
+  onCopyGuestCode: (code: string) => void;
+  onShowToast: (message: string) => void;
+}
+
+function EventListItem({ event, onOpenEvent, onDeleteEvent, onCopyGuestCode, onShowToast }: EventListItemProps) {
+  const [showMenu, setShowMenu] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMenu]);
+
+  return (
+    <>
+      <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-650 transition-colors">
+        <div className="flex items-center justify-between gap-3">
+          <div
+            className="flex-1 min-w-0 cursor-pointer"
+            onClick={() => onOpenEvent(event.id)}
+          >
+            {/* Event name and role badge */}
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                {event.name}
+              </h3>
+              <span className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
+                event.userRole === 'host'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                  : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
+              }`}>
+                {event.userRole === 'host' ? 'Host' : 'Guest'}
+              </span>
+            </div>
+          </div>
+
+          {/* Three-dot menu button */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="p-2 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors flex-shrink-0"
+              aria-label="More options"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-600 dark:text-slate-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+              </svg>
+            </button>
+
+            {/* Dropdown menu */}
+            {showMenu && (
+              <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-600 py-1 z-10">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onOpenEvent(event.id);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Open Event
+                </button>
+
+                {event.userRole === 'host' && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenu(false);
+                        setShowShareModal(true);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      Share Details
+                    </button>
+
+                    <div className="border-t border-slate-200 dark:border-slate-600 my-1"></div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenu(false);
+                        onDeleteEvent(event.id);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      Delete Event
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
+                Share Details
+              </h2>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-500 dark:text-slate-400">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="text-center mb-4">
+              <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Invite guests to</div>
+              <div className="text-blue-600 dark:text-blue-400 font-medium mb-3">https://splitdine.co.uk</div>
+              <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">using event code:</div>
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="font-mono text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-wider">
+                  {event.guestCode}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(event.guestCode);
+                    onShowToast('Code copied to clipboard');
+                  }}
+                  className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded transition-colors text-sm"
+                >
+                  Copy Code
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopyGuestCode(event.guestCode);
+              }}
+              className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+              </svg>
+              Copy Message (WhatsApp, email, etc.)
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 export default function Home() {
@@ -91,6 +267,7 @@ export default function Home() {
   // Event settings state
   const [showEventSettings, setShowEventSettings] = useState(false);
   const [settingsEventName, setSettingsEventName] = useState('');
+  const [settingsPaymentMethod, setSettingsPaymentMethod] = useState<'venue' | 'bank_transfer'>('venue');
   const [settingsBankAccountNumber, setSettingsBankAccountNumber] = useState('');
   const [settingsBankSortCode, setSettingsBankSortCode] = useState('');
   const [settingsBankAccountName, setSettingsBankAccountName] = useState('');
@@ -103,8 +280,16 @@ export default function Home() {
   const [calculatorGuestId, setCalculatorGuestId] = useState<string | null>(null);
   const [isFirstInput, setIsFirstInput] = useState(true);
 
+  // Claim guest modal state
+  const [showClaimGuestModal, setShowClaimGuestModal] = useState(false);
+  const [selectedClaimGuestId, setSelectedClaimGuestId] = useState<string | null>(null);
+  const [isClaimingGuest, setIsClaimingGuest] = useState(false);
+
   // Payment details modal state
   const [showPaymentDetailsModal, setShowPaymentDetailsModal] = useState(false);
+
+  // Payment mode state
+  const [isPaymentMode, setIsPaymentMode] = useState(false);
 
   // Guest details page state
   const [viewingGuestId, setViewingGuestId] = useState<string | null>(null);
@@ -167,13 +352,17 @@ export default function Home() {
         note: item.note
       })),
       notes: apiGuest.notes,
-      paid: apiGuest.paid
+      paid: apiGuest.paid,
+      app_user_id: apiGuest.app_user_id
     }));
 
     // Update event with API guests
     setEvents(prev => prev.map(e =>
       e.id === eventId ? { ...e, guests: convertedApiGuests } : e
     ));
+
+    // Update guests state for current event
+    setGuests(convertedApiGuests);
 
     return convertedApiGuests;
   };
@@ -205,6 +394,7 @@ export default function Home() {
           guestCode: apiEvent.guest_code,
           guests: [], // Will be loaded when user opens the event
           createdAt: new Date(apiEvent.created_at).getTime(),
+          paymentMethod: apiEvent.payment_method as 'venue' | 'bank_transfer' | undefined,
           bankAccountNumber: apiEvent.bank_account_number,
           bankSortCode: apiEvent.bank_sort_code,
           bankAccountName: apiEvent.bank_account_name,
@@ -283,6 +473,7 @@ export default function Home() {
             guestCode: apiEvent.guest_code,
             guests: [],
             createdAt: new Date(apiEvent.created_at).getTime(),
+            paymentMethod: apiEvent.payment_method as 'venue' | 'bank_transfer' | undefined,
             bankAccountNumber: apiEvent.bank_account_number,
             bankSortCode: apiEvent.bank_sort_code,
             bankAccountName: apiEvent.bank_account_name,
@@ -414,6 +605,47 @@ export default function Home() {
     }
   };
 
+  // Claim guest functions
+  const openClaimGuestModal = () => {
+    setSelectedClaimGuestId(null);
+    setShowClaimGuestModal(true);
+  };
+
+  const handleClaimGuest = async () => {
+    if (!selectedClaimGuestId || !currentEventId) return;
+
+    setIsClaimingGuest(true);
+    try {
+      const result = await apiClaimGuest(parseInt(currentEventId), parseInt(selectedClaimGuestId));
+
+      if (result.success) {
+        // Reload guests to reflect the claim
+        await loadGuestsForEvent(currentEventId);
+        setShowClaimGuestModal(false);
+        setSelectedClaimGuestId(null);
+      }
+    } catch (error) {
+      console.error('Error claiming guest:', error);
+    } finally {
+      setIsClaimingGuest(false);
+    }
+  };
+
+  const handleUnclaimGuest = async () => {
+    if (!currentEventId) return;
+
+    try {
+      const result = await apiUnclaimGuest(parseInt(currentEventId));
+
+      if (result.success) {
+        // Reload guests to reflect the unclaim
+        await loadGuestsForEvent(currentEventId);
+      }
+    } catch (error) {
+      console.error('Error unclaiming guest:', error);
+    }
+  };
+
   // Event functions
   const startNewEvent = async () => {
     if (eventName.trim() && !isCreatingEvent) {
@@ -429,6 +661,7 @@ export default function Home() {
           guestCode: apiEvent.guest_code,
           guests: [],
           createdAt: new Date(apiEvent.created_at).getTime(),
+          paymentMethod: apiEvent.payment_method as 'venue' | 'bank_transfer' | undefined,
           bankAccountNumber: apiEvent.bank_account_number,
           bankSortCode: apiEvent.bank_sort_code,
           bankAccountName: apiEvent.bank_account_name,
@@ -482,6 +715,7 @@ export default function Home() {
         guestCode: apiEvent.guest_code,
         guests: [],
         createdAt: new Date(apiEvent.created_at).getTime(),
+        paymentMethod: apiEvent.payment_method as 'venue' | 'bank_transfer' | undefined,
         bankAccountNumber: apiEvent.bank_account_number,
         bankSortCode: apiEvent.bank_sort_code,
         bankAccountName: apiEvent.bank_account_name,
@@ -513,6 +747,19 @@ export default function Home() {
       // Load guests from API immediately after joining
       const loadedGuests = await loadGuestsForEvent(newEvent.id);
       setGuests(loadedGuests);
+
+      // Check if user should claim a guest
+      const myClaimedGuestResult = await apiGetMyClaimedGuest(parseInt(newEvent.id));
+      if (myClaimedGuestResult.success && !myClaimedGuestResult.guest) {
+        // User hasn't claimed a guest yet, check if there are unclaimed guests
+        const unclaimedGuests = loadedGuests.filter(g => !g.app_user_id);
+        if (unclaimedGuests.length > 0) {
+          // Prompt user to claim a guest
+          setTimeout(() => {
+            setShowClaimGuestModal(true);
+          }, 500); // Small delay for better UX
+        }
+      }
     } else {
       // API failed - show appropriate error message
       if (result.return_code === 'EVENT_NOT_FOUND') {
@@ -589,18 +836,19 @@ export default function Home() {
     }
   };
 
-  // const openEventSettings = () => {
-  //   if (!currentEventId) return;
-  //   const event = events.find(e => e.id === currentEventId);
-  //   if (!event) return;
+  const openEventSettings = () => {
+    if (!currentEventId) return;
+    const event = events.find(e => e.id === currentEventId);
+    if (!event) return;
 
-  //   // Pre-fill settings with current values
-  //   setSettingsEventName(event.name);
-  //   setSettingsBankAccountNumber(event.bankAccountNumber || '');
-  //   setSettingsBankSortCode(event.bankSortCode || '');
-  //   setSettingsBankAccountName(event.bankAccountName || '');
-  //   setShowEventSettings(true);
-  // };
+    // Pre-fill settings with current values
+    setSettingsEventName(event.name);
+    setSettingsPaymentMethod(event.paymentMethod || 'venue');
+    setSettingsBankAccountNumber(event.bankAccountNumber || '');
+    setSettingsBankSortCode(event.bankSortCode || '');
+    setSettingsBankAccountName(event.bankAccountName || '');
+    setShowEventSettings(true);
+  };
 
   const closeEventSettings = () => {
     setShowEventSettings(false);
@@ -613,6 +861,7 @@ export default function Home() {
     try {
       const updatedEvent = await apiUpdateEventSettings(parseInt(currentEventId), {
         event_name: settingsEventName,
+        payment_method: settingsPaymentMethod,
         bank_account_number: settingsBankAccountNumber,
         bank_sort_code: settingsBankSortCode,
         bank_account_name: settingsBankAccountName,
@@ -624,6 +873,7 @@ export default function Home() {
           ? {
               ...e,
               name: updatedEvent.name,
+              paymentMethod: updatedEvent.payment_method as 'venue' | 'bank_transfer' | undefined,
               bankAccountNumber: updatedEvent.bank_account_number,
               bankSortCode: updatedEvent.bank_sort_code,
               bankAccountName: updatedEvent.bank_account_name,
@@ -1035,50 +1285,92 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Bank Details Section */}
+            {/* Payment Details Section */}
             <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4">Bank Details</h3>
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4">Payment Details</h3>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
-                    Account Number
-                  </label>
+              {/* Payment Method Selector */}
+              <div className="space-y-3 mb-4">
+                <label className="flex items-center gap-3 cursor-pointer p-3 border-2 rounded-lg transition-colors" style={{
+                  borderColor: settingsPaymentMethod === 'venue' ? '#3b82f6' : '#e2e8f0',
+                  backgroundColor: settingsPaymentMethod === 'venue' ? '#eff6ff' : 'transparent'
+                }}>
                   <input
-                    type="text"
-                    value={settingsBankAccountNumber}
-                    onChange={(e) => setSettingsBankAccountNumber(e.target.value)}
-                    className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                    placeholder="12345678"
+                    type="radio"
+                    name="paymentMethod"
+                    value="venue"
+                    checked={settingsPaymentMethod === 'venue'}
+                    onChange={(e) => setSettingsPaymentMethod(e.target.value as 'venue' | 'bank_transfer')}
+                    className="w-4 h-4"
                   />
-                </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-slate-800 dark:text-slate-100">Pay at venue/till</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">Guests pay their share at the venue</div>
+                  </div>
+                </label>
 
-                <div>
-                  <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
-                    Sort Code
-                  </label>
+                <label className="flex items-center gap-3 cursor-pointer p-3 border-2 rounded-lg transition-colors" style={{
+                  borderColor: settingsPaymentMethod === 'bank_transfer' ? '#3b82f6' : '#e2e8f0',
+                  backgroundColor: settingsPaymentMethod === 'bank_transfer' ? '#eff6ff' : 'transparent'
+                }}>
                   <input
-                    type="text"
-                    value={settingsBankSortCode}
-                    onChange={(e) => setSettingsBankSortCode(e.target.value)}
-                    className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                    placeholder="04-00-03"
+                    type="radio"
+                    name="paymentMethod"
+                    value="bank_transfer"
+                    checked={settingsPaymentMethod === 'bank_transfer'}
+                    onChange={(e) => setSettingsPaymentMethod(e.target.value as 'venue' | 'bank_transfer')}
+                    className="w-4 h-4"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
-                    Account Name
-                  </label>
-                  <input
-                    type="text"
-                    value={settingsBankAccountName}
-                    onChange={(e) => setSettingsBankAccountName(e.target.value)}
-                    className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                    placeholder="John Doe"
-                  />
-                </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-slate-800 dark:text-slate-100">Bank transfer</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">Guests transfer to your bank account</div>
+                  </div>
+                </label>
               </div>
+
+              {/* Bank Fields - Only shown when bank_transfer is selected */}
+              {settingsPaymentMethod === 'bank_transfer' && (
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
+                      Account Number
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsBankAccountNumber}
+                      onChange={(e) => setSettingsBankAccountNumber(e.target.value)}
+                      className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      placeholder="12345678"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
+                      Sort Code
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsBankSortCode}
+                      onChange={(e) => setSettingsBankSortCode(e.target.value)}
+                      className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      placeholder="04-00-03"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1">
+                      Account Name
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsBankAccountName}
+                      onChange={(e) => setSettingsBankAccountName(e.target.value)}
+                      className="w-full px-4 py-2 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      placeholder="John Doe"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Save Button */}
@@ -1663,7 +1955,7 @@ export default function Home() {
                 <button
                   onClick={() => {
                     setShowDeleteConfirmModal(false);
-                    setShowEventSettings(true);
+                    openEventSettings();
                   }}
                   className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-sm font-medium rounded-lg transition-colors"
                 >
@@ -2159,66 +2451,20 @@ export default function Home() {
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">
                   My Events
                 </h2>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {myEvents.map((event) => (
-                    <div
+                    <EventListItem
                       key={event!.id}
-                      className="bg-slate-50 dark:bg-slate-700 rounded-lg p-6 border border-slate-200 dark:border-slate-600"
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-lg text-slate-800 dark:text-slate-100 truncate mb-1">
-                            {event!.name}
-                          </div>
-                          <div className="text-sm text-slate-500 dark:text-slate-400">
-                            {event!.userRole === 'host' ? 'Host' : 'Guest'}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => openEvent(event!.id)}
-                          className="px-4 py-2 bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white rounded-lg transition-colors text-sm font-medium flex-shrink-0"
-                        >
-                          Open
-                        </button>
-                      </div>
-
-                      {event!.userRole === 'host' && (
-                        <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
-                          <div className="text-center mb-3">
-                            <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Invite guests to</div>
-                            <div className="text-blue-600 dark:text-blue-400 font-medium mb-3">https://splitdine.co.uk</div>
-                            <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">using event code:</div>
-                            <div className="flex items-center justify-center gap-3 mb-3">
-                              <div className="font-mono text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-wider">
-                                {event!.guestCode}
-                              </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigator.clipboard.writeText(event!.guestCode);
-                                  showToastNotification('Code copied to clipboard');
-                                }}
-                                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded transition-colors text-sm"
-                              >
-                                Copy Code
-                              </button>
-                            </div>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              copyGuestCode(event!.guestCode);
-                            }}
-                            className="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-                            </svg>
-                            Copy Message (WhatsApp, email, etc.)
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                      event={event as Event & { userRole: 'host' | 'guest' }}
+                      onOpenEvent={openEvent}
+                      onDeleteEvent={(eventId) => {
+                        setCurrentEventId(eventId);
+                        setUserRole('host');
+                        setShowDeleteConfirmModal(true);
+                      }}
+                      onCopyGuestCode={copyGuestCode}
+                      onShowToast={showToastNotification}
+                    />
                   ))}
                 </div>
               </div>
@@ -2300,6 +2546,16 @@ export default function Home() {
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Back to Event Button */}
+                    <div className="mb-6">
+                      <button
+                        onClick={() => setViewingGuestId(null)}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors shadow-md"
+                      >
+                        ← Back to Event
+                      </button>
                     </div>
 
                     {/* Item Breakdown - Reference Section */}
@@ -2484,13 +2740,6 @@ export default function Home() {
             ) : (
               /* Event Dashboard */
               <>
-                {/* Event Name */}
-                <div className="mb-4">
-                  <h2 className="text-xl sm:text-2xl font-light text-slate-600 dark:text-slate-400 text-center">
-                    {currentEvent?.name}
-                  </h2>
-                </div>
-
             {/* Total Card */}
             <div className={`rounded-lg shadow-md mb-4 sm:mb-6 transition-colors ${
               totalBill > 0 && totalOwed === 0
@@ -2654,6 +2903,70 @@ export default function Home() {
               </div>
             )}
 
+            {isPaymentMode ? (
+              /* Payment Mode - Simplified View */
+              <>
+                {/* Simplified Guest List */}
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
+                  {guests.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-slate-500 dark:text-slate-400">No guests yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {guests.map((guest) => (
+                        <div
+                          key={guest.id}
+                          className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700"
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            {userRole === 'host' && (
+                              <button
+                                onClick={() => togglePaid(guest.id)}
+                                className={`flex-shrink-0 w-10 h-10 rounded border-2 transition-colors flex items-center justify-center ${
+                                  guest.paid
+                                    ? 'bg-green-500 border-green-500'
+                                    : 'border-slate-300 dark:border-slate-600 hover:border-green-400'
+                                }`}
+                                aria-label="Mark as paid"
+                              >
+                                {guest.paid && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="white" className="w-6 h-6">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
+                            <span className={`font-medium text-xl ${
+                              guest.paid
+                                ? 'text-slate-400 dark:text-slate-500 line-through'
+                                : 'text-slate-800 dark:text-slate-100'
+                            }`}>
+                              {guest.name}
+                            </span>
+                          </div>
+                          <span className="text-xl font-semibold text-slate-700 dark:text-slate-200">
+                            £{(guest.amount - guest.deposit).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Exit Payment View Button */}
+                <div className="mt-6 mb-4">
+                  <button
+                    onClick={() => setIsPaymentMode(false)}
+                    className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium"
+                  >
+                    Exit Payment View
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Normal Mode - Full Interface */
+              <>
             {/* Guest List */}
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
               {guests.length === 0 ? (
@@ -2787,6 +3100,7 @@ export default function Home() {
               )}
             </div>
 
+
             {/* Add Guest - Host Only */}
             {userRole === 'host' && (
               <div className="mt-4 sm:mt-6">
@@ -2810,24 +3124,52 @@ export default function Home() {
                     Add
                   </button>
                 </div>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  e.g., Sarah, John&apos;s friend, Person from accounting - can be claimed and changed by the guest
+                </p>
               </div>
             )}
 
-            {/* Payment Details Button */}
-            <div className="mt-6 mb-4">
+            {/* Payment Details and Payment View Buttons */}
+            <div className="mt-6 mb-4 flex gap-3">
               <button
                 onClick={() => setShowPaymentDetailsModal(true)}
-                className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
                 </svg>
                 Payment Details
               </button>
+              {guests.length > 0 && (
+                <button
+                  onClick={() => setIsPaymentMode(true)}
+                  className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                  </svg>
+                  Payment View
+                </button>
+              )}
             </div>
 
             {/* Bottom Navigation */}
             <div className="mt-6 mb-4 space-y-3">
+
+              {/* Manage Event Name Button - visible when there are guests */}
+              {guests.length > 0 && (
+                <button
+                  onClick={openClaimGuestModal}
+                  className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                  Manage Event Name
+                </button>
+              )}
+
               {/* Home Button - visible to all users */}
               <button
                 onClick={() => {
@@ -2846,7 +3188,7 @@ export default function Home() {
               {/* Settings Button - visible only to hosts */}
               {userRole === 'host' && (
                 <button
-                  onClick={() => setShowEventSettings(true)}
+                  onClick={openEventSettings}
                   className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -2872,6 +3214,8 @@ export default function Home() {
             </div>
               </>
             )}
+          </>
+        )}
           </>
         )}
 
@@ -2971,84 +3315,245 @@ export default function Home() {
                   </button>
                 </div>
 
-                <div className="space-y-4">
-                  {/* Account Number */}
-                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
-                        Account Number
+                {currentEvent?.paymentMethod === 'bank_transfer' ? (
+                  /* Bank Transfer */
+                  <>
+                    <div className="space-y-4">
+                      {/* Account Number */}
+                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                        <div className="flex-1">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                            Account Number
+                          </div>
+                          <div className="font-mono text-base text-slate-800 dark:text-slate-200 tracking-wide">
+                            {currentEvent?.bankAccountNumber || 'Not set'}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(currentEvent?.bankAccountNumber || '');
+                            showToastNotification('Account number copied!');
+                          }}
+                          className="ml-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 text-sm rounded transition-colors"
+                        >
+                          Copy
+                        </button>
                       </div>
-                      <div className="font-mono text-base text-slate-800 dark:text-slate-200 tracking-wide">
-                        {currentEvent?.bankAccountNumber || 'Not set'}
+
+                      {/* Sort Code */}
+                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                        <div className="flex-1">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                            Sort Code
+                          </div>
+                          <div className="font-mono text-base text-slate-800 dark:text-slate-200 tracking-wide">
+                            {currentEvent?.bankSortCode || 'Not set'}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(currentEvent?.bankSortCode || '');
+                            showToastNotification('Sort code copied!');
+                          }}
+                          className="ml-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 text-sm rounded transition-colors"
+                        >
+                          Copy
+                        </button>
+                      </div>
+
+                      {/* Account Name */}
+                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                            Account Name
+                          </div>
+                          <div className="text-base text-slate-800 dark:text-slate-200 break-words">
+                            {currentEvent?.bankAccountName || 'Not set'}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(currentEvent?.bankAccountName || '');
+                            showToastNotification('Account name copied!');
+                          }}
+                          className="ml-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 text-sm rounded transition-colors flex-shrink-0"
+                        >
+                          Copy
+                        </button>
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(currentEvent?.bankAccountNumber || '');
-                        showToastNotification('Account number copied!');
-                      }}
-                      className="ml-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 text-sm rounded transition-colors"
-                    >
-                      Copy
-                    </button>
-                  </div>
 
-                  {/* Sort Code */}
-                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
-                        Sort Code
-                      </div>
-                      <div className="font-mono text-base text-slate-800 dark:text-slate-200 tracking-wide">
-                        {currentEvent?.bankSortCode || 'Not set'}
-                      </div>
+                    {/* Copy All Button */}
+                    <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                      <button
+                        onClick={() => {
+                          const bankDetails = `Bank Details for Payment:\n\nAccount Number: ${currentEvent?.bankAccountNumber || 'Not set'}\nSort Code: ${currentEvent?.bankSortCode || 'Not set'}\nAccount Name: ${currentEvent?.bankAccountName || 'Not set'}`;
+                          navigator.clipboard.writeText(bankDetails);
+                          showToastNotification('All bank details copied!');
+                        }}
+                        className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                      >
+                        Copy All Details
+                      </button>
                     </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(currentEvent?.bankSortCode || '');
-                        showToastNotification('Sort code copied!');
-                      }}
-                      className="ml-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 text-sm rounded transition-colors"
-                    >
-                      Copy
-                    </button>
-                  </div>
-
-                  {/* Account Name */}
-                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
-                        Account Name
-                      </div>
-                      <div className="text-base text-slate-800 dark:text-slate-200 break-words">
-                        {currentEvent?.bankAccountName || 'Not set'}
-                      </div>
+                  </>
+                ) : (
+                  /* Venue Payment */
+                  <div className="text-center py-8">
+                    <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-blue-600 dark:text-blue-400">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
+                      </svg>
                     </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(currentEvent?.bankAccountName || '');
-                        showToastNotification('Account name copied!');
-                      }}
-                      className="ml-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 text-sm rounded transition-colors flex-shrink-0"
-                    >
-                      Copy
-                    </button>
+                    <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">
+                      Pay at venue
+                    </h4>
+                    <p className="text-slate-600 dark:text-slate-400 text-sm max-w-xs mx-auto">
+                      Guests should pay their share at the venue till when settling the bill
+                    </p>
                   </div>
-                </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
-                {/* Copy All Button */}
-                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-                  <button
-                    onClick={() => {
-                      const bankDetails = `Bank Details for Payment:\n\nAccount Number: ${currentEvent?.bankAccountNumber || 'Not set'}\nSort Code: ${currentEvent?.bankSortCode || 'Not set'}\nAccount Name: ${currentEvent?.bankAccountName || 'Not set'}`;
-                      navigator.clipboard.writeText(bankDetails);
-                      showToastNotification('All bank details copied!');
-                    }}
-                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                  >
-                    Copy All Details
-                  </button>
-                </div>
+        {/* Claim Guest Modal */}
+        {showClaimGuestModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowClaimGuestModal(false)}>
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                {(() => {
+                  const myClaimedGuest = guests.find(g => g.app_user_id === currentUser?.id);
+
+                  return (
+                    <>
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                          {myClaimedGuest ? 'Your Profile' : 'Claim Guest Profile'}
+                        </h3>
+                        <button
+                          onClick={() => setShowClaimGuestModal(false)}
+                          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          aria-label="Close"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {(() => {
+                  const unclaimedGuests = guests.filter(g => !g.app_user_id);
+
+                  // User has already claimed a guest
+                  if (myClaimedGuest) {
+                    return (
+                      <>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                          You have claimed the following profile:
+                        </p>
+
+                        <div className="p-4 border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-800 dark:text-slate-200 font-medium">
+                              {myClaimedGuest.name}
+                            </span>
+                            <span className="text-sm text-slate-500 dark:text-slate-400">
+                              £{myClaimedGuest.amount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                          If you claimed the wrong profile, you can unclaim it and select a different one.
+                        </p>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setShowClaimGuestModal(false)}
+                            className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
+                          >
+                            Close
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await handleUnclaimGuest();
+                            }}
+                            className="flex-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors"
+                          >
+                            Unclaim Profile
+                          </button>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  // No claimed guest - show unclaimed guests to claim
+                  if (unclaimedGuests.length === 0) {
+                    return (
+                      <div className="text-center py-8">
+                        <p className="text-slate-600 dark:text-slate-400">No unclaimed guests available.</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-500 mt-2">All guests have been claimed.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                        Select a guest profile to link to your account. This helps track your orders and payments.
+                      </p>
+
+                      <div className="space-y-2 mb-6">
+                        {unclaimedGuests.map((guest) => (
+                          <label
+                            key={guest.id}
+                            className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                              selectedClaimGuestId === guest.id
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="claimGuest"
+                              value={guest.id}
+                              checked={selectedClaimGuestId === guest.id}
+                              onChange={() => setSelectedClaimGuestId(guest.id)}
+                              className="w-4 h-4 text-blue-600"
+                            />
+                            <span className="ml-3 text-slate-800 dark:text-slate-200 font-medium">
+                              {guest.name}
+                            </span>
+                            <span className="ml-auto text-sm text-slate-500 dark:text-slate-400">
+                              £{guest.amount.toFixed(2)}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setShowClaimGuestModal(false)}
+                          className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleClaimGuest}
+                          disabled={!selectedClaimGuestId || isClaimingGuest}
+                          className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                        >
+                          {isClaimingGuest ? 'Claiming...' : 'Claim Guest'}
+                        </button>
+                      </div>
+                    </>
+                  );
+                      })()}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>

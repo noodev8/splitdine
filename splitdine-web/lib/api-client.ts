@@ -30,6 +30,7 @@ export interface Event {
   role: 'host' | 'guest';
   created_at: string;
   joined_at?: string;
+  payment_method?: 'venue' | 'bank_transfer';
   bank_account_number?: string;
   bank_sort_code?: string;
   bank_account_name?: string;
@@ -49,6 +50,7 @@ export interface Guest {
   deposit: number;
   notes: string;
   paid: boolean;
+  app_user_id: number | null;
   items: GuestItem[];
 }
 
@@ -228,18 +230,19 @@ export const leaveEvent = async (eventId: number): Promise<ApiResponse> => {
  * Requires authentication.
  * @param {number} eventId - Event ID
  * @param {object} settings - Settings to update
- * @returns {Promise<{id: number, name: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}>}
+ * @returns {Promise<{id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}>}
  */
 export const updateEventSettings = async (
   eventId: number,
   settings: {
     event_name?: string;
+    payment_method?: string;
     bank_account_number?: string;
     bank_sort_code?: string;
     bank_account_name?: string;
   }
-): Promise<{id: number, name: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}> => {
-  const response = await apiCall<ApiResponse & { event: {id: number, name: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string} }>('/api/events/update_event_settings', {
+): Promise<{id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}> => {
+  const response = await apiCall<ApiResponse & { event: {id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string} }>('/api/events/update_event_settings', {
     event_id: eventId,
     ...settings,
   });
@@ -601,6 +604,105 @@ export const resetPassword = async (token: string, newPassword: string): Promise
   });
 
   return response;
+};
+
+// =============================================================================
+// Guest Claiming Functions
+// =============================================================================
+/**
+ * Claims an unclaimed guest profile for the current user
+ * @param {number} eventId - Event ID
+ * @param {number} guestId - Guest ID to claim
+ * @returns {Promise<{success: boolean, guest?: Guest, error?: string, return_code?: string}>} - Result with guest or error
+ */
+export const claimGuest = async (eventId: number, guestId: number): Promise<{success: boolean, guest?: Guest, error?: string, return_code?: string}> => {
+  try {
+    const response = await apiCall<ApiResponse & { guest: Guest }>('/api/guests/claim_guest', {
+      event_id: eventId,
+      guest_id: guestId,
+    });
+
+    if (response.return_code !== 'SUCCESS') {
+      return {
+        success: false,
+        error: response.message || 'Failed to claim guest',
+        return_code: response.return_code
+      };
+    }
+
+    return {
+      success: true,
+      guest: response.guest
+    };
+  } catch (error) {
+    // Network/connection errors
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error'
+    };
+  }
+};
+
+/**
+ * Unclaims the current user's claimed guest in an event
+ * @param {number} eventId - Event ID
+ * @returns {Promise<{success: boolean, error?: string, return_code?: string}>} - Result with success or error
+ */
+export const unclaimGuest = async (eventId: number): Promise<{success: boolean, error?: string, return_code?: string}> => {
+  try {
+    const response = await apiCall<ApiResponse>('/api/guests/unclaim_guest', {
+      event_id: eventId,
+    });
+
+    if (response.return_code !== 'SUCCESS') {
+      return {
+        success: false,
+        error: response.message || 'Failed to unclaim guest',
+        return_code: response.return_code
+      };
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    // Network/connection errors
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error'
+    };
+  }
+};
+
+/**
+ * Retrieves the guest claimed by the current user in an event
+ * @param {number} eventId - Event ID
+ * @returns {Promise<{success: boolean, guest?: Guest | null, error?: string}>} - Result with guest (null if none claimed) or error
+ */
+export const getMyClaimedGuest = async (eventId: number): Promise<{success: boolean, guest?: Guest | null, error?: string}> => {
+  try {
+    const response = await apiCall<ApiResponse & { guest: Guest | null }>('/api/guests/get_my_claimed_guest', {
+      event_id: eventId,
+    });
+
+    if (response.return_code !== 'SUCCESS') {
+      return {
+        success: false,
+        error: response.message || 'Failed to retrieve claimed guest'
+      };
+    }
+
+    return {
+      success: true,
+      guest: response.guest
+    };
+  } catch (error) {
+    // Network/connection errors
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error'
+    };
+  }
 };
 
 // =============================================================================

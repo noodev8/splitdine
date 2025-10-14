@@ -19,12 +19,14 @@ const router = express.Router();
 // Helper function to check event membership
 // =============================================================================
 /**
- * Checks if authenticated user is a member of an event by app_user_id
+ * Checks if authenticated user is a member of an event (either creator or guest)
  */
 const checkMembership = async (userId, event_id) => {
   const result = await query(
-    `SELECT id FROM user_event_memberships
-     WHERE app_user_id = $1 AND event_id = $2`,
+    `SELECT e.id
+     FROM events e
+     LEFT JOIN guests g ON e.id = g.event_id AND g.app_user_id = $1
+     WHERE e.id = $2 AND (e.user_id = $1 OR g.id IS NOT NULL)`,
     [userId, event_id]
   );
   return result.rows.length > 0;
@@ -105,7 +107,7 @@ router.post('/get_guests', verifyToken, async (req, res) => {
     // Get all guests for the event
     // =============================================================================
     const guestsResult = await query(
-      `SELECT id, event_id, name, amount, deposit, notes, paid, created_at, updated_at
+      `SELECT id, event_id, name, amount, deposit, notes, paid, app_user_id, created_at, updated_at
        FROM guests
        WHERE event_id = $1
        ORDER BY created_at ASC`,
@@ -133,6 +135,7 @@ router.post('/get_guests', verifyToken, async (req, res) => {
           deposit: parseFloat(guest.deposit),
           notes: guest.notes || '',
           paid: guest.paid,
+          app_user_id: guest.app_user_id,
           items: itemsResult.rows.map(item => ({
             id: item.id,
             note: item.note,
@@ -655,10 +658,10 @@ router.post('/add_item', verifyToken, async (req, res) => {
     // Add item to guest
     // =============================================================================
     const result = await query(
-      `INSERT INTO guest_items (guest_id, note, price, created_at)
-       VALUES ($1, $2, $3, NOW())
+      `INSERT INTO guest_items (guest_id, event_id, note, price, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
        RETURNING id, note, price`,
-      [guest_id, note.trim(), price !== undefined ? price : null]
+      [guest_id, eventId, note.trim(), price !== undefined ? price : null]
     );
 
     const newItem = result.rows[0];
@@ -784,6 +787,382 @@ router.post('/delete_item', verifyToken, async (req, res) => {
     return res.status(200).json({
       return_code: 'SERVER_ERROR',
       message: 'An error occurred while deleting item'
+    });
+  }
+});
+
+/*
+=======================================================================================================================================
+API Route: claim_guest
+=======================================================================================================================================
+Method: POST
+Purpose: Allows an authenticated user to claim an unclaimed guest profile by linking their app_user_id.
+         User can only claim one guest per event. Guest must be unclaimed (app_user_id IS NULL).
+         Requires authentication.
+=======================================================================================================================================
+Request Payload:
+{
+  "event_id": 123,                                       // integer, required
+  "guest_id": 456                                        // integer, required - guest to claim
+}
+
+Success Response:
+{
+  "return_code": "SUCCESS",
+  "guest": {
+    "id": 456,
+    "event_id": 123,
+    "name": "John Doe",
+    "amount": 25.50,
+    "deposit": 10.00,
+    "notes": "",
+    "paid": false
+  },
+  "message": "Guest claimed successfully"
+}
+=======================================================================================================================================
+Return Codes:
+"SUCCESS"
+"MISSING_FIELDS"
+"GUEST_NOT_FOUND"
+"GUEST_ALREADY_CLAIMED"
+"USER_ALREADY_CLAIMED"
+"NOT_MEMBER"
+"UNAUTHORIZED"
+"SERVER_ERROR"
+=======================================================================================================================================
+*/
+router.post('/claim_guest', verifyToken, async (req, res) => {
+  try {
+    // =============================================================================
+    // Extract and validate request data
+    // =============================================================================
+    const { event_id, guest_id } = req.body;
+    const userId = req.user.id; // User is authenticated
+
+    if (!event_id || !guest_id) {
+      return res.status(200).json({
+        return_code: 'MISSING_FIELDS',
+        message: 'event_id and guest_id are required'
+      });
+    }
+
+    // =============================================================================
+    // Verify user is a member of the event
+    // =============================================================================
+    const isMember = await checkMembership(userId, event_id);
+
+    if (!isMember) {
+      return res.status(200).json({
+        return_code: 'NOT_MEMBER',
+        message: 'You are not a member of this event'
+      });
+    }
+
+    // =============================================================================
+    // Check if guest exists and is unclaimed
+    // =============================================================================
+    const guestResult = await query(
+      `SELECT id, event_id, name, amount, deposit, notes, paid, app_user_id
+       FROM guests
+       WHERE id = $1 AND event_id = $2`,
+      [guest_id, event_id]
+    );
+
+    if (guestResult.rows.length === 0) {
+      return res.status(200).json({
+        return_code: 'GUEST_NOT_FOUND',
+        message: 'Guest not found'
+      });
+    }
+
+    const guest = guestResult.rows[0];
+
+    // Check if guest is already claimed
+    if (guest.app_user_id !== null) {
+      return res.status(200).json({
+        return_code: 'GUEST_ALREADY_CLAIMED',
+        message: 'This guest has already been claimed by another user'
+      });
+    }
+
+    // =============================================================================
+    // Check if user has already claimed a guest in this event
+    // =============================================================================
+    const existingClaimResult = await query(
+      `SELECT id FROM guests
+       WHERE event_id = $1 AND app_user_id = $2`,
+      [event_id, userId]
+    );
+
+    if (existingClaimResult.rows.length > 0) {
+      return res.status(200).json({
+        return_code: 'USER_ALREADY_CLAIMED',
+        message: 'You have already claimed a guest in this event'
+      });
+    }
+
+    // =============================================================================
+    // Claim the guest by setting app_user_id
+    // =============================================================================
+    const updateResult = await query(
+      `UPDATE guests
+       SET app_user_id = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, event_id, name, amount, deposit, notes, paid`,
+      [userId, guest_id]
+    );
+
+    const claimedGuest = updateResult.rows[0];
+
+    console.log(`✓ User ${userId} claimed guest ${guest_id} in event ${event_id}`);
+
+    // =============================================================================
+    // Return success response
+    // =============================================================================
+    return res.status(200).json({
+      return_code: 'SUCCESS',
+      guest: {
+        id: claimedGuest.id,
+        event_id: claimedGuest.event_id,
+        name: claimedGuest.name,
+        amount: parseFloat(claimedGuest.amount),
+        deposit: parseFloat(claimedGuest.deposit),
+        notes: claimedGuest.notes || '',
+        paid: claimedGuest.paid
+      },
+      message: 'Guest claimed successfully'
+    });
+
+  } catch (error) {
+    // =============================================================================
+    // Handle unexpected errors
+    // =============================================================================
+    console.error('❌ Error in claim_guest route:', error);
+    return res.status(200).json({
+      return_code: 'SERVER_ERROR',
+      message: 'An error occurred while claiming guest'
+    });
+  }
+});
+
+/*
+=======================================================================================================================================
+API Route: unclaim_guest
+=======================================================================================================================================
+Method: POST
+Purpose: Allows an authenticated user to unclaim their currently claimed guest in an event.
+         Sets app_user_id back to NULL so guest can be claimed by someone else.
+         Requires authentication.
+=======================================================================================================================================
+Request Payload:
+{
+  "event_id": 123                                        // integer, required
+}
+
+Success Response:
+{
+  "return_code": "SUCCESS",
+  "message": "Guest unclaimed successfully"
+}
+=======================================================================================================================================
+Return Codes:
+"SUCCESS"
+"MISSING_FIELDS"
+"NO_CLAIMED_GUEST"
+"NOT_MEMBER"
+"UNAUTHORIZED"
+"SERVER_ERROR"
+=======================================================================================================================================
+*/
+router.post('/unclaim_guest', verifyToken, async (req, res) => {
+  try {
+    // =============================================================================
+    // Extract and validate request data
+    // =============================================================================
+    const { event_id } = req.body;
+    const userId = req.user.id; // User is authenticated
+
+    if (!event_id) {
+      return res.status(200).json({
+        return_code: 'MISSING_FIELDS',
+        message: 'event_id is required'
+      });
+    }
+
+    // =============================================================================
+    // Verify user is a member of the event
+    // =============================================================================
+    const isMember = await checkMembership(userId, event_id);
+
+    if (!isMember) {
+      return res.status(200).json({
+        return_code: 'NOT_MEMBER',
+        message: 'You are not a member of this event'
+      });
+    }
+
+    // =============================================================================
+    // Find user's claimed guest in this event
+    // =============================================================================
+    const claimedGuestResult = await query(
+      `SELECT id FROM guests
+       WHERE event_id = $1 AND app_user_id = $2`,
+      [event_id, userId]
+    );
+
+    if (claimedGuestResult.rows.length === 0) {
+      return res.status(200).json({
+        return_code: 'NO_CLAIMED_GUEST',
+        message: 'You have not claimed a guest in this event'
+      });
+    }
+
+    const guestId = claimedGuestResult.rows[0].id;
+
+    // =============================================================================
+    // Unclaim the guest by setting app_user_id to NULL
+    // =============================================================================
+    await query(
+      `UPDATE guests
+       SET app_user_id = NULL, updated_at = NOW()
+       WHERE id = $1`,
+      [guestId]
+    );
+
+    console.log(`✓ User ${userId} unclaimed guest ${guestId} in event ${event_id}`);
+
+    // =============================================================================
+    // Return success response
+    // =============================================================================
+    return res.status(200).json({
+      return_code: 'SUCCESS',
+      message: 'Guest unclaimed successfully'
+    });
+
+  } catch (error) {
+    // =============================================================================
+    // Handle unexpected errors
+    // =============================================================================
+    console.error('❌ Error in unclaim_guest route:', error);
+    return res.status(200).json({
+      return_code: 'SERVER_ERROR',
+      message: 'An error occurred while unclaiming guest'
+    });
+  }
+});
+
+/*
+=======================================================================================================================================
+API Route: get_my_claimed_guest
+=======================================================================================================================================
+Method: POST
+Purpose: Retrieves the guest that the authenticated user has claimed in a specific event.
+         Returns null if user has not claimed a guest.
+         Requires authentication.
+=======================================================================================================================================
+Request Payload:
+{
+  "event_id": 123                                        // integer, required
+}
+
+Success Response (with claimed guest):
+{
+  "return_code": "SUCCESS",
+  "guest": {
+    "id": 456,
+    "event_id": 123,
+    "name": "John Doe",
+    "amount": 25.50,
+    "deposit": 10.00,
+    "notes": "",
+    "paid": false
+  }
+}
+
+Success Response (no claimed guest):
+{
+  "return_code": "SUCCESS",
+  "guest": null
+}
+=======================================================================================================================================
+Return Codes:
+"SUCCESS"
+"MISSING_FIELDS"
+"NOT_MEMBER"
+"UNAUTHORIZED"
+"SERVER_ERROR"
+=======================================================================================================================================
+*/
+router.post('/get_my_claimed_guest', verifyToken, async (req, res) => {
+  try {
+    // =============================================================================
+    // Extract and validate request data
+    // =============================================================================
+    const { event_id } = req.body;
+    const userId = req.user.id; // User is authenticated
+
+    if (!event_id) {
+      return res.status(200).json({
+        return_code: 'MISSING_FIELDS',
+        message: 'event_id is required'
+      });
+    }
+
+    // =============================================================================
+    // Verify user is a member of the event
+    // =============================================================================
+    const isMember = await checkMembership(userId, event_id);
+
+    if (!isMember) {
+      return res.status(200).json({
+        return_code: 'NOT_MEMBER',
+        message: 'You are not a member of this event'
+      });
+    }
+
+    // =============================================================================
+    // Find user's claimed guest in this event
+    // =============================================================================
+    const guestResult = await query(
+      `SELECT id, event_id, name, amount, deposit, notes, paid
+       FROM guests
+       WHERE event_id = $1 AND app_user_id = $2`,
+      [event_id, userId]
+    );
+
+    // =============================================================================
+    // Return success response
+    // =============================================================================
+    if (guestResult.rows.length === 0) {
+      return res.status(200).json({
+        return_code: 'SUCCESS',
+        guest: null
+      });
+    }
+
+    const guest = guestResult.rows[0];
+    return res.status(200).json({
+      return_code: 'SUCCESS',
+      guest: {
+        id: guest.id,
+        event_id: guest.event_id,
+        name: guest.name,
+        amount: parseFloat(guest.amount),
+        deposit: parseFloat(guest.deposit),
+        notes: guest.notes || '',
+        paid: guest.paid
+      }
+    });
+
+  } catch (error) {
+    // =============================================================================
+    // Handle unexpected errors
+    // =============================================================================
+    console.error('❌ Error in get_my_claimed_guest route:', error);
+    return res.status(200).json({
+      return_code: 'SERVER_ERROR',
+      message: 'An error occurred while retrieving claimed guest'
     });
   }
 });

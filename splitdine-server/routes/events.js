@@ -27,20 +27,18 @@ const generateCode = () => {
 };
 
 /**
- * Generates a unique code that doesn't exist in database
- * @param {string} codeType - 'host' or 'guest'
+ * Generates a unique guest code that doesn't exist in database
  * @returns {Promise<string>} - Unique 6-character code
  */
-const generateUniqueCode = async (codeType) => {
+const generateUniqueCode = async () => {
   let code;
   let isUnique = false;
-  const column = codeType === 'host' ? 'host_code' : 'guest_code';
 
   // Keep generating until we find a unique code
   while (!isUnique) {
     code = generateCode();
     const result = await query(
-      `SELECT id FROM events WHERE ${column} = $1`,
+      `SELECT id FROM events WHERE guest_code = $1`,
       [code]
     );
     isUnique = result.rows.length === 0;
@@ -55,7 +53,7 @@ API Route: create_event
 =======================================================================================================================================
 Method: POST
 Purpose: Creates a new dining event with unique guest code.
-         Automatically adds creator as host in user_event_memberships table.
+         Automatically adds creator as a host guest entry in guests table.
          Requires authentication.
 =======================================================================================================================================
 Request Payload:
@@ -111,35 +109,23 @@ router.post('/create', verifyToken, async (req, res) => {
     // =============================================================================
     // Generate unique guest code
     // =============================================================================
-    const guestCode = await generateUniqueCode('guest');
+    const guestCode = await generateUniqueCode();
 
     // =============================================================================
-    // Create event and membership in a transaction
+    // Create event
     // =============================================================================
-    const result = await withTransaction(async (client) => {
-      const userId = req.user.id; // User is authenticated
+    const userId = req.user.id; // User is authenticated
 
-      // Insert new event
-      const eventResult = await client.query(
-        `INSERT INTO events (name, host_code, guest_code, user_id, bank_account_number, bank_sort_code, bank_account_name, created_at, updated_at)
-         VALUES ($1, NULL, $2, $3, $4, $5, $6, NOW(), NOW())
-         RETURNING id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at`,
-        [event_name.trim(), guestCode, userId, bank_account_number || null, bank_sort_code || null, bank_account_name || null]
-      );
+    const result = await query(
+      `INSERT INTO events (name, guest_code, user_id, bank_account_number, bank_sort_code, bank_account_name, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+       RETURNING id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at`,
+      [event_name.trim(), guestCode, userId, bank_account_number || null, bank_sort_code || null, bank_account_name || null]
+    );
 
-      const newEvent = eventResult.rows[0];
+    const newEvent = result.rows[0];
 
-      // Create host membership for creator
-      await client.query(
-        `INSERT INTO user_event_memberships (event_id, role, app_user_id, joined_at)
-         VALUES ($1, $2, $3, NOW())`,
-        [newEvent.id, 'host', userId]
-      );
-
-      return newEvent;
-    });
-
-    console.log(`✓ Event created successfully (ID: ${result.id})`);
+    console.log(`✓ Event created successfully (ID: ${newEvent.id})`);
 
     // =============================================================================
     // Return success response
@@ -147,13 +133,14 @@ router.post('/create', verifyToken, async (req, res) => {
     return res.status(200).json({
       return_code: 'SUCCESS',
       event: {
-        id: result.id,
-        name: result.name,
-        guest_code: result.guest_code,
-        bank_account_number: result.bank_account_number,
-        bank_sort_code: result.bank_sort_code,
-        bank_account_name: result.bank_account_name,
-        created_at: result.created_at
+        id: newEvent.id,
+        name: newEvent.name,
+        guest_code: newEvent.guest_code,
+        bank_account_number: newEvent.bank_account_number,
+        bank_sort_code: newEvent.bank_sort_code,
+        bank_account_name: newEvent.bank_account_name,
+        created_at: newEvent.created_at,
+        role: 'host'
       },
       message: 'Event created successfully'
     });
@@ -176,7 +163,7 @@ API Route: join_event
 =======================================================================================================================================
 Method: POST
 Purpose: Allows an authenticated user to join an existing event using a guest code.
-         Creates a guest membership record.
+         Creates a guest entry with co_host = false.
          Requires authentication.
 =======================================================================================================================================
 Request Payload:
@@ -222,6 +209,7 @@ router.post('/join', verifyToken, async (req, res) => {
 
     const upperCode = code.trim().toUpperCase();
     const userId = req.user.id; // User is authenticated
+    const userName = req.user.name; // User's display name
 
     // =============================================================================
     // Find event by guest code
@@ -243,16 +231,17 @@ router.post('/join', verifyToken, async (req, res) => {
     const event = eventResult.rows[0];
 
     // =============================================================================
-    // Check if user is already a member
+    // Check if user is already a member (has a guest entry)
     // =============================================================================
-    const membershipCheck = await query(
-      `SELECT id, role FROM user_event_memberships
+    const guestCheck = await query(
+      `SELECT id, co_host FROM guests
        WHERE app_user_id = $1 AND event_id = $2`,
       [userId, event.id]
     );
 
-    if (membershipCheck.rows.length > 0) {
+    if (guestCheck.rows.length > 0) {
       // User is already a member, return event details
+      const role = guestCheck.rows[0].co_host ? 'host' : 'guest';
       return res.status(200).json({
         return_code: 'SUCCESS',
         event: {
@@ -262,7 +251,7 @@ router.post('/join', verifyToken, async (req, res) => {
           bank_account_number: event.bank_account_number,
           bank_sort_code: event.bank_sort_code,
           bank_account_name: event.bank_account_name,
-          role: membershipCheck.rows[0].role,
+          role: role,
           created_at: event.created_at
         },
         message: 'Already a member of this event'
@@ -270,12 +259,12 @@ router.post('/join', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Create new membership as guest
+    // Create new guest entry as regular guest (co_host = false)
     // =============================================================================
     await query(
-      `INSERT INTO user_event_memberships (event_id, role, app_user_id, joined_at)
-       VALUES ($1, 'guest', $2, NOW())`,
-      [event.id, userId]
+      `INSERT INTO guests (event_id, name, amount, deposit, notes, paid, app_user_id, co_host, created_at, updated_at)
+       VALUES ($1, $2, 0.00, 0.00, NULL, false, $3, false, NOW(), NOW())`,
+      [event.id, userName, userId]
     );
 
     // =============================================================================
@@ -345,15 +334,20 @@ router.post('/get_my_events', verifyToken, async (req, res) => {
     const userId = req.user.id; // User is authenticated
 
     // =============================================================================
-    // Query user's events with membership details
+    // Query user's events - both created and joined
     // =============================================================================
     const result = await query(
       `SELECT e.id, e.name, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.created_at,
-              m.role, m.joined_at
+              CASE
+                WHEN e.user_id = $1 THEN 'host'
+                WHEN g.co_host = true THEN 'host'
+                ELSE 'guest'
+              END as role,
+              COALESCE(g.created_at, e.created_at) as joined_at
        FROM events e
-       INNER JOIN user_event_memberships m ON e.id = m.event_id
-       WHERE m.app_user_id = $1
-       ORDER BY m.joined_at DESC`,
+       LEFT JOIN guests g ON e.id = g.event_id AND g.app_user_id = $1
+       WHERE e.user_id = $1 OR g.app_user_id = $1
+       ORDER BY COALESCE(g.created_at, e.created_at) DESC`,
       [userId]
     );
 
@@ -444,22 +438,17 @@ router.post('/update_bank_details', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Verify user is host of the event
+    // Verify user is host of the event (either creator or delegated host)
     // =============================================================================
-    const membershipCheck = await query(
-      `SELECT role FROM user_event_memberships
-       WHERE app_user_id = $1 AND event_id = $2`,
+    const hostCheck = await query(
+      `SELECT e.id
+       FROM events e
+       LEFT JOIN guests g ON e.id = g.event_id AND g.app_user_id = $1 AND g.co_host = true
+       WHERE e.id = $2 AND (e.user_id = $1 OR g.id IS NOT NULL)`,
       [userId, event_id]
     );
 
-    if (membershipCheck.rows.length === 0) {
-      return res.status(200).json({
-        return_code: 'EVENT_NOT_FOUND',
-        message: 'Event not found or you are not a member'
-      });
-    }
-
-    if (membershipCheck.rows[0].role !== 'host') {
+    if (hostCheck.rows.length === 0) {
       return res.status(200).json({
         return_code: 'UNAUTHORIZED',
         message: 'Only the host can update bank details'
@@ -571,22 +560,17 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Verify user is host of the event
+    // Verify user is host of the event (either creator or delegated host)
     // =============================================================================
-    const membershipCheck = await query(
-      `SELECT role FROM user_event_memberships
-       WHERE app_user_id = $1 AND event_id = $2`,
+    const hostCheck = await query(
+      `SELECT e.id
+       FROM events e
+       LEFT JOIN guests g ON e.id = g.event_id AND g.app_user_id = $1 AND g.co_host = true
+       WHERE e.id = $2 AND (e.user_id = $1 OR g.id IS NOT NULL)`,
       [userId, event_id]
     );
 
-    if (membershipCheck.rows.length === 0) {
-      return res.status(200).json({
-        return_code: 'EVENT_NOT_FOUND',
-        message: 'Event not found or you are not a member'
-      });
-    }
-
-    if (membershipCheck.rows[0].role !== 'host') {
+    if (hostCheck.rows.length === 0) {
       return res.status(200).json({
         return_code: 'UNAUTHORIZED',
         message: 'Only the host can update event settings'
@@ -742,13 +726,13 @@ router.post('/leave_event', verifyToken, async (req, res) => {
     // =============================================================================
     // Verify user is a member of the event
     // =============================================================================
-    const membershipCheck = await query(
-      `SELECT id, role FROM user_event_memberships
+    const guestCheck = await query(
+      `SELECT id, co_host FROM guests
        WHERE app_user_id = $1 AND event_id = $2`,
       [userId, event_id]
     );
 
-    if (membershipCheck.rows.length === 0) {
+    if (guestCheck.rows.length === 0) {
       return res.status(200).json({
         return_code: 'NOT_A_MEMBER',
         message: 'You are not a member of this event'
@@ -756,9 +740,9 @@ router.post('/leave_event', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Prevent hosts from leaving (they should delete the event instead)
+    // Prevent co-hosts from leaving (they should be removed by the event owner)
     // =============================================================================
-    if (membershipCheck.rows[0].role === 'host') {
+    if (guestCheck.rows[0].co_host) {
       return res.status(200).json({
         return_code: 'HOST_CANNOT_LEAVE',
         message: 'Hosts cannot leave their own events. Delete the event instead.'
@@ -766,10 +750,10 @@ router.post('/leave_event', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Remove the user's membership
+    // Remove the user's guest entry
     // =============================================================================
     await query(
-      `DELETE FROM user_event_memberships
+      `DELETE FROM guests
        WHERE app_user_id = $1 AND event_id = $2`,
       [userId, event_id]
     );
@@ -838,22 +822,17 @@ router.post('/delete_event', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Verify user is host of the event
+    // Verify user is host of the event (either creator or delegated host)
     // =============================================================================
-    const membershipCheck = await query(
-      `SELECT role FROM user_event_memberships
-       WHERE app_user_id = $1 AND event_id = $2`,
+    const hostCheck = await query(
+      `SELECT e.id
+       FROM events e
+       LEFT JOIN guests g ON e.id = g.event_id AND g.app_user_id = $1 AND g.co_host = true
+       WHERE e.id = $2 AND (e.user_id = $1 OR g.id IS NOT NULL)`,
       [userId, event_id]
     );
 
-    if (membershipCheck.rows.length === 0) {
-      return res.status(200).json({
-        return_code: 'EVENT_NOT_FOUND',
-        message: 'Event not found or you are not a member'
-      });
-    }
-
-    if (membershipCheck.rows[0].role !== 'host') {
+    if (hostCheck.rows.length === 0) {
       return res.status(200).json({
         return_code: 'UNAUTHORIZED',
         message: 'Only the host can delete an event'
@@ -861,25 +840,15 @@ router.post('/delete_event', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Delete event and all associated data in a transaction
+    // Delete event and all associated data
     // Database CASCADE will handle:
     // - guests table (ON DELETE CASCADE via event_id FK)
     // - guest_items table (ON DELETE CASCADE via guest_id FK)
-    // - user_event_memberships (no CASCADE, so manual delete)
     // =============================================================================
-    await withTransaction(async (client) => {
-      // Delete all memberships for this event
-      await client.query(
-        `DELETE FROM user_event_memberships WHERE event_id = $1`,
-        [event_id]
-      );
-
-      // Delete the event (CASCADE will delete guests and guest_items)
-      await client.query(
-        `DELETE FROM events WHERE id = $1`,
-        [event_id]
-      );
-    });
+    await query(
+      `DELETE FROM events WHERE id = $1`,
+      [event_id]
+    );
 
     console.log(`✓ Event ${event_id} deleted successfully`);
 
