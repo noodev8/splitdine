@@ -37,7 +37,6 @@ This document outlines the design for an Event Settings page where hosts can con
 ### **6. Advanced Settings**
 - Currency symbol (£, $, €)
 - Default service charge % (optional)
-- Delete event (with confirmation)
 
 ---
 
