@@ -7,6 +7,7 @@ Thumbs.db
 *.swo
 *.tmp
 *.lock
+nul
 
 # IntelliJ / Android Studio
 .idea/
