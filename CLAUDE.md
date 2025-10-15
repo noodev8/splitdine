@@ -95,3 +95,4 @@ The application is currently a single-page React component (`app/page.tsx`) with
 
 ### Client-Side Only
 The entire app runs client-side with 'use client' directive. No server components or API routes are currently implemented.
+- Never use toast notifications

@@ -52,6 +52,7 @@ interface Event {
   bankAccountNumber?: string;
   bankSortCode?: string;
   bankAccountName?: string;
+  allowGuestEditing?: boolean;
 }
 
 interface UserEventMembership {
@@ -97,17 +98,30 @@ function EventListItem({ event, onOpenEvent, onDeleteEvent, onCopyGuestCode, onS
             onClick={() => onOpenEvent(event.id)}
           >
             {/* Event name and role badge */}
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-800 dark:text-slate-100 truncate">
-                {event.name}
-              </h3>
-              <span className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
-                event.userRole === 'host'
-                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                  : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
-              }`}>
-                {event.userRole === 'host' ? 'Host' : 'Guest'}
-              </span>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                  {event.name}
+                </h3>
+                <span className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
+                  event.userRole === 'host'
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                    : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
+                }`}>
+                  {event.userRole === 'host' ? 'Host' : 'Guest'}
+                </span>
+              </div>
+              {/* Guest code - subtle and copyable */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCopyGuestCode(event.guestCode);
+                }}
+                className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors font-mono"
+                title="Click to copy guest code"
+              >
+                Join code: {event.guestCode}
+              </button>
             </div>
           </div>
 
@@ -283,16 +297,24 @@ export default function Home() {
   // Claim guest modal state
   const [showClaimGuestModal, setShowClaimGuestModal] = useState(false);
   const [selectedClaimGuestId, setSelectedClaimGuestId] = useState<string | null>(null);
+  const [pendingEventId, setPendingEventId] = useState<string | null>(null); // Event waiting for claim
   const [isClaimingGuest, setIsClaimingGuest] = useState(false);
+  const [isEditingGuestName, setIsEditingGuestName] = useState(false);
+  const [editedGuestName, setEditedGuestName] = useState('');
+  const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
+  const [newGuestName, setNewGuestName] = useState('');
 
   // Payment details modal state
   const [showPaymentDetailsModal, setShowPaymentDetailsModal] = useState(false);
 
-  // Payment mode state
-  const [isPaymentMode, setIsPaymentMode] = useState(false);
-
   // Guest details page state
   const [viewingGuestId, setViewingGuestId] = useState<string | null>(null);
+  const [showingBreakdown, setShowingBreakdown] = useState(false);
+  const [showingNotes, setShowingNotes] = useState(false);
+  const [showingNotesSummary, setShowingNotesSummary] = useState(false);
+
+  // Menu state
+  const [showMenu, setShowMenu] = useState(false);
 
   // Toast notification state
   const [toastMessage, setToastMessage] = useState('');
@@ -398,6 +420,7 @@ export default function Home() {
           bankAccountNumber: apiEvent.bank_account_number,
           bankSortCode: apiEvent.bank_sort_code,
           bankAccountName: apiEvent.bank_account_name,
+          allowGuestEditing: apiEvent.allow_guest_editing ?? true,
         }));
 
         // Create memberships from API data
@@ -612,17 +635,26 @@ export default function Home() {
   };
 
   const handleClaimGuest = async () => {
-    if (!selectedClaimGuestId || !currentEventId) return;
+    const eventId = pendingEventId || currentEventId;
+    if (!selectedClaimGuestId || !eventId) return;
 
     setIsClaimingGuest(true);
     try {
-      const result = await apiClaimGuest(parseInt(currentEventId), parseInt(selectedClaimGuestId));
+      const result = await apiClaimGuest(parseInt(eventId), parseInt(selectedClaimGuestId));
 
       if (result.success) {
-        // Reload guests to reflect the claim
-        await loadGuestsForEvent(currentEventId);
         setShowClaimGuestModal(false);
         setSelectedClaimGuestId(null);
+
+        // If this was a pending event (first-time join), open it now
+        if (pendingEventId) {
+          setPendingEventId(null);
+          setCurrentEventId(eventId);
+          setUserRole('guest');
+        }
+
+        // Reload guests to reflect the claim
+        await loadGuestsForEvent(eventId);
       }
     } catch (error) {
       console.error('Error claiming guest:', error);
@@ -646,6 +678,76 @@ export default function Home() {
     }
   };
 
+  const handleCancelClaimModal = async () => {
+    // If closing during pending join, leave the event and delete placeholder
+    if (pendingEventId) {
+      try {
+        await apiLeaveEvent(parseInt(pendingEventId));
+        // Remove event from events list
+        setEvents(events.filter(e => e.id !== pendingEventId));
+        console.log('Left event and deleted placeholder');
+      } catch (error) {
+        console.error('Error leaving event:', error);
+      }
+      setPendingEventId(null);
+      setCurrentEventId(null);
+      setUserRole(null);
+      setGuests([]);
+    }
+    setShowClaimGuestModal(false);
+    setIsCreatingNewGuest(false);
+    setNewGuestName('');
+    setSelectedClaimGuestId(null);
+  };
+
+  const handleAddAndClaimNewGuest = async () => {
+    const eventId = pendingEventId || currentEventId;
+    if (!newGuestName.trim() || !eventId) return;
+
+    setIsClaimingGuest(true);
+    try {
+      // Try to get the user's placeholder guest (empty name)
+      const myGuestResult = await apiGetMyClaimedGuest(parseInt(eventId));
+
+      if (myGuestResult.success && myGuestResult.guest) {
+        // Placeholder exists - update it with the new name
+        await apiUpdateGuest(
+          myGuestResult.guest.id,
+          { name: newGuestName.trim() }
+        );
+      } else {
+        // No placeholder - create a new guest and claim it
+        const newGuest = await apiAddGuest(
+          parseInt(eventId),
+          newGuestName.trim(),
+          0,
+          0
+        );
+
+        // Claim the newly created guest
+        await apiClaimGuest(parseInt(eventId), newGuest.id);
+      }
+
+      setShowClaimGuestModal(false);
+      setNewGuestName('');
+      setIsCreatingNewGuest(false);
+
+      // If this was a pending event (first-time join), open it now
+      if (pendingEventId) {
+        setPendingEventId(null);
+        setCurrentEventId(eventId);
+        setUserRole('guest');
+      }
+
+      // Reload guests to reflect the update
+      await loadGuestsForEvent(eventId);
+    } catch (error) {
+      console.error('Error adding and claiming guest:', error);
+    } finally {
+      setIsClaimingGuest(false);
+    }
+  };
+
   // Event functions
   const startNewEvent = async () => {
     if (eventName.trim() && !isCreatingEvent) {
@@ -665,6 +767,7 @@ export default function Home() {
           bankAccountNumber: apiEvent.bank_account_number,
           bankSortCode: apiEvent.bank_sort_code,
           bankAccountName: apiEvent.bank_account_name,
+          allowGuestEditing: apiEvent.allow_guest_editing ?? true,
         };
 
         const newMembership: UserEventMembership = {
@@ -719,6 +822,7 @@ export default function Home() {
         bankAccountNumber: apiEvent.bank_account_number,
         bankSortCode: apiEvent.bank_sort_code,
         bankAccountName: apiEvent.bank_account_name,
+        allowGuestEditing: apiEvent.allow_guest_editing ?? true,
       };
 
       // Check if event already exists in local state
@@ -738,27 +842,72 @@ export default function Home() {
         setUserMemberships([...userMemberships, newMembership]);
       }
 
-      setCurrentEventId(newEvent.id);
-      setUserRole(apiEvent.role);
       setJoinCode('');
       setJoinCodeError('');
       setShowJoinEventModal(false);
 
-      // Load guests from API immediately after joining
-      const loadedGuests = await loadGuestsForEvent(newEvent.id);
-      setGuests(loadedGuests);
+      // Load guests first (needed for modal to show unclaimed list)
+      // For pending joins, we'll load guests WITHOUT setting currentEventId
+      // This way the modal can show the list but user isn't "in" the event yet
+      let loadedGuests: Guest[] = [];
+      try {
+        loadedGuests = await loadGuestsForEvent(newEvent.id);
+        setGuests(loadedGuests);
+      } catch (error) {
+        console.log('Could not load guests (user may not be member yet):', error);
+        // If loading fails, we'll show an empty list in the modal
+        setGuests([]);
+      }
 
-      // Check if user should claim a guest
+      // Check if user needs to claim a guest profile
       const myClaimedGuestResult = await apiGetMyClaimedGuest(parseInt(newEvent.id));
-      if (myClaimedGuestResult.success && !myClaimedGuestResult.guest) {
-        // User hasn't claimed a guest yet, check if there are unclaimed guests
-        const unclaimedGuests = loadedGuests.filter(g => !g.app_user_id);
-        if (unclaimedGuests.length > 0) {
-          // Prompt user to claim a guest
-          setTimeout(() => {
+
+      // Get fresh user data
+      const freshUser = getCurrentUser();
+
+      // User needs to claim if they're a guest AND either:
+      // 1. They have no guest at all (shouldn't happen with placeholder system)
+      // 2. They have a placeholder guest (name is empty)
+      const needsToClaim = apiEvent.role === 'guest' &&
+                          myClaimedGuestResult.success &&
+                          (!myClaimedGuestResult.guest || myClaimedGuestResult.guest.name === '');
+
+      if (needsToClaim) {
+        // Check for exact name match in unclaimed guests
+        const unclaimedGuests = loadedGuests.filter(g => !g.app_user_id && g.name !== '');
+        const userToMatch = freshUser || currentUser;
+        const exactMatch = userToMatch ? unclaimedGuests.find(g => g.name === userToMatch.name) : null;
+
+        if (exactMatch) {
+          // Auto-claim the matching guest
+          try {
+            const claimResult = await apiClaimGuest(parseInt(newEvent.id), parseInt(exactMatch.id));
+
+            if (claimResult.success) {
+              // Successfully claimed, open event
+              setCurrentEventId(newEvent.id);
+              setUserRole('guest');
+              await loadGuestsForEvent(newEvent.id);
+            } else {
+              // Claim failed, show modal
+              setPendingEventId(newEvent.id);
+              setShowClaimGuestModal(true);
+            }
+          } catch (error) {
+            console.error('Error auto-claiming:', error);
+            // On error, show modal
+            setPendingEventId(newEvent.id);
             setShowClaimGuestModal(true);
-          }, 500); // Small delay for better UX
+          }
+        } else {
+          // No exact match - show claim modal
+          setPendingEventId(newEvent.id);
+          setShowClaimGuestModal(true);
         }
+      } else {
+        // User already claimed or is host - open event immediately
+        setCurrentEventId(newEvent.id);
+        setUserRole(apiEvent.role);
       }
     } else {
       // API failed - show appropriate error message
@@ -1201,14 +1350,16 @@ export default function Home() {
     }
   };
 
-  const totalBill = guests.reduce((sum, guest) => sum + guest.amount, 0);
-  const totalPaid = guests.reduce((sum, guest) => {
+  // Filter out placeholder guests (empty names) for bill calculations
+  const realGuests = guests.filter(g => g.name !== '');
+  const totalBill = realGuests.reduce((sum, guest) => sum + guest.amount, 0);
+  const totalPaid = realGuests.reduce((sum, guest) => {
     if (guest.paid) {
       return sum + guest.amount;
     }
     return sum;
   }, 0);
-  const totalOwed = guests.reduce((sum, guest) => {
+  const totalOwed = realGuests.reduce((sum, guest) => {
     if (!guest.paid) {
       return sum + guest.amount;
     }
@@ -2473,12 +2624,468 @@ export default function Home() {
         ) : (
           /* Event View */
           <>
-            {viewingGuestId ? (
-              /* Guest Details Page */
+            {/* Header with Back Button, Event Name, and Menu */}
+            <div className="sticky top-0 z-40 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 mb-6">
+              {/* Top row: Back, Event Name, Menu */}
+              <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                {/* Back Button */}
+                <button
+                  onClick={() => {
+                    if (showingNotesSummary) {
+                      // If viewing notes summary, go back to event page
+                      setShowingNotesSummary(false);
+                    } else if (showingNotes) {
+                      // If viewing notes, go back to guest detail
+                      setShowingNotes(false);
+                    } else if (showingBreakdown) {
+                      // If viewing breakdown, go back to guest detail
+                      setShowingBreakdown(false);
+                    } else if (viewingGuestId) {
+                      // If viewing a guest, go back to event page
+                      setViewingGuestId(null);
+                    } else {
+                      // If on event page, go back to events list
+                      setCurrentEventId(null);
+                      setUserRole(null);
+                      setGuests([]);
+                      setShowMenu(false);
+                    }
+                  }}
+                  className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  aria-label="Back"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-600 dark:text-slate-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                  </svg>
+                </button>
+
+                {/* Event Name */}
+                <h1 className="text-lg font-semibold text-slate-800 dark:text-slate-200 truncate px-3 flex-1 text-center">
+                  {currentEvent?.name || 'Event'}
+                </h1>
+
+                {/* Menu Button */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                    aria-label="Menu"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-600 dark:text-slate-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showMenu && (
+                    <>
+                      {/* Backdrop for click outside */}
+                      <div
+                        className="fixed inset-0 z-30"
+                        onClick={() => setShowMenu(false)}
+                      />
+                      <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-2 z-50">
+                      {/* Payment Details */}
+                      <button
+                        onClick={() => {
+                          setShowPaymentDetailsModal(true);
+                          setShowMenu(false);
+                        }}
+                        className="w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-3"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                        </svg>
+                        <span className="text-sm font-medium">Payment Details</span>
+                      </button>
+
+                      {/* Notes Summary */}
+                      <button
+                        onClick={() => {
+                          setShowingNotesSummary(true);
+                          setShowMenu(false);
+                        }}
+                        className="w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-3"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                        </svg>
+                        <span className="text-sm font-medium">Notes Summary</span>
+                      </button>
+
+                      {/* Manage Profile (for guests with claimed profiles) */}
+                      {guests.length > 0 && (
+                        <button
+                          onClick={() => {
+                            openClaimGuestModal();
+                            setShowMenu(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-3"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                          </svg>
+                          <span className="text-sm font-medium">Manage Profile</span>
+                        </button>
+                      )}
+
+                      {/* Settings (host only) */}
+                      {userRole === 'host' && (
+                        <button
+                          onClick={() => {
+                            openEventSettings();
+                            setShowMenu(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-3"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span className="text-sm font-medium">Settings</span>
+                        </button>
+                      )}
+
+                      {/* Leave Event (guest only) */}
+                      {userRole === 'guest' && (
+                        <button
+                          onClick={() => {
+                            leaveEventAsGuest();
+                            setShowMenu(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center gap-3 border-t border-slate-100 dark:border-slate-700 mt-2 pt-3"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                          </svg>
+                          <span className="text-sm font-medium">Leave Event</span>
+                        </button>
+                      )}
+                    </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Bill Total Section - Only show when not viewing a guest's detail page */}
+              {!viewingGuestId && (
+                <div className={`px-4 py-3 border-t transition-all duration-300 ${
+                  totalBill > 0 && totalOwed === 0
+                    ? 'bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/40 dark:to-green-900/20 border-green-300 dark:border-green-700'
+                    : 'border-slate-200 dark:border-slate-800'
+                }`}>
+                  {/* Total */}
+                  <div className="flex items-center justify-center gap-2">
+                    <span className={`text-sm font-medium ${
+                      totalBill > 0 && totalOwed === 0
+                        ? 'text-green-800 dark:text-green-200'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}>
+                      {totalBill > 0 && totalOwed === 0 ? '✓ Fully Paid!' : 'Bill Total:'}
+                    </span>
+                    <span className={`font-bold text-2xl ${
+                      totalBill > 0 && totalOwed === 0
+                        ? 'text-green-700 dark:text-green-300'
+                        : 'text-slate-800 dark:text-slate-100'
+                    }`}>
+                      £{totalBill.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {showingNotesSummary ? (
+              /* Notes Summary Page */
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-6">Notes Summary</h2>
+
+                {guests.length > 0 ? (
+                  <div className="space-y-2">
+                    {guests.sort((a, b) => a.name.localeCompare(b.name)).map((guest) => (
+                      <div
+                        key={guest.id}
+                        className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3"
+                      >
+                        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-2">
+                          {guest.name}
+                        </h3>
+                        {guest.notes && guest.notes.trim() && (
+                          <div className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap text-sm">
+                            {guest.notes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-slate-500 dark:text-slate-400">No guests yet</p>
+                  </div>
+                )}
+              </div>
+            ) : viewingGuestId ? (
+              /* Guest Details, Breakdown, or Notes Page */
               (() => {
                 const viewingGuest = guests.find(g => g.id === viewingGuestId);
                 if (!viewingGuest) return null;
 
+                if (showingNotes) {
+                  /* Pre-order / Notes Page */
+                  return (
+                    <>
+                      {/* Guest Name */}
+                      <div className="mb-6">
+                        <h2 className="text-xl sm:text-2xl font-light text-slate-600 dark:text-slate-400 text-center">
+                          {viewingGuest.name}
+                        </h2>
+                      </div>
+
+                      {/* Notes Section */}
+                      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border-2 border-slate-200 dark:border-slate-700 p-6">
+                        <label className="block text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4">
+                          Pre-order / Notes
+                        </label>
+                        <textarea
+                          value={viewingGuest.notes}
+                          onChange={(e) => {
+                            setGuests(guests.map(g =>
+                              g.id === viewingGuestId ? { ...g, notes: e.target.value } : g
+                            ));
+                          }}
+                          onBlur={async () => {
+                            try {
+                              await apiUpdateGuest(
+                                parseInt(viewingGuestId),
+                                {
+                                  notes: viewingGuest.notes,
+                                }
+                              );
+                            } catch (error) {
+                              console.error('Error updating guest notes:', error);
+                            }
+                          }}
+                          placeholder="e.g., Vegetarian option, no onions..."
+                          maxLength={500}
+                          rows={8}
+                          readOnly={userRole !== 'host'}
+                          className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 resize-none"
+                        />
+                        <div className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-right">
+                          {viewingGuest.notes.length}/500
+                        </div>
+                      </div>
+                    </>
+                  );
+                }
+
+                if (showingBreakdown) {
+                  /* Bill Breakdown Page */
+                  return (
+                    <>
+                      {/* Guest Name */}
+                      <div className="mb-6">
+                        <h2 className="text-xl sm:text-2xl font-light text-slate-600 dark:text-slate-400 text-center">
+                          {viewingGuest.name}
+                        </h2>
+                      </div>
+
+                      {/* Item Breakdown Section */}
+                      <div className="bg-slate-50 dark:bg-slate-900 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 p-6">
+                        <div className="flex items-baseline gap-2 mb-6">
+                          <h3 className="text-base font-semibold text-slate-600 dark:text-slate-400">
+                            Item Breakdown
+                          </h3>
+                          <span className="text-xs text-slate-500 dark:text-slate-500 italic">
+                            (for reference)
+                          </span>
+                        </div>
+
+                        {/* Add Item Section - at the top */}
+                        {userRole === 'host' && (
+                          <div className="space-y-4 mb-6 pb-6 border-b border-slate-300 dark:border-slate-700">
+                            <label className="block text-base font-semibold text-slate-600 dark:text-slate-400">
+                              Add Item
+                            </label>
+                            <div className="space-y-3">
+                              <input
+                                type="text"
+                                placeholder="Item name (e.g., Margarita Pizza)"
+                                value={itemNote}
+                                onChange={(e) => setItemNote(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    document.getElementById('item-price-input')?.focus();
+                                  }
+                                }}
+                                className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                              />
+                              <div className="grid grid-cols-3 gap-3">
+                                <input
+                                  id="item-price-input"
+                                  type="number"
+                                  placeholder="£0.00"
+                                  value={itemPrice}
+                                  onChange={(e) => setItemPrice(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      setEditingGuestId(viewingGuestId);
+                                      addItemToGuest();
+                                    }
+                                  }}
+                                  step="0.01"
+                                  className="col-span-1 px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!itemNote.trim() || !viewingGuestId) return;
+
+                                    const noteText = itemNote.trim();
+                                    const priceValue = itemPrice.trim() ? parseFloat(itemPrice) : undefined;
+
+                                    try {
+                                      const apiItem = await apiAddGuestItem(parseInt(viewingGuestId), noteText, priceValue);
+
+                                      const newItem = {
+                                        id: apiItem.id.toString(),
+                                        note: apiItem.note,
+                                        price: apiItem.price
+                                      };
+
+                                      setGuests(
+                                        guests.map((guest) =>
+                                          guest.id === viewingGuestId
+                                            ? {
+                                                ...guest,
+                                                items: [...guest.items, newItem],
+                                              }
+                                            : guest
+                                        )
+                                      );
+                                      setItemNote('');
+                                      setItemPrice('');
+                                    } catch (error) {
+                                      console.error('Error adding item:', error);
+                                    }
+                                  }}
+                                  disabled={!itemNote.trim()}
+                                  className="col-span-2 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
+                                >
+                                  Add Item
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Items List */}
+                        {viewingGuest.items.length > 0 && (
+                          <div className="mb-6">
+                            <div className="space-y-1.5 mb-4">
+                              {viewingGuest.items.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-700 rounded-lg"
+                                >
+                                  <div className="flex-1">
+                                    <span className="text-slate-700 dark:text-slate-200">
+                                      {item.note}
+                                    </span>
+                                    {item.price !== null && item.price !== undefined && (
+                                      <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">
+                                        £{item.price.toFixed(2)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {userRole === 'host' && (
+                                    <button
+                                      onClick={() => removeItem(viewingGuest.id, item.id)}
+                                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
+                                      aria-label="Remove item"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            {(() => {
+                              const itemsTotal = viewingGuest.items.reduce((sum, item) => {
+                                return sum + (item.price || 0);
+                              }, 0);
+
+                              if (viewingGuest.items.length > 0) {
+                                const difference = itemsTotal - viewingGuest.amount;
+                                return (
+                                  <div className="border-t border-slate-200 dark:border-slate-600 pt-3 mt-3 space-y-2">
+                                    <div className="flex justify-between items-center px-3">
+                                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                                        Items Subtotal
+                                      </span>
+                                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                        £{itemsTotal.toFixed(2)}
+                                      </span>
+                                    </div>
+                                    {Math.abs(difference) > 0.01 && (
+                                      <div className="flex justify-between items-center px-3 pb-2 border-b border-slate-200 dark:border-slate-700">
+                                        <span className="text-sm text-slate-600 dark:text-slate-400">
+                                          {difference < 0 ? 'Missing' : 'Extra'}
+                                        </span>
+                                        <span className={`text-sm font-medium ${difference < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                          {difference < 0 ? '-' : ''}£{Math.abs(difference).toFixed(2)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="space-y-2">
+                                      <div className="flex justify-between items-center px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                        <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                                          Bill Total
+                                        </span>
+                                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                          £{viewingGuest.amount.toFixed(2)}
+                                        </span>
+                                      </div>
+                                      {itemsTotal > 0 && Math.abs(difference) > 0.01 && (
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              await apiUpdateGuest(parseInt(viewingGuestId), { amount: itemsTotal });
+                                              setGuests(
+                                                guests.map((g) =>
+                                                  g.id === viewingGuestId
+                                                    ? { ...g, amount: itemsTotal }
+                                                    : g
+                                                )
+                                              );
+                                            } catch (error) {
+                                              console.error('Error updating bill total:', error);
+                                            }
+                                          }}
+                                          className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                                        >
+                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                          </svg>
+                                          Set bill total to £{itemsTotal.toFixed(2)}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                }
+
+                /* Guest Details Page */
                 return (
                   <>
                     {/* Guest Name */}
@@ -2503,12 +3110,12 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {/* Bill Total and Deposit - Side by Side */}
+                        {/* Total and Deposit - Side by Side */}
                         <div className="border-t border-slate-200 dark:border-slate-700 pt-4 grid grid-cols-2 gap-4">
-                          {/* Bill Total */}
+                          {/* Total */}
                           <div className="text-center">
                             <label className="block text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">
-                              Bill Total
+                              Total
                             </label>
                             <div
                               onClick={() => userRole === 'host' && openCalculator('amount', viewingGuestId, viewingGuest.amount)}
@@ -2548,190 +3155,26 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Back to Event Button */}
-                    <div className="mb-6">
+                    {/* Action Buttons */}
+                    <div className="space-y-3">
                       <button
-                        onClick={() => setViewingGuestId(null)}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors shadow-md"
-                      >
-                        ← Back to Event
-                      </button>
-                    </div>
-
-                    {/* Item Breakdown - Reference Section */}
-                    <div className="bg-slate-50 dark:bg-slate-900 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 p-4 sm:p-6">
-                      <div className="flex items-baseline gap-2 mb-3">
-                        <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-                          Item Breakdown
-                        </h3>
-                        <span className="text-xs text-slate-500 dark:text-slate-500 italic">
-                          (for reference)
-                        </span>
-                      </div>
-                        {viewingGuest.items.length > 0 && (
-                          <div className="mb-3">
-                            <div className="space-y-2 mb-3">
-                              {viewingGuest.items.map((item) => (
-                                <div
-                                  key={item.id}
-                                  className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg"
-                                >
-                                  <div className="flex-1">
-                                    <span className="text-slate-700 dark:text-slate-200">
-                                      {item.note}
-                                    </span>
-                                    {item.price !== null && item.price !== undefined && (
-                                      <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">
-                                        £{item.price.toFixed(2)}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {userRole === 'host' && (
-                                    <button
-                                      onClick={() => removeItem(viewingGuest.id, item.id)}
-                                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
-                                      aria-label="Remove item"
-                                    >
-                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                      </svg>
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            {(() => {
-                              const itemsTotal = viewingGuest.items.reduce((sum, item) => {
-                                return sum + (item.price || 0);
-                              }, 0);
-
-                              if (itemsTotal > 0) {
-                                const difference = itemsTotal - viewingGuest.amount;
-                                return (
-                                  <div className="border-t border-slate-200 dark:border-slate-600 pt-3 mt-3 space-y-2">
-                                    <div className="flex justify-between items-center px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                                      <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-                                        Bill Total
-                                      </span>
-                                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                        £{viewingGuest.amount.toFixed(2)}
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between items-center px-3">
-                                      <span className="text-sm text-slate-600 dark:text-slate-400">
-                                        Items Subtotal
-                                      </span>
-                                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                        £{itemsTotal.toFixed(2)}
-                                      </span>
-                                    </div>
-                                    {Math.abs(difference) > 0.01 && (
-                                      <div className="flex justify-between items-center px-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                                          {difference < 0 ? 'Missing' : 'Extra'}
-                                        </span>
-                                        <span className={`text-sm font-medium ${difference < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                                          {difference < 0 ? '-' : ''}£{Math.abs(difference).toFixed(2)}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
-                          </div>
-                        )}
-                        {userRole === 'host' && (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              placeholder="Item (e.g., Steak)"
-                              value={itemNote}
-                              onChange={(e) => setItemNote(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  setEditingGuestId(viewingGuestId);
-                                  addItemToGuest();
-                                }
-                              }}
-                              className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                            />
-                            <div className="flex gap-2">
-                              <input
-                                type="number"
-                                placeholder="Price"
-                                value={itemPrice}
-                                onChange={(e) => setItemPrice(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    setEditingGuestId(viewingGuestId);
-                                    addItemToGuest();
-                                  }
-                                }}
-                                step="0.01"
-                                className="w-24 px-3 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                              />
-                              <button
-                                onClick={() => {
-                                  setEditingGuestId(viewingGuestId);
-                                  addItemToGuest();
-                                }}
-                                disabled={!itemNote.trim()}
-                                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-                              >
-                                Add
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                      {/* Pre-order Notes */}
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                          Pre-order / Notes
-                        </label>
-                        <textarea
-                          value={viewingGuest.notes}
-                          onChange={(e) => {
-                            setGuests(guests.map(g =>
-                              g.id === viewingGuestId ? { ...g, notes: e.target.value } : g
-                            ));
-                          }}
-                          onBlur={async () => {
-                            try {
-                              await apiUpdateGuest(
-                                parseInt(viewingGuestId),
-                                {
-                                  notes: viewingGuest.notes,
-                                }
-                              );
-                            } catch (error) {
-                              console.error('Error updating guest notes:', error);
-                            }
-                          }}
-                          placeholder="e.g., Vegetarian option, no onions..."
-                          rows={4}
-                          maxLength={500}
-                          readOnly={userRole !== 'host'}
-                          className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 resize-none"
-                        />
-                        <div className="text-xs text-slate-400 dark:text-slate-500 mt-1 text-right">
-                          {viewingGuest.notes.length}/500
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Back Button */}
-                    <div className="mt-6">
-                      <button
-                        onClick={() => setViewingGuestId(null)}
-                        className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                        onClick={() => setShowingBreakdown(true)}
+                        className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-slate-300 dark:border-slate-600 rounded-lg py-4 px-6 transition-colors font-medium flex items-center justify-center gap-2"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
                         </svg>
-                        Back to Event
+                        Bill Breakdown
+                      </button>
+
+                      <button
+                        onClick={() => setShowingNotes(true)}
+                        className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-slate-300 dark:border-slate-600 rounded-lg py-4 px-6 transition-colors font-medium flex items-center justify-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                        </svg>
+                        Pre-order / Notes
                       </button>
                     </div>
                   </>
@@ -2740,71 +3183,6 @@ export default function Home() {
             ) : (
               /* Event Dashboard */
               <>
-            {/* Total Card */}
-            <div className={`rounded-lg shadow-md mb-4 sm:mb-6 transition-colors ${
-              totalBill > 0 && totalOwed === 0
-                ? 'bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-2 border-green-200 dark:border-green-700'
-                : 'bg-white dark:bg-slate-800'
-            }`}>
-              {/* Main Total */}
-              <div className="flex flex-col items-center p-4 sm:p-6">
-                <span className={`text-sm sm:text-base font-medium mb-1 ${
-                  totalBill > 0 && totalOwed === 0
-                    ? 'text-green-800 dark:text-green-300'
-                    : 'text-slate-600 dark:text-slate-400'
-                }`}>
-                  Bill Total
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className={`text-3xl sm:text-4xl font-bold ${
-                    totalBill > 0 && totalOwed === 0
-                      ? 'text-green-700 dark:text-green-400'
-                      : 'text-slate-800 dark:text-slate-100'
-                  }`}>
-                    £{totalBill.toFixed(2)}
-                  </span>
-                  {totalBill > 0 && totalOwed === 0 && (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8 sm:w-10 sm:h-10 text-green-600 dark:text-green-400">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  )}
-                </div>
-              </div>
-
-              {/* Deposits and Owed - Separate sections */}
-              {totalBill > 0 && (
-                <div className={`grid grid-cols-2 gap-0 border-t-2 ${
-                  totalBill > 0 && totalOwed === 0
-                    ? 'border-green-200 dark:border-green-700'
-                    : 'border-slate-200 dark:border-slate-700'
-                }`}>
-                  {/* Paid Section */}
-                  <div className="flex flex-col items-center p-3 sm:p-4 border-r-2 border-slate-200 dark:border-slate-700">
-                    <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">
-                      Paid
-                    </span>
-                    <span className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-200">
-                      £{totalPaid.toFixed(2)}
-                    </span>
-                  </div>
-
-                  {/* Still Owed Section */}
-                  <div className="flex flex-col items-center p-3 sm:p-4">
-                    <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">
-                      Still Owed
-                    </span>
-                    <span className={`text-lg sm:text-xl font-bold ${
-                      totalOwed === 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-orange-600 dark:text-orange-400'
-                    }`}>
-                      £{totalOwed.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Items Modal */}
             {showItemsModal && editingGuest && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
@@ -2903,73 +3281,9 @@ export default function Home() {
               </div>
             )}
 
-            {isPaymentMode ? (
-              /* Payment Mode - Simplified View */
-              <>
-                {/* Simplified Guest List */}
-                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
-                  {guests.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-slate-500 dark:text-slate-400">No guests yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {guests.map((guest) => (
-                        <div
-                          key={guest.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700"
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            {userRole === 'host' && (
-                              <button
-                                onClick={() => togglePaid(guest.id)}
-                                className={`flex-shrink-0 w-10 h-10 rounded border-2 transition-colors flex items-center justify-center ${
-                                  guest.paid
-                                    ? 'bg-green-500 border-green-500'
-                                    : 'border-slate-300 dark:border-slate-600 hover:border-green-400'
-                                }`}
-                                aria-label="Mark as paid"
-                              >
-                                {guest.paid && (
-                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="white" className="w-6 h-6">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                  </svg>
-                                )}
-                              </button>
-                            )}
-                            <span className={`font-medium text-xl ${
-                              guest.paid
-                                ? 'text-slate-400 dark:text-slate-500 line-through'
-                                : 'text-slate-800 dark:text-slate-100'
-                            }`}>
-                              {guest.name}
-                            </span>
-                          </div>
-                          <span className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                            £{(guest.amount - guest.deposit).toFixed(2)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Exit Payment View Button */}
-                <div className="mt-6 mb-4">
-                  <button
-                    onClick={() => setIsPaymentMode(false)}
-                    className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium"
-                  >
-                    Exit Payment View
-                  </button>
-                </div>
-              </>
-            ) : (
-              /* Normal Mode - Full Interface */
-              <>
             {/* Guest List */}
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
-              {guests.length === 0 ? (
+              {guests.filter(g => g.name !== '').length === 0 ? (
                 <div className="text-center py-8 sm:py-12">
                   {/* Icon */}
                   <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
@@ -2988,7 +3302,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="space-y-3 sm:space-y-4">
-                  {guests.map((guest) => (
+                  {guests.filter(g => g.name !== '').map((guest) => (
                     <div
                       key={guest.id}
                       className={`p-3 sm:p-4 rounded-lg border-2 transition-colors ${
@@ -3023,7 +3337,9 @@ export default function Home() {
                             <span className={`font-medium text-xl sm:text-2xl break-words transition-colors ${
                               guest.paid
                                 ? 'text-slate-400 dark:text-slate-500 line-through'
-                                : 'text-slate-800 dark:text-slate-100'
+                                : guest.app_user_id === currentUser?.id
+                                  ? 'text-blue-600 dark:text-blue-400'
+                                  : 'text-slate-800 dark:text-slate-100'
                             }`}>
                               {guest.name}
                             </span>
@@ -3076,7 +3392,11 @@ export default function Home() {
                               onClick={() => setViewingGuestId(guest.id)}
                               className="flex flex-col items-end"
                             >
-                              <span className="text-xl sm:text-2xl font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                              <span className={`text-xl sm:text-2xl font-semibold transition-colors ${
+                                guest.app_user_id === currentUser?.id
+                                  ? 'text-blue-600 dark:text-blue-400'
+                                  : 'text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400'
+                              }`}>
                                 £{(guest.amount - guest.deposit).toFixed(2)}
                               </span>
                             </button>
@@ -3128,91 +3448,6 @@ export default function Home() {
                   e.g., Sarah, John&apos;s friend, Person from accounting - can be claimed and changed by the guest
                 </p>
               </div>
-            )}
-
-            {/* Payment Details and Payment View Buttons */}
-            <div className="mt-6 mb-4 flex gap-3">
-              <button
-                onClick={() => setShowPaymentDetailsModal(true)}
-                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                </svg>
-                Payment Details
-              </button>
-              {guests.length > 0 && (
-                <button
-                  onClick={() => setIsPaymentMode(true)}
-                  className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-                  </svg>
-                  Payment View
-                </button>
-              )}
-            </div>
-
-            {/* Bottom Navigation */}
-            <div className="mt-6 mb-4 space-y-3">
-
-              {/* Manage Event Name Button - visible when there are guests */}
-              {guests.length > 0 && (
-                <button
-                  onClick={openClaimGuestModal}
-                  className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                  </svg>
-                  Manage Event Name
-                </button>
-              )}
-
-              {/* Home Button - visible to all users */}
-              <button
-                onClick={() => {
-                  setCurrentEventId(null);
-                  setUserRole(null);
-                  setGuests([]);
-                }}
-                className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                </svg>
-                Home
-              </button>
-
-              {/* Settings Button - visible only to hosts */}
-              {userRole === 'host' && (
-                <button
-                  onClick={openEventSettings}
-                  className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Settings
-                </button>
-              )}
-
-              {/* Leave Event Button - visible only to guests */}
-              {userRole === 'guest' && (
-                <button
-                  onClick={leaveEventAsGuest}
-                  className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-                  </svg>
-                  Leave Event
-                </button>
-              )}
-            </div>
-              </>
             )}
           </>
         )}
@@ -3420,20 +3655,22 @@ export default function Home() {
 
         {/* Claim Guest Modal */}
         {showClaimGuestModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowClaimGuestModal(false)}>
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleCancelClaimModal}>
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
               <div className="p-6">
                 {(() => {
                   const myClaimedGuest = guests.find(g => g.app_user_id === currentUser?.id);
+                  // Treat empty-name guests as unclaimed (placeholder)
+                  const hasRealProfile = myClaimedGuest && myClaimedGuest.name !== '';
 
                   return (
                     <>
                       <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                          {myClaimedGuest ? 'Your Profile' : 'Claim Guest Profile'}
+                          {hasRealProfile ? 'Your Profile' : 'Claim Guest Profile'}
                         </h3>
                         <button
-                          onClick={() => setShowClaimGuestModal(false)}
+                          onClick={handleCancelClaimModal}
                           className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                           aria-label="Close"
                         >
@@ -3444,47 +3681,90 @@ export default function Home() {
                       </div>
 
                       {(() => {
-                  const unclaimedGuests = guests.filter(g => !g.app_user_id);
+                  // Filter for truly unclaimed guests (no app_user_id) and exclude placeholders (empty names)
+                  const unclaimedGuests = guests.filter(g => !g.app_user_id && g.name !== '');
 
-                  // User has already claimed a guest
-                  if (myClaimedGuest) {
+                  // User has already claimed a real guest (not placeholder)
+                  if (hasRealProfile) {
                     return (
                       <>
                         <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                          You have claimed the following profile:
+                          Your profile for this event:
                         </p>
 
                         <div className="p-4 border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-800 dark:text-slate-200 font-medium">
-                              {myClaimedGuest.name}
-                            </span>
-                            <span className="text-sm text-slate-500 dark:text-slate-400">
-                              £{myClaimedGuest.amount.toFixed(2)}
-                            </span>
-                          </div>
+                          {isEditingGuestName ? (
+                            <div className="space-y-3">
+                              <input
+                                type="text"
+                                value={editedGuestName}
+                                onChange={(e) => setEditedGuestName(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                placeholder="Enter your name"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    setIsEditingGuestName(false);
+                                    setEditedGuestName('');
+                                  }}
+                                  className="flex-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!editedGuestName.trim()) return;
+                                    try {
+                                      await apiUpdateGuest(parseInt(myClaimedGuest.id), { name: editedGuestName.trim() });
+                                      // Update local state
+                                      setGuests(guests.map(g =>
+                                        g.id === myClaimedGuest.id ? { ...g, name: editedGuestName.trim() } : g
+                                      ));
+                                      // Close modal and reset edit state
+                                      setIsEditingGuestName(false);
+                                      setEditedGuestName('');
+                                      setShowClaimGuestModal(false);
+                                    } catch (error) {
+                                      console.error('Error updating guest name:', error);
+                                    }
+                                  }}
+                                  disabled={!editedGuestName.trim()}
+                                  className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-800 dark:text-slate-200 font-medium">
+                                {myClaimedGuest.name}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setEditedGuestName(myClaimedGuest.name);
+                                  setIsEditingGuestName(true);
+                                }}
+                                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          )}
                         </div>
 
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-                          If you claimed the wrong profile, you can unclaim it and select a different one.
-                        </p>
-
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setShowClaimGuestModal(false)}
-                            className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
-                          >
-                            Close
-                          </button>
-                          <button
-                            onClick={async () => {
-                              await handleUnclaimGuest();
-                            }}
-                            className="flex-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors"
-                          >
-                            Unclaim Profile
-                          </button>
-                        </div>
+                        <button
+                          onClick={async () => {
+                            await handleUnclaimGuest();
+                            setIsEditingGuestName(false);
+                            setEditedGuestName('');
+                          }}
+                          className="w-full mt-1 py-2.5 text-xs text-slate-400 dark:text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                        >
+                          Unclaim this profile
+                        </button>
                       </>
                     );
                   }
@@ -3501,53 +3781,118 @@ export default function Home() {
 
                   return (
                     <>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                        Select a guest profile to link to your account. This helps track your orders and payments.
-                      </p>
+                      {!isCreatingNewGuest ? (
+                        <>
+                          <div className="mb-4">
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              {unclaimedGuests.length > 0
+                                ? 'Select your name from the list, or add yourself if your name is not listed.'
+                                : 'No unclaimed guests available. Add yourself to continue.'}
+                            </p>
+                            {unclaimedGuests.length > 0 && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                You can change the display name after claiming.
+                              </p>
+                            )}
+                          </div>
 
-                      <div className="space-y-2 mb-6">
-                        {unclaimedGuests.map((guest) => (
-                          <label
-                            key={guest.id}
-                            className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                              selectedClaimGuestId === guest.id
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                            }`}
+                          {unclaimedGuests.length > 0 && (
+                            <div className="space-y-2 mb-4 max-h-[40vh] overflow-y-auto pr-1">
+                              {unclaimedGuests.map((guest) => (
+                                <label
+                                  key={guest.id}
+                                  className={`flex items-center justify-between gap-3 p-3.5 border-2 rounded-lg cursor-pointer transition-colors ${
+                                    selectedClaimGuestId === guest.id
+                                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                  }`}
+                                  onClick={() => {
+                                    setSelectedClaimGuestId(guest.id);
+                                    setIsCreatingNewGuest(false);
+                                  }}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <input
+                                      type="radio"
+                                      name="claimGuest"
+                                      value={guest.id}
+                                      checked={selectedClaimGuestId === guest.id && !isCreatingNewGuest}
+                                      onChange={() => {}}
+                                      className="w-4 h-4 text-blue-600 flex-shrink-0"
+                                    />
+                                    <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
+                                      {guest.name}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">
+                                    £{guest.amount.toFixed(2)}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              setIsCreatingNewGuest(true);
+                              setSelectedClaimGuestId(null);
+                            }}
+                            className="w-full mb-4 px-4 py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-colors"
                           >
-                            <input
-                              type="radio"
-                              name="claimGuest"
-                              value={guest.id}
-                              checked={selectedClaimGuestId === guest.id}
-                              onChange={() => setSelectedClaimGuestId(guest.id)}
-                              className="w-4 h-4 text-blue-600"
-                            />
-                            <span className="ml-3 text-slate-800 dark:text-slate-200 font-medium">
-                              {guest.name}
-                            </span>
-                            <span className="ml-auto text-sm text-slate-500 dark:text-slate-400">
-                              £{guest.amount.toFixed(2)}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
+                            + Add myself as a new guest
+                          </button>
 
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => setShowClaimGuestModal(false)}
-                          className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleClaimGuest}
-                          disabled={!selectedClaimGuestId || isClaimingGuest}
-                          className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-                        >
-                          {isClaimingGuest ? 'Claiming...' : 'Claim Guest'}
-                        </button>
-                      </div>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={handleCancelClaimModal}
+                              className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleClaimGuest}
+                              disabled={!selectedClaimGuestId || isClaimingGuest}
+                              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                            >
+                              OK
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                            Enter your name to create a new guest profile.
+                          </p>
+
+                          <input
+                            type="text"
+                            value={newGuestName}
+                            onChange={(e) => setNewGuestName(e.target.value)}
+                            placeholder="Your name"
+                            className="w-full px-4 py-3 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100 mb-6"
+                            autoFocus
+                          />
+
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => {
+                                setIsCreatingNewGuest(false);
+                                setNewGuestName('');
+                              }}
+                              className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
+                            >
+                              Back
+                            </button>
+                            <button
+                              onClick={handleAddAndClaimNewGuest}
+                              disabled={!newGuestName.trim() || isClaimingGuest}
+                              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                            >
+                              OK
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </>
                   );
                       })()}

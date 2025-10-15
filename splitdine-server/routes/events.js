@@ -119,7 +119,7 @@ router.post('/create', verifyToken, async (req, res) => {
     const result = await query(
       `INSERT INTO events (name, guest_code, user_id, bank_account_number, bank_sort_code, bank_account_name, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-       RETURNING id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at`,
+       RETURNING id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, created_at`,
       [event_name.trim(), guestCode, userId, bank_account_number || null, bank_sort_code || null, bank_account_name || null]
     );
 
@@ -139,6 +139,7 @@ router.post('/create', verifyToken, async (req, res) => {
         bank_account_number: newEvent.bank_account_number,
         bank_sort_code: newEvent.bank_sort_code,
         bank_account_name: newEvent.bank_account_name,
+        allow_guest_editing: newEvent.allow_guest_editing,
         created_at: newEvent.created_at,
         role: 'host'
       },
@@ -163,7 +164,7 @@ API Route: join_event
 =======================================================================================================================================
 Method: POST
 Purpose: Allows an authenticated user to join an existing event using a guest code.
-         Creates a guest entry with co_host = false.
+         Does NOT create a guest entry - user must claim/create a guest profile separately.
          Requires authentication.
 =======================================================================================================================================
 Request Payload:
@@ -215,7 +216,7 @@ router.post('/join', verifyToken, async (req, res) => {
     // Find event by guest code
     // =============================================================================
     const eventResult = await query(
-      `SELECT id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, created_at
+      `SELECT id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, created_at
        FROM events
        WHERE guest_code = $1`,
       [upperCode]
@@ -231,7 +232,15 @@ router.post('/join', verifyToken, async (req, res) => {
     const event = eventResult.rows[0];
 
     // =============================================================================
-    // Check if user is already a member (has a guest entry)
+    // Check if user is the event creator (automatic host)
+    // =============================================================================
+    const isCreator = await query(
+      `SELECT id FROM events WHERE id = $1 AND user_id = $2`,
+      [event.id, userId]
+    );
+
+    // =============================================================================
+    // Check if user already has a guest profile in this event
     // =============================================================================
     const guestCheck = await query(
       `SELECT id, co_host FROM guests
@@ -239,36 +248,25 @@ router.post('/join', verifyToken, async (req, res) => {
       [userId, event.id]
     );
 
-    if (guestCheck.rows.length > 0) {
-      // User is already a member, return event details
-      const role = guestCheck.rows[0].co_host ? 'host' : 'guest';
-      return res.status(200).json({
-        return_code: 'SUCCESS',
-        event: {
-          id: event.id,
-          name: event.name,
-          guest_code: event.guest_code,
-          bank_account_number: event.bank_account_number,
-          bank_sort_code: event.bank_sort_code,
-          bank_account_name: event.bank_account_name,
-          role: role,
-          created_at: event.created_at
-        },
-        message: 'Already a member of this event'
-      });
+    const hasClaimedProfile = guestCheck.rows.length > 0;
+    const role = isCreator.rows.length > 0 ? 'host' : (hasClaimedProfile && guestCheck.rows[0].co_host ? 'host' : 'guest');
+
+    // =============================================================================
+    // Create placeholder guest entry if user is not creator and hasn't claimed yet
+    // This allows them to pass membership checks and view the guest list for claiming
+    // =============================================================================
+    if (isCreator.rows.length === 0 && !hasClaimedProfile) {
+      await query(
+        `INSERT INTO guests (event_id, name, amount, deposit, notes, paid, app_user_id, co_host, created_at, updated_at)
+         VALUES ($1, '', 0.00, 0.00, NULL, false, $2, false, NOW(), NOW())`,
+        [event.id, userId]
+      );
+      console.log(`✓ Created placeholder guest entry for user ${userId} in event ${event.id}`);
     }
 
     // =============================================================================
-    // Create new guest entry as regular guest (co_host = false)
-    // =============================================================================
-    await query(
-      `INSERT INTO guests (event_id, name, amount, deposit, notes, paid, app_user_id, co_host, created_at, updated_at)
-       VALUES ($1, $2, 0.00, 0.00, NULL, false, $3, false, NOW(), NOW())`,
-      [event.id, userName, userId]
-    );
-
-    // =============================================================================
-    // Return success response
+    // Return event details with validation success
+    // User will claim or create a guest profile via the frontend flow
     // =============================================================================
     return res.status(200).json({
       return_code: 'SUCCESS',
@@ -279,10 +277,11 @@ router.post('/join', verifyToken, async (req, res) => {
         bank_account_number: event.bank_account_number,
         bank_sort_code: event.bank_sort_code,
         bank_account_name: event.bank_account_name,
-        role: 'guest',
+        allow_guest_editing: event.allow_guest_editing,
+        role: role,
         created_at: event.created_at
       },
-      message: 'Joined event successfully'
+      message: hasClaimedProfile ? 'Already a member of this event' : 'Code validated successfully'
     });
 
   } catch (error) {
@@ -337,7 +336,7 @@ router.post('/get_my_events', verifyToken, async (req, res) => {
     // Query user's events - both created and joined
     // =============================================================================
     const result = await query(
-      `SELECT e.id, e.name, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.created_at,
+      `SELECT e.id, e.name, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.allow_guest_editing, e.created_at,
               CASE
                 WHEN e.user_id = $1 THEN 'host'
                 WHEN g.co_host = true THEN 'host'
@@ -361,6 +360,7 @@ router.post('/get_my_events', verifyToken, async (req, res) => {
       bank_account_number: event.bank_account_number,
       bank_sort_code: event.bank_sort_code,
       bank_account_name: event.bank_account_name,
+      allow_guest_editing: event.allow_guest_editing,
       role: event.role,
       joined_at: event.joined_at,
       created_at: event.created_at
@@ -509,7 +509,7 @@ router.post('/update_bank_details', verifyToken, async (req, res) => {
 API Route: update_event_settings
 =======================================================================================================================================
 Method: POST
-Purpose: Updates basic event settings including name and bank details.
+Purpose: Updates basic event settings including name, bank details, and guest editing permission.
          Only the host can update event settings.
          Requires authentication.
 =======================================================================================================================================
@@ -519,7 +519,8 @@ Request Payload:
   "event_name": "New Event Name",                         // string, optional
   "bank_account_number": "12345678",                      // string, optional
   "bank_sort_code": "04-00-03",                           // string, optional
-  "bank_account_name": "John Doe"                         // string, optional
+  "bank_account_name": "John Doe",                        // string, optional
+  "allow_guest_editing": true                             // boolean, optional
 }
 
 Success Response:
@@ -530,7 +531,8 @@ Success Response:
     "name": "New Event Name",
     "bank_account_number": "12345678",
     "bank_sort_code": "04-00-03",
-    "bank_account_name": "John Doe"
+    "bank_account_name": "John Doe",
+    "allow_guest_editing": true
   },
   "message": "Event settings updated successfully"
 }
@@ -549,7 +551,7 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { event_id, event_name, bank_account_number, bank_sort_code, bank_account_name } = req.body;
+    const { event_id, event_name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing } = req.body;
     const userId = req.user.id; // User is authenticated
 
     if (!event_id) {
@@ -620,6 +622,12 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
       paramCount++;
     }
 
+    if (allow_guest_editing !== undefined) {
+      updates.push(`allow_guest_editing = $${paramCount}`);
+      values.push(allow_guest_editing);
+      paramCount++;
+    }
+
     if (updates.length === 0) {
       return res.status(200).json({
         return_code: 'MISSING_FIELDS',
@@ -640,7 +648,7 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
       UPDATE events
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, name, bank_account_number, bank_sort_code, bank_account_name
+      RETURNING id, name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing
     `;
 
     const updateResult = await query(updateQuery, values);
@@ -662,7 +670,8 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
         name: updateResult.rows[0].name,
         bank_account_number: updateResult.rows[0].bank_account_number,
         bank_sort_code: updateResult.rows[0].bank_sort_code,
-        bank_account_name: updateResult.rows[0].bank_account_name
+        bank_account_name: updateResult.rows[0].bank_account_name,
+        allow_guest_editing: updateResult.rows[0].allow_guest_editing
       },
       message: 'Event settings updated successfully'
     });

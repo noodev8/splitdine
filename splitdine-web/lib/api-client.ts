@@ -34,6 +34,7 @@ export interface Event {
   bank_account_number?: string;
   bank_sort_code?: string;
   bank_account_name?: string;
+  allow_guest_editing?: boolean;
 }
 
 export interface GuestItem {

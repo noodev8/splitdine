@@ -338,13 +338,17 @@ router.post('/update_guest', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Get guest and verify event membership
+    // Get guest, event settings, and verify permissions
     // =============================================================================
     const guestResult = await query(
-      `SELECT g.id, g.event_id, g.name, g.amount, g.deposit, g.notes, g.paid
+      `SELECT g.id, g.event_id, g.name, g.amount, g.deposit, g.notes, g.paid, g.app_user_id,
+              e.user_id as event_creator_id, e.allow_guest_editing,
+              COALESCE(host_guest.co_host, false) as is_co_host
        FROM guests g
+       JOIN events e ON g.event_id = e.id
+       LEFT JOIN guests host_guest ON e.id = host_guest.event_id AND host_guest.app_user_id = $2 AND host_guest.co_host = true
        WHERE g.id = $1`,
-      [guest_id]
+      [guest_id, userId]
     );
 
     if (guestResult.rows.length === 0) {
@@ -363,6 +367,21 @@ router.post('/update_guest', verifyToken, async (req, res) => {
       return res.status(200).json({
         return_code: 'NOT_MEMBER',
         message: 'You are not a member of this event'
+      });
+    }
+
+    // =============================================================================
+    // Check if user has permission to edit this guest
+    // User can edit if: (1) they are host, OR (2) they are editing their own guest AND allow_guest_editing is true
+    // =============================================================================
+    const isHost = guest.event_creator_id === userId || guest.is_co_host;
+    const isEditingOwnGuest = guest.app_user_id === userId;
+    const canEdit = isHost || (isEditingOwnGuest && guest.allow_guest_editing);
+
+    if (!canEdit) {
+      return res.status(200).json({
+        return_code: 'UNAUTHORIZED',
+        message: 'You do not have permission to edit this guest'
       });
     }
 
@@ -628,11 +647,17 @@ router.post('/add_item', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Get guest and verify event membership
+    // Get guest, event settings, and verify permissions
     // =============================================================================
     const guestResult = await query(
-      `SELECT event_id FROM guests WHERE id = $1`,
-      [guest_id]
+      `SELECT g.event_id, g.app_user_id,
+              e.user_id as event_creator_id, e.allow_guest_editing,
+              COALESCE(host_guest.co_host, false) as is_co_host
+       FROM guests g
+       JOIN events e ON g.event_id = e.id
+       LEFT JOIN guests host_guest ON e.id = host_guest.event_id AND host_guest.app_user_id = $2 AND host_guest.co_host = true
+       WHERE g.id = $1`,
+      [guest_id, userId]
     );
 
     if (guestResult.rows.length === 0) {
@@ -642,7 +667,8 @@ router.post('/add_item', verifyToken, async (req, res) => {
       });
     }
 
-    const eventId = guestResult.rows[0].event_id;
+    const guest = guestResult.rows[0];
+    const eventId = guest.event_id;
 
     // Verify user is a member of the event
     const isMember = await checkMembership(userId, eventId);
@@ -651,6 +677,21 @@ router.post('/add_item', verifyToken, async (req, res) => {
       return res.status(200).json({
         return_code: 'NOT_MEMBER',
         message: 'You are not a member of this event'
+      });
+    }
+
+    // =============================================================================
+    // Check if user has permission to add items to this guest
+    // User can edit if: (1) they are host, OR (2) they are editing their own guest AND allow_guest_editing is true
+    // =============================================================================
+    const isHost = guest.event_creator_id === userId || guest.is_co_host;
+    const isEditingOwnGuest = guest.app_user_id === userId;
+    const canEdit = isHost || (isEditingOwnGuest && guest.allow_guest_editing);
+
+    if (!canEdit) {
+      return res.status(200).json({
+        return_code: 'UNAUTHORIZED',
+        message: 'You do not have permission to add items to this guest'
       });
     }
 
@@ -734,14 +775,18 @@ router.post('/delete_item', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Get item, guest, and verify event membership
+    // Get item, guest, event settings, and verify permissions
     // =============================================================================
     const itemResult = await query(
-      `SELECT gi.id, gi.guest_id, g.event_id
+      `SELECT gi.id, gi.guest_id, g.event_id, g.app_user_id,
+              e.user_id as event_creator_id, e.allow_guest_editing,
+              COALESCE(host_guest.co_host, false) as is_co_host
        FROM guest_items gi
        JOIN guests g ON gi.guest_id = g.id
+       JOIN events e ON g.event_id = e.id
+       LEFT JOIN guests host_guest ON e.id = host_guest.event_id AND host_guest.app_user_id = $2 AND host_guest.co_host = true
        WHERE gi.id = $1`,
-      [item_id]
+      [item_id, userId]
     );
 
     if (itemResult.rows.length === 0) {
@@ -760,6 +805,21 @@ router.post('/delete_item', verifyToken, async (req, res) => {
       return res.status(200).json({
         return_code: 'NOT_MEMBER',
         message: 'You are not a member of this event'
+      });
+    }
+
+    // =============================================================================
+    // Check if user has permission to delete items from this guest
+    // User can edit if: (1) they are host, OR (2) they are editing their own guest AND allow_guest_editing is true
+    // =============================================================================
+    const isHost = item.event_creator_id === userId || item.is_co_host;
+    const isEditingOwnGuest = item.app_user_id === userId;
+    const canEdit = isHost || (isEditingOwnGuest && item.allow_guest_editing);
+
+    if (!canEdit) {
+      return res.status(200).json({
+        return_code: 'UNAUTHORIZED',
+        message: 'You do not have permission to delete items from this guest'
       });
     }
 
@@ -887,19 +947,28 @@ router.post('/claim_guest', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Check if user has already claimed a guest in this event
+    // Check if user has a placeholder or already claimed guest in this event
     // =============================================================================
     const existingClaimResult = await query(
-      `SELECT id FROM guests
+      `SELECT id, name FROM guests
        WHERE event_id = $1 AND app_user_id = $2`,
       [event_id, userId]
     );
 
     if (existingClaimResult.rows.length > 0) {
-      return res.status(200).json({
-        return_code: 'USER_ALREADY_CLAIMED',
-        message: 'You have already claimed a guest in this event'
-      });
+      const existingGuest = existingClaimResult.rows[0];
+
+      // If they have a placeholder (empty name), delete it so they can claim the new guest
+      if (existingGuest.name === '') {
+        await query(`DELETE FROM guests WHERE id = $1`, [existingGuest.id]);
+        console.log(`✓ Deleted placeholder guest ${existingGuest.id} for user ${userId}`);
+      } else {
+        // They already have a real claimed guest
+        return res.status(200).json({
+          return_code: 'USER_ALREADY_CLAIMED',
+          message: 'You have already claimed a guest in this event'
+        });
+      }
     }
 
     // =============================================================================
