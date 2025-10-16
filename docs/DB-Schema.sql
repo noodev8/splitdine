@@ -5,7 +5,7 @@
 -- Dumped from database version 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 17.4
 
--- Started on 2025-10-16 05:50:33
+-- Started on 2025-10-16 06:29:22
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -185,7 +185,8 @@ CREATE TABLE public.events (
     bank_account_name character varying(255),
     payment_method character varying(20) DEFAULT 'venue'::character varying NOT NULL,
     allow_guest_editing boolean DEFAULT true,
-    allow_guest_notes_edit boolean DEFAULT true NOT NULL
+    allow_guest_notes_edit boolean DEFAULT true NOT NULL,
+    host_contact_info character varying(200)
 );
 
 
@@ -247,6 +248,15 @@ COMMENT ON COLUMN public.events.allow_guest_notes_edit IS 'Whether guests can ed
 
 
 --
+-- TOC entry 3511 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN events.host_contact_info; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
+--
+
+COMMENT ON COLUMN public.events.host_contact_info IS 'Optional contact information provided by host for guests (phone, email, WhatsApp, etc.)';
+
+
+--
 -- TOC entry 216 (class 1259 OID 21813)
 -- Name: events_id_seq; Type: SEQUENCE; Schema: public; Owner: splitdine_prod_user
 --
@@ -263,7 +273,7 @@ CREATE SEQUENCE public.events_id_seq
 ALTER SEQUENCE public.events_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3511 (class 0 OID 0)
+-- TOC entry 3512 (class 0 OID 0)
 -- Dependencies: 216
 -- Name: events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -305,7 +315,7 @@ CREATE SEQUENCE public.guest_items_id_seq
 ALTER SEQUENCE public.guest_items_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3512 (class 0 OID 0)
+-- TOC entry 3513 (class 0 OID 0)
 -- Dependencies: 220
 -- Name: guest_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -336,7 +346,7 @@ CREATE TABLE public.guests (
 ALTER TABLE public.guests OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3513 (class 0 OID 0)
+-- TOC entry 3514 (class 0 OID 0)
 -- Dependencies: 219
 -- Name: COLUMN guests.co_host; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -361,7 +371,7 @@ CREATE SEQUENCE public.guests_id_seq
 ALTER SEQUENCE public.guests_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3514 (class 0 OID 0)
+-- TOC entry 3515 (class 0 OID 0)
 -- Dependencies: 218
 -- Name: guests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -526,7 +536,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENC
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO splitdine_prod_user;
 
 
--- Completed on 2025-10-16 05:50:35
+-- Completed on 2025-10-16 06:29:24
 
 --
 -- PostgreSQL database dump complete

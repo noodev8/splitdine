@@ -216,7 +216,7 @@ router.post('/join', verifyToken, async (req, res) => {
     // Find event by guest code
     // =============================================================================
     const eventResult = await query(
-      `SELECT id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, created_at
+      `SELECT id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit, host_contact_info, created_at
        FROM events
        WHERE guest_code = $1`,
       [upperCode]
@@ -278,6 +278,8 @@ router.post('/join', verifyToken, async (req, res) => {
         bank_sort_code: event.bank_sort_code,
         bank_account_name: event.bank_account_name,
         allow_guest_editing: event.allow_guest_editing,
+        allow_guest_notes_edit: event.allow_guest_notes_edit,
+        host_contact_info: event.host_contact_info,
         role: role,
         created_at: event.created_at
       },
@@ -336,7 +338,7 @@ router.post('/get_my_events', verifyToken, async (req, res) => {
     // Query user's events - both created and joined
     // =============================================================================
     const result = await query(
-      `SELECT e.id, e.name, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.allow_guest_editing, e.created_at,
+      `SELECT e.id, e.name, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.allow_guest_editing, e.allow_guest_notes_edit, e.host_contact_info, e.created_at,
               CASE
                 WHEN e.user_id = $1 THEN 'host'
                 WHEN g.co_host = true THEN 'host'
@@ -361,6 +363,8 @@ router.post('/get_my_events', verifyToken, async (req, res) => {
       bank_sort_code: event.bank_sort_code,
       bank_account_name: event.bank_account_name,
       allow_guest_editing: event.allow_guest_editing,
+      allow_guest_notes_edit: event.allow_guest_notes_edit,
+      host_contact_info: event.host_contact_info,
       role: event.role,
       joined_at: event.joined_at,
       created_at: event.created_at
@@ -551,7 +555,7 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { event_id, event_name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit } = req.body;
+    const { event_id, event_name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit, host_contact_info } = req.body;
     const userId = req.user.id; // User is authenticated
 
     if (!event_id) {
@@ -634,6 +638,12 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
       paramCount++;
     }
 
+    if (host_contact_info !== undefined) {
+      updates.push(`host_contact_info = $${paramCount}`);
+      values.push(host_contact_info || null);
+      paramCount++;
+    }
+
     if (updates.length === 0) {
       return res.status(200).json({
         return_code: 'MISSING_FIELDS',
@@ -654,7 +664,7 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
       UPDATE events
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit
+      RETURNING id, name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit, host_contact_info
     `;
 
     const updateResult = await query(updateQuery, values);
@@ -678,7 +688,8 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
         bank_sort_code: updateResult.rows[0].bank_sort_code,
         bank_account_name: updateResult.rows[0].bank_account_name,
         allow_guest_editing: updateResult.rows[0].allow_guest_editing,
-        allow_guest_notes_edit: updateResult.rows[0].allow_guest_notes_edit
+        allow_guest_notes_edit: updateResult.rows[0].allow_guest_notes_edit,
+        host_contact_info: updateResult.rows[0].host_contact_info
       },
       message: 'Event settings updated successfully'
     });

@@ -54,6 +54,7 @@ interface Event {
   bankAccountName?: string;
   allowGuestEditing?: boolean;
   allowGuestNotesEdit?: boolean;
+  hostContactInfo?: string;
 }
 
 interface UserEventMembership {
@@ -104,13 +105,11 @@ function EventListItem({ event, onOpenEvent, onDeleteEvent, onCopyGuestCode, onS
                 <h3 className="font-semibold text-slate-800 dark:text-slate-100 truncate">
                   {event.name}
                 </h3>
-                <span className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
-                  event.userRole === 'host'
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                    : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
-                }`}>
-                  {event.userRole === 'host' ? 'Host' : 'Guest'}
-                </span>
+                {event.userRole === 'host' && (
+                  <span className="px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                    Host
+                  </span>
+                )}
               </div>
               {/* Guest code - subtle and copyable */}
               <button
@@ -287,7 +286,11 @@ export default function Home() {
   const [settingsBankSortCode, setSettingsBankSortCode] = useState('');
   const [settingsBankAccountName, setSettingsBankAccountName] = useState('');
   const [settingsAllowGuestNotesEdit, setSettingsAllowGuestNotesEdit] = useState(true);
+  const [settingsHostContactInfo, setSettingsHostContactInfo] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Contact host modal state
+  const [showContactHostModal, setShowContactHostModal] = useState(false);
 
   // Calculator modal state
   const [showCalculator, setShowCalculator] = useState(false);
@@ -426,6 +429,8 @@ export default function Home() {
           bankSortCode: apiEvent.bank_sort_code,
           bankAccountName: apiEvent.bank_account_name,
           allowGuestEditing: apiEvent.allow_guest_editing ?? true,
+          allowGuestNotesEdit: apiEvent.allow_guest_notes_edit ?? true,
+          hostContactInfo: apiEvent.host_contact_info,
         }));
 
         // Create memberships from API data
@@ -505,6 +510,9 @@ export default function Home() {
             bankAccountNumber: apiEvent.bank_account_number,
             bankSortCode: apiEvent.bank_sort_code,
             bankAccountName: apiEvent.bank_account_name,
+            allowGuestEditing: apiEvent.allow_guest_editing ?? true,
+            allowGuestNotesEdit: apiEvent.allow_guest_notes_edit ?? true,
+            hostContactInfo: apiEvent.host_contact_info,
           }));
 
           const convertedApiMemberships: UserEventMembership[] = apiEvents.map(apiEvent => ({
@@ -711,26 +719,38 @@ export default function Home() {
 
     setIsClaimingGuest(true);
     try {
-      // Try to get the user's placeholder guest (empty name)
-      const myGuestResult = await apiGetMyClaimedGuest(parseInt(eventId));
+      // Check if an unclaimed guest with this name already exists (case-insensitive)
+      const unclaimedGuests = guests.filter(g => !g.app_user_id && g.name !== '');
+      const existingGuest = unclaimedGuests.find(g =>
+        g.name.trim().toLowerCase() === newGuestName.trim().toLowerCase()
+      );
 
-      if (myGuestResult.success && myGuestResult.guest) {
-        // Placeholder exists - update it with the new name
-        await apiUpdateGuest(
-          myGuestResult.guest.id,
-          { name: newGuestName.trim() }
-        );
+      if (existingGuest) {
+        // Claim the existing unclaimed guest instead of creating a duplicate
+        await apiClaimGuest(parseInt(eventId), parseInt(existingGuest.id));
       } else {
-        // No placeholder - create a new guest and claim it
-        const newGuest = await apiAddGuest(
-          parseInt(eventId),
-          newGuestName.trim(),
-          0,
-          0
-        );
+        // No existing guest with this name - proceed with create/update
+        // Try to get the user's placeholder guest (empty name)
+        const myGuestResult = await apiGetMyClaimedGuest(parseInt(eventId));
 
-        // Claim the newly created guest
-        await apiClaimGuest(parseInt(eventId), newGuest.id);
+        if (myGuestResult.success && myGuestResult.guest) {
+          // Placeholder exists - update it with the new name
+          await apiUpdateGuest(
+            myGuestResult.guest.id,
+            { name: newGuestName.trim() }
+          );
+        } else {
+          // No placeholder - create a new guest and claim it
+          const newGuest = await apiAddGuest(
+            parseInt(eventId),
+            newGuestName.trim(),
+            0,
+            0
+          );
+
+          // Claim the newly created guest
+          await apiClaimGuest(parseInt(eventId), newGuest.id);
+        }
       }
 
       setShowClaimGuestModal(false);
@@ -773,6 +793,8 @@ export default function Home() {
           bankSortCode: apiEvent.bank_sort_code,
           bankAccountName: apiEvent.bank_account_name,
           allowGuestEditing: apiEvent.allow_guest_editing ?? true,
+          allowGuestNotesEdit: apiEvent.allow_guest_notes_edit ?? true,
+          hostContactInfo: apiEvent.host_contact_info,
         };
 
         const newMembership: UserEventMembership = {
@@ -828,6 +850,8 @@ export default function Home() {
         bankSortCode: apiEvent.bank_sort_code,
         bankAccountName: apiEvent.bank_account_name,
         allowGuestEditing: apiEvent.allow_guest_editing ?? true,
+        allowGuestNotesEdit: apiEvent.allow_guest_notes_edit ?? true,
+        hostContactInfo: apiEvent.host_contact_info,
       };
 
       // Check if event already exists in local state
@@ -878,10 +902,12 @@ export default function Home() {
                           (!myClaimedGuestResult.guest || myClaimedGuestResult.guest.name === '');
 
       if (needsToClaim) {
-        // Check for exact name match in unclaimed guests
+        // Check for case-insensitive name match in unclaimed guests
         const unclaimedGuests = loadedGuests.filter(g => !g.app_user_id && g.name !== '');
         const userToMatch = freshUser || currentUser;
-        const exactMatch = userToMatch ? unclaimedGuests.find(g => g.name === userToMatch.name) : null;
+        const exactMatch = userToMatch ? unclaimedGuests.find(g =>
+          g.name.trim().toLowerCase() === userToMatch.name.trim().toLowerCase()
+        ) : null;
 
         if (exactMatch) {
           // Auto-claim the matching guest
@@ -1002,6 +1028,7 @@ export default function Home() {
     setSettingsBankSortCode(event.bankSortCode || '');
     setSettingsBankAccountName(event.bankAccountName || '');
     setSettingsAllowGuestNotesEdit(event.allowGuestNotesEdit !== false);
+    setSettingsHostContactInfo(event.hostContactInfo || '');
     setShowEventSettings(true);
   };
 
@@ -1021,6 +1048,7 @@ export default function Home() {
         bank_sort_code: settingsBankSortCode,
         bank_account_name: settingsBankAccountName,
         allow_guest_notes_edit: settingsAllowGuestNotesEdit,
+        host_contact_info: settingsHostContactInfo,
       });
 
       // Update local state
@@ -1034,6 +1062,7 @@ export default function Home() {
               bankSortCode: updatedEvent.bank_sort_code,
               bankAccountName: updatedEvent.bank_account_name,
               allowGuestNotesEdit: updatedEvent.allow_guest_notes_edit,
+              hostContactInfo: updatedEvent.host_contact_info,
             }
           : e
       ));
@@ -1361,12 +1390,6 @@ export default function Home() {
   // Filter out placeholder guests (empty names) for bill calculations
   const realGuests = guests.filter(g => g.name !== '');
   const totalBill = realGuests.reduce((sum, guest) => sum + guest.amount, 0);
-  const totalPaid = realGuests.reduce((sum, guest) => {
-    if (guest.paid) {
-      return sum + guest.amount;
-    }
-    return sum;
-  }, 0);
   const totalOwed = realGuests.reduce((sum, guest) => {
     if (!guest.paid) {
       return sum + guest.amount;
@@ -1548,6 +1571,25 @@ export default function Home() {
                   <div className="text-sm text-slate-600 dark:text-slate-400">Guests can add or modify their own notes and pre-orders</div>
                 </div>
               </label>
+            </div>
+
+            {/* Host Contact Info Section */}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Host Contact Info (Optional)</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                Share your preferred contact method with guests (phone, email, WhatsApp, etc.)
+              </p>
+              <textarea
+                value={settingsHostContactInfo}
+                onChange={(e) => setSettingsHostContactInfo(e.target.value)}
+                placeholder="e.g., Call/text: 07123 456789 or email: host@example.com"
+                maxLength={200}
+                rows={3}
+                className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 resize-none"
+              />
+              <div className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-right">
+                {settingsHostContactInfo.length}/200
+              </div>
             </div>
 
             {/* Save Button */}
@@ -2752,6 +2794,22 @@ export default function Home() {
                         </button>
                       )}
 
+                      {/* Contact Host (for guests) */}
+                      {userRole === 'guest' && (
+                        <button
+                          onClick={() => {
+                            setShowContactHostModal(true);
+                            setShowMenu(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-3"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                          </svg>
+                          <span className="text-sm font-medium">Contact Host</span>
+                        </button>
+                      )}
+
                       {/* Settings (host only) */}
                       {userRole === 'host' && (
                         <button
@@ -2859,6 +2917,113 @@ export default function Home() {
                     </button>
                   )}
                 </div>
+
+                {/* Host Contact Info */}
+                {currentEvent?.hostContactInfo && currentEvent.hostContactInfo.trim() && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                      </svg>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Host Contact</h3>
+                        <div className="text-sm text-blue-800 dark:text-blue-300 whitespace-pre-wrap break-words">
+                          {(() => {
+                            const text = currentEvent.hostContactInfo;
+                            // Linkify phone numbers, emails, and URLs
+                            const phoneRegex = /(\+?[\d\s()-]{10,})/g;
+                            const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/g;
+                            const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+                            let result: (string | React.ReactElement)[] = [text];
+
+                            // Process URLs
+                            result = result.flatMap(part => {
+                              if (typeof part !== 'string') return part;
+                              const parts: (string | React.ReactElement)[] = [];
+                              let lastIndex = 0;
+                              const matches = Array.from(part.matchAll(urlRegex));
+                              matches.forEach((match, i) => {
+                                if (match.index !== undefined) {
+                                  if (match.index > lastIndex) {
+                                    parts.push(part.substring(lastIndex, match.index));
+                                  }
+                                  parts.push(
+                                    <a key={`url-${i}`} href={match[0]} target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600 dark:hover:text-blue-200">
+                                      {match[0]}
+                                    </a>
+                                  );
+                                  lastIndex = match.index + match[0].length;
+                                }
+                              });
+                              if (lastIndex < part.length) {
+                                parts.push(part.substring(lastIndex));
+                              }
+                              return parts.length > 0 ? parts : [part];
+                            });
+
+                            // Process emails
+                            result = result.flatMap(part => {
+                              if (typeof part !== 'string') return part;
+                              const parts: (string | React.ReactElement)[] = [];
+                              let lastIndex = 0;
+                              const matches = Array.from(part.matchAll(emailRegex));
+                              matches.forEach((match, i) => {
+                                if (match.index !== undefined) {
+                                  if (match.index > lastIndex) {
+                                    parts.push(part.substring(lastIndex, match.index));
+                                  }
+                                  parts.push(
+                                    <a key={`email-${i}`} href={`mailto:${match[0]}`} className="underline hover:text-blue-600 dark:hover:text-blue-200">
+                                      {match[0]}
+                                    </a>
+                                  );
+                                  lastIndex = match.index + match[0].length;
+                                }
+                              });
+                              if (lastIndex < part.length) {
+                                parts.push(part.substring(lastIndex));
+                              }
+                              return parts.length > 0 ? parts : [part];
+                            });
+
+                            // Process phone numbers
+                            result = result.flatMap(part => {
+                              if (typeof part !== 'string') return part;
+                              const parts: (string | React.ReactElement)[] = [];
+                              let lastIndex = 0;
+                              const matches = Array.from(part.matchAll(phoneRegex));
+                              matches.forEach((match, i) => {
+                                if (match.index !== undefined) {
+                                  if (match.index > lastIndex) {
+                                    parts.push(part.substring(lastIndex, match.index));
+                                  }
+                                  const cleaned = match[0].replace(/[\s()-]/g, '');
+                                  if (cleaned.length >= 10) {
+                                    parts.push(
+                                      <a key={`phone-${i}`} href={`tel:${cleaned}`} className="underline hover:text-blue-600 dark:hover:text-blue-200">
+                                        {match[0]}
+                                      </a>
+                                    );
+                                  } else {
+                                    parts.push(match[0]);
+                                  }
+                                  lastIndex = match.index + match[0].length;
+                                }
+                              });
+                              if (lastIndex < part.length) {
+                                parts.push(part.substring(lastIndex));
+                              }
+                              return parts.length > 0 ? parts : [part];
+                            });
+
+                            return result;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Info Banner for Guests when locked */}
                 {userRole !== 'host' && currentEvent?.allowGuestNotesEdit === false && (
@@ -3812,6 +3977,139 @@ export default function Home() {
             </div>
           );
         })()}
+
+        {/* Contact Host Modal */}
+        {showContactHostModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowContactHostModal(false)}>
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                    Contact Host
+                  </h3>
+                  <button
+                    onClick={() => setShowContactHostModal(false)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                    aria-label="Close"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {currentEvent?.hostContactInfo && currentEvent.hostContactInfo.trim() ? (
+                  <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">
+                    {(() => {
+                      const text = currentEvent.hostContactInfo;
+                      // Linkify phone numbers, emails, and URLs
+                      const phoneRegex = /(\+?[\d\s()-]{10,})/g;
+                      const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/g;
+                      const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+                      let result: (string | React.ReactElement)[] = [text];
+
+                      // Process URLs
+                      result = result.flatMap(part => {
+                        if (typeof part !== 'string') return part;
+                        const parts: (string | React.ReactElement)[] = [];
+                        let lastIndex = 0;
+                        const matches = Array.from(part.matchAll(urlRegex));
+                        matches.forEach((match, i) => {
+                          if (match.index !== undefined) {
+                            if (match.index > lastIndex) {
+                              parts.push(part.substring(lastIndex, match.index));
+                            }
+                            parts.push(
+                              <a key={`url-${i}`} href={match[0]} target="_blank" rel="noopener noreferrer" className="underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200">
+                                {match[0]}
+                              </a>
+                            );
+                            lastIndex = match.index + match[0].length;
+                          }
+                        });
+                        if (lastIndex < part.length) {
+                          parts.push(part.substring(lastIndex));
+                        }
+                        return parts.length > 0 ? parts : [part];
+                      });
+
+                      // Process emails
+                      result = result.flatMap(part => {
+                        if (typeof part !== 'string') return part;
+                        const parts: (string | React.ReactElement)[] = [];
+                        let lastIndex = 0;
+                        const matches = Array.from(part.matchAll(emailRegex));
+                        matches.forEach((match, i) => {
+                          if (match.index !== undefined) {
+                            if (match.index > lastIndex) {
+                              parts.push(part.substring(lastIndex, match.index));
+                            }
+                            parts.push(
+                              <a key={`email-${i}`} href={`mailto:${match[0]}`} className="underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200">
+                                {match[0]}
+                              </a>
+                            );
+                            lastIndex = match.index + match[0].length;
+                          }
+                        });
+                        if (lastIndex < part.length) {
+                          parts.push(part.substring(lastIndex));
+                        }
+                        return parts.length > 0 ? parts : [part];
+                      });
+
+                      // Process phone numbers
+                      result = result.flatMap(part => {
+                        if (typeof part !== 'string') return part;
+                        const parts: (string | React.ReactElement)[] = [];
+                        let lastIndex = 0;
+                        const matches = Array.from(part.matchAll(phoneRegex));
+                        matches.forEach((match, i) => {
+                          if (match.index !== undefined) {
+                            if (match.index > lastIndex) {
+                              parts.push(part.substring(lastIndex, match.index));
+                            }
+                            const cleaned = match[0].replace(/[\s()-]/g, '');
+                            if (cleaned.length >= 10) {
+                              parts.push(
+                                <a key={`phone-${i}`} href={`tel:${cleaned}`} className="underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200">
+                                  {match[0]}
+                                </a>
+                              );
+                            } else {
+                              parts.push(match[0]);
+                            }
+                            lastIndex = match.index + match[0].length;
+                          }
+                        });
+                        if (lastIndex < part.length) {
+                          parts.push(part.substring(lastIndex));
+                        }
+                        return parts.length > 0 ? parts : [part];
+                      });
+
+                      return result;
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Host has not provided contact information
+                  </p>
+                )}
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => setShowContactHostModal(false)}
+                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Claim Guest Modal */}
         {showClaimGuestModal && (
