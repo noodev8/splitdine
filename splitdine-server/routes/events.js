@@ -551,7 +551,7 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { event_id, event_name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing } = req.body;
+    const { event_id, event_name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit } = req.body;
     const userId = req.user.id; // User is authenticated
 
     if (!event_id) {
@@ -628,6 +628,12 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
       paramCount++;
     }
 
+    if (allow_guest_notes_edit !== undefined) {
+      updates.push(`allow_guest_notes_edit = $${paramCount}`);
+      values.push(allow_guest_notes_edit);
+      paramCount++;
+    }
+
     if (updates.length === 0) {
       return res.status(200).json({
         return_code: 'MISSING_FIELDS',
@@ -648,7 +654,7 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
       UPDATE events
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing
+      RETURNING id, name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit
     `;
 
     const updateResult = await query(updateQuery, values);
@@ -671,7 +677,8 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
         bank_account_number: updateResult.rows[0].bank_account_number,
         bank_sort_code: updateResult.rows[0].bank_sort_code,
         bank_account_name: updateResult.rows[0].bank_account_name,
-        allow_guest_editing: updateResult.rows[0].allow_guest_editing
+        allow_guest_editing: updateResult.rows[0].allow_guest_editing,
+        allow_guest_notes_edit: updateResult.rows[0].allow_guest_notes_edit
       },
       message: 'Event settings updated successfully'
     });

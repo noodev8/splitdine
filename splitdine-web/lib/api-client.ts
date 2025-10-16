@@ -231,7 +231,7 @@ export const leaveEvent = async (eventId: number): Promise<ApiResponse> => {
  * Requires authentication.
  * @param {number} eventId - Event ID
  * @param {object} settings - Settings to update
- * @returns {Promise<{id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}>}
+ * @returns {Promise<{id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string, allow_guest_notes_edit?: boolean}>}
  */
 export const updateEventSettings = async (
   eventId: number,
@@ -241,9 +241,10 @@ export const updateEventSettings = async (
     bank_account_number?: string;
     bank_sort_code?: string;
     bank_account_name?: string;
+    allow_guest_notes_edit?: boolean;
   }
-): Promise<{id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string}> => {
-  const response = await apiCall<ApiResponse & { event: {id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string} }>('/api/events/update_event_settings', {
+): Promise<{id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string, allow_guest_notes_edit?: boolean}> => {
+  const response = await apiCall<ApiResponse & { event: {id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string, allow_guest_notes_edit?: boolean} }>('/api/events/update_event_settings', {
     event_id: eventId,
     ...settings,
   });

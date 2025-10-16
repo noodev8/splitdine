@@ -53,6 +53,7 @@ interface Event {
   bankSortCode?: string;
   bankAccountName?: string;
   allowGuestEditing?: boolean;
+  allowGuestNotesEdit?: boolean;
 }
 
 interface UserEventMembership {
@@ -285,6 +286,7 @@ export default function Home() {
   const [settingsBankAccountNumber, setSettingsBankAccountNumber] = useState('');
   const [settingsBankSortCode, setSettingsBankSortCode] = useState('');
   const [settingsBankAccountName, setSettingsBankAccountName] = useState('');
+  const [settingsAllowGuestNotesEdit, setSettingsAllowGuestNotesEdit] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Calculator modal state
@@ -310,8 +312,11 @@ export default function Home() {
   // Guest details page state
   const [viewingGuestId, setViewingGuestId] = useState<string | null>(null);
   const [showingBreakdown, setShowingBreakdown] = useState(false);
-  const [showingNotes, setShowingNotes] = useState(false);
   const [showingNotesSummary, setShowingNotesSummary] = useState(false);
+
+  // Guest notes modal state
+  const [editingGuestNotesId, setEditingGuestNotesId] = useState<string | null>(null);
+  const [tempGuestNotes, setTempGuestNotes] = useState('');
 
   // Menu state
   const [showMenu, setShowMenu] = useState(false);
@@ -996,6 +1001,7 @@ export default function Home() {
     setSettingsBankAccountNumber(event.bankAccountNumber || '');
     setSettingsBankSortCode(event.bankSortCode || '');
     setSettingsBankAccountName(event.bankAccountName || '');
+    setSettingsAllowGuestNotesEdit(event.allowGuestNotesEdit !== false);
     setShowEventSettings(true);
   };
 
@@ -1014,6 +1020,7 @@ export default function Home() {
         bank_account_number: settingsBankAccountNumber,
         bank_sort_code: settingsBankSortCode,
         bank_account_name: settingsBankAccountName,
+        allow_guest_notes_edit: settingsAllowGuestNotesEdit,
       });
 
       // Update local state
@@ -1026,6 +1033,7 @@ export default function Home() {
               bankAccountNumber: updatedEvent.bank_account_number,
               bankSortCode: updatedEvent.bank_sort_code,
               bankAccountName: updatedEvent.bank_account_name,
+              allowGuestNotesEdit: updatedEvent.allow_guest_notes_edit,
             }
           : e
       ));
@@ -1522,6 +1530,24 @@ export default function Home() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Guest Permissions Section */}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4">Guest Permissions</h3>
+
+              <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={settingsAllowGuestNotesEdit}
+                  onChange={(e) => setSettingsAllowGuestNotesEdit(e.target.checked)}
+                  className="w-4 h-4 rounded"
+                />
+                <div className="flex-1">
+                  <div className="font-medium text-slate-800 dark:text-slate-200">Allow guests to edit their pre-order notes</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Guests can add or modify their own notes and pre-orders</div>
+                </div>
+              </label>
             </div>
 
             {/* Save Button */}
@@ -2634,9 +2660,6 @@ export default function Home() {
                     if (showingNotesSummary) {
                       // If viewing notes summary, go back to event page
                       setShowingNotesSummary(false);
-                    } else if (showingNotes) {
-                      // If viewing notes, go back to guest detail
-                      setShowingNotes(false);
                     } else if (showingBreakdown) {
                       // If viewing breakdown, go back to guest detail
                       setShowingBreakdown(false);
@@ -2798,25 +2821,91 @@ export default function Home() {
             {showingNotesSummary ? (
               /* Notes Summary Page */
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-6">Notes Summary</h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200">Notes Summary</h2>
+
+                  {/* Host Quick Toggle */}
+                  {userRole === 'host' && (
+                    <button
+                      onClick={async () => {
+                        if (!currentEventId) return;
+                        const newValue = !currentEvent?.allowGuestNotesEdit;
+
+                        try {
+                          await apiUpdateEventSettings(parseInt(currentEventId), {
+                            allow_guest_notes_edit: newValue,
+                          });
+
+                          // Update local state
+                          setEvents(events.map(e =>
+                            e.id === currentEventId
+                              ? { ...e, allowGuestNotesEdit: newValue }
+                              : e
+                          ));
+                        } catch (error) {
+                          console.error('Error toggling guest notes edit:', error);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-3 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors text-slate-700 dark:text-slate-300 min-h-12"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 flex-shrink-0">
+                        {currentEvent?.allowGuestNotesEdit !== false ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        )}
+                      </svg>
+                      <span className="whitespace-nowrap">{currentEvent?.allowGuestNotesEdit !== false ? 'Lock Editing' : 'Unlock Editing'}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Info Banner for Guests when locked */}
+                {userRole !== 'host' && currentEvent?.allowGuestNotesEdit === false && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      Note editing is currently locked by the host. Please contact your host if you need to make changes to your pre-order.
+                    </p>
+                  </div>
+                )}
 
                 {guests.length > 0 ? (
                   <div className="space-y-2">
-                    {guests.sort((a, b) => a.name.localeCompare(b.name)).map((guest) => (
-                      <div
-                        key={guest.id}
-                        className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3"
-                      >
-                        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-2">
-                          {guest.name}
-                        </h3>
-                        {guest.notes && guest.notes.trim() && (
-                          <div className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap text-sm">
-                            {guest.notes}
+                    {guests.sort((a, b) => a.name.localeCompare(b.name)).map((guest) => {
+                      const canEdit = userRole === 'host' || (guest.app_user_id === currentUser?.id && currentEvent?.allowGuestNotesEdit !== false);
+
+                      return (
+                        <div
+                          key={guest.id}
+                          className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                              {guest.name}
+                            </h3>
+                            {canEdit && (
+                              <button
+                                onClick={() => {
+                                  setTempGuestNotes(guest.notes);
+                                  setEditingGuestNotesId(guest.id);
+                                }}
+                                className="p-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex-shrink-0 min-w-12 min-h-12 flex items-center justify-center"
+                                aria-label="Edit notes"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-600 dark:text-slate-400">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                </svg>
+                              </button>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          {guest.notes && guest.notes.trim() && (
+                            <div className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap text-sm">
+                              {guest.notes}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -2829,55 +2918,6 @@ export default function Home() {
               (() => {
                 const viewingGuest = guests.find(g => g.id === viewingGuestId);
                 if (!viewingGuest) return null;
-
-                if (showingNotes) {
-                  /* Pre-order / Notes Page */
-                  return (
-                    <>
-                      {/* Guest Name */}
-                      <div className="mb-6">
-                        <h2 className="text-xl sm:text-2xl font-light text-slate-600 dark:text-slate-400 text-center">
-                          {viewingGuest.name}
-                        </h2>
-                      </div>
-
-                      {/* Notes Section */}
-                      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border-2 border-slate-200 dark:border-slate-700 p-6">
-                        <label className="block text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4">
-                          Pre-order / Notes
-                        </label>
-                        <textarea
-                          value={viewingGuest.notes}
-                          onChange={(e) => {
-                            setGuests(guests.map(g =>
-                              g.id === viewingGuestId ? { ...g, notes: e.target.value } : g
-                            ));
-                          }}
-                          onBlur={async () => {
-                            try {
-                              await apiUpdateGuest(
-                                parseInt(viewingGuestId),
-                                {
-                                  notes: viewingGuest.notes,
-                                }
-                              );
-                            } catch (error) {
-                              console.error('Error updating guest notes:', error);
-                            }
-                          }}
-                          placeholder="e.g., Vegetarian option, no onions..."
-                          maxLength={500}
-                          rows={8}
-                          readOnly={userRole !== 'host'}
-                          className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 resize-none"
-                        />
-                        <div className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-right">
-                          {viewingGuest.notes.length}/500
-                        </div>
-                      </div>
-                    </>
-                  );
-                }
 
                 if (showingBreakdown) {
                   /* Bill Breakdown Page */
@@ -3168,7 +3208,10 @@ export default function Home() {
                       </button>
 
                       <button
-                        onClick={() => setShowingNotes(true)}
+                        onClick={() => {
+                          setTempGuestNotes(viewingGuest.notes);
+                          setEditingGuestNotesId(viewingGuestId);
+                        }}
                         className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-slate-300 dark:border-slate-600 rounded-lg py-4 px-6 transition-colors font-medium flex items-center justify-center gap-2"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -3652,6 +3695,123 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        {/* Guest Notes Modal */}
+        {editingGuestNotesId && (() => {
+          const guest = guests.find(g => g.id === editingGuestNotesId);
+          if (!guest) return null;
+
+          const isHost = userRole === 'host';
+          const isOwnGuest = guest.app_user_id === currentUser?.id;
+          const canEditNotes = isHost || (isOwnGuest && currentEvent?.allowGuestNotesEdit !== false);
+
+          return (
+            <div
+              className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+              onClick={() => {
+                setEditingGuestNotesId(null);
+                setTempGuestNotes('');
+              }}
+            >
+              <div
+                className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                      Pre-order / Notes
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setEditingGuestNotesId(null);
+                        setTempGuestNotes('');
+                      }}
+                      className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                      aria-label="Close"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Guest Name */}
+                  <div className="mb-4">
+                    <p className="text-base font-medium text-slate-600 dark:text-slate-400">
+                      {guest.name}
+                    </p>
+                  </div>
+
+                  {/* Locked Message for Guests */}
+                  {!canEditNotes && !isHost && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+                      <p className="text-sm text-blue-800 dark:text-blue-300">
+                        Note editing is currently locked by the host. Please contact your host if you need to make changes.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Notes Textarea */}
+                  <div className="mb-2">
+                    <textarea
+                      value={tempGuestNotes}
+                      onChange={(e) => setTempGuestNotes(e.target.value)}
+                      placeholder="e.g., Vegetarian option, no onions..."
+                      maxLength={500}
+                      rows={8}
+                      readOnly={!canEditNotes}
+                      autoFocus
+                      className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 resize-none"
+                    />
+                    <div className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-right">
+                      {tempGuestNotes.length}/500
+                    </div>
+                  </div>
+
+                  {/* Buttons */}
+                  {canEditNotes && (
+                    <div className="flex gap-3 mt-6">
+                      <button
+                        onClick={() => {
+                          setEditingGuestNotesId(null);
+                          setTempGuestNotes('');
+                        }}
+                        className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await apiUpdateGuest(
+                              parseInt(editingGuestNotesId),
+                              {
+                                notes: tempGuestNotes,
+                              }
+                            );
+                            // Update local state
+                            setGuests(guests.map(g =>
+                              g.id === editingGuestNotesId ? { ...g, notes: tempGuestNotes } : g
+                            ));
+                            setEditingGuestNotesId(null);
+                            setTempGuestNotes('');
+                          } catch (error) {
+                            console.error('Error updating guest notes:', error);
+                          }
+                        }}
+                        className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Claim Guest Modal */}
         {showClaimGuestModal && (
