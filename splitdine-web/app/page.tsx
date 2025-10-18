@@ -342,6 +342,7 @@ export default function Home() {
   const [eventName, setEventName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [joinCodeError, setJoinCodeError] = useState('');
+  const [pendingGuestCode, setPendingGuestCode] = useState<string | null>(null); // Code from URL to join after registration
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [isNavigatingToProfile, setIsNavigatingToProfile] = useState(false);
 
@@ -470,6 +471,22 @@ export default function Home() {
     setCurrentUser(user);
   }, []);
 
+  // Detect guest code from URL on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+
+    if (code) {
+      setPendingGuestCode(code);
+
+      // If user is logged in, auto-open join modal
+      if (currentUser) {
+        setJoinCode(code);
+        setShowJoinEventModal(true);
+      }
+    }
+  }, [currentUser]);
+
   // Load events and memberships from API when user logs in
   useEffect(() => {
     const loadEvents = async () => {
@@ -589,6 +606,13 @@ export default function Home() {
           }));
           setEvents(convertedApiEvents);
           setUserMemberships(convertedApiMemberships);
+
+          // If there's a pending guest code from URL, auto-open join modal
+          if (pendingGuestCode) {
+            setJoinCode(pendingGuestCode);
+            setShowJoinEventModal(true);
+            setPendingGuestCode(null); // Clear the pending code
+          }
         } catch (error) {
           console.error('Error loading events after login:', error);
         }
@@ -625,6 +649,13 @@ export default function Home() {
         setRegisterEmail('');
         setRegisterPassword('');
         showToastNotification(`Welcome to SplitDine, ${response.user.name}!`);
+
+        // If there's a pending guest code from URL, auto-open join modal
+        if (pendingGuestCode) {
+          setJoinCode(pendingGuestCode);
+          setShowJoinEventModal(true);
+          setPendingGuestCode(null); // Clear the pending code
+        }
       } else {
         setAuthError(response.message || 'Registration failed');
       }
@@ -1929,9 +1960,12 @@ export default function Home() {
               className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-2">
                 Create Account
               </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                Free to use • No credit card required
+              </p>
 
               {authError && (
                 <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
@@ -2038,9 +2072,12 @@ export default function Home() {
         {showRegisterRequiredModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
-                Create an Account
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                Create a Free Account
               </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                No credit card required
+              </p>
               <p className="text-slate-600 dark:text-slate-300 mb-6">
                 To create or join events, please register for a free account. This allows you to access your events from any device and ensures you never lose your data.
               </p>
@@ -2342,83 +2379,187 @@ export default function Home() {
         {!currentEvent ? (
           /* Landing Page */
           <div className="space-y-8">
-            {/* Hero Section - Only show for anonymous users */}
-            {!currentUser && (
-              <div className="max-w-3xl mx-auto text-center pt-8 pb-4">
-                <h1 className="text-3xl sm:text-4xl font-light text-slate-800 dark:text-slate-100 mb-3 tracking-tight">
-                  Bill Splitting Made Easy
-                </h1>
-                <p className="text-base text-slate-600 dark:text-slate-400 font-light">
-                  Smooth and seamless for guests, hosts, and restaurants
-                </p>
-              </div>
-            )}
-
-            {/* Action Buttons - Above the fold */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
-              <button
-                onClick={() => {
-                  if (currentUser) {
-                    setShowStartEventModal(true);
-                    setTimeout(() => eventNameRef.current?.focus(), 0);
-                  } else {
-                    setShowRegisterRequiredModal(true);
-                  }
-                }}
-                className="w-full sm:w-auto px-8 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded transition-colors"
-              >
-                New Bill +
-              </button>
-              <button
-                onClick={() => {
-                  if (currentUser) {
-                    setShowJoinEventModal(true);
-                    setTimeout(() => joinCodeRef.current?.focus(), 0);
-                  } else {
-                    setShowRegisterRequiredModal(true);
-                  }
-                }}
-                className="w-full sm:w-auto px-8 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium rounded transition-colors"
-              >
-                Join Event
-              </button>
-            </div>
-
-            {/* Features Section - Only show for anonymous users */}
-            {!currentUser && (
-              <div className="max-w-4xl mx-auto pt-12 pb-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <div className="text-center">
-                    <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-2 tracking-wide uppercase">
-                      For Guests
+            {/* Join Event Banner - Show for anonymous users with pending code */}
+            {!currentUser && pendingGuestCode && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 max-w-3xl mx-auto">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-center sm:text-left">
+                    <h3 className="text-base font-medium text-blue-900 dark:text-blue-100 mb-1">
+                      Join this event
                     </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 font-light leading-relaxed">
-                      Manage your payments and share of the bill easily
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Register or log in to join event with code: <span className="font-mono font-semibold">{pendingGuestCode}</span>
                     </p>
                   </div>
-                  <div className="text-center">
-                    <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-2 tracking-wide uppercase">
-                      For Hosts
-                    </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 font-light leading-relaxed">
-                      Manage the final bill seamlessly
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-2 tracking-wide uppercase">
-                      Free
-                    </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 font-light leading-relaxed">
-                      Register once, create unlimited events
-                    </p>
-                  </div>
+                  <button
+                    onClick={() => setShowRegisterRequiredModal(true)}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    Get Started
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* How It Works Section - Only show for anonymous users */}
-            {!currentUser && (
-              <div className="max-w-4xl mx-auto pt-16 pb-8">
+            {/* My Events Quick Access - Show for logged-in users */}
+            {currentUser && myEvents.length > 0 && (
+              <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 max-w-3xl mx-auto">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-center sm:text-left">
+                    <h3 className="text-base font-medium text-slate-800 dark:text-slate-100 mb-1">
+                      Welcome back, {currentUser.name}!
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      You have {myEvents.length} {myEvents.length === 1 ? 'event' : 'events'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      // Scroll to My Events section
+                      const myEventsSection = document.querySelector('[data-my-events]');
+                      myEventsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className="px-6 py-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    View My Events
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Hero Section - Two Column Layout with Overlap */}
+            <div className="max-w-7xl mx-auto pt-8 pb-12 px-4 relative">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                {/* Left Column - Text Content */}
+                <div className="text-center lg:text-left space-y-6 lg:pr-8">
+                  <div>
+                    {/* Eyebrow text targeting hosts */}
+                    <p className="text-sm font-semibold tracking-wider uppercase text-blue-600 dark:text-blue-400 mb-3">
+                      For Group Hosts
+                    </p>
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-slate-50 mb-4 tracking-tight leading-tight">
+                      Split the bill <span className="text-blue-600 dark:text-blue-400 text-5xl sm:text-6xl lg:text-7xl">in seconds</span>
+                      <span className="block text-2xl sm:text-3xl font-normal text-slate-500 dark:text-slate-400 mt-2">— not 30 minutes</span>
+                    </h1>
+                    <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-light leading-relaxed">
+                      Track everyone&apos;s share. Skip the chaos at the till.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right Column - Angled Phone Mockup */}
+                <div className="hidden lg:block absolute right-0 top-8 w-[45%]">
+                  <div className="relative transform lg:rotate-[-4deg] lg:translate-x-8">
+                    {/* Phone with lighter outline frame */}
+                    <div className="relative w-[320px] xl:w-[380px] border-4 border-slate-200 dark:border-slate-700 rounded-[2.5rem] bg-white dark:bg-slate-800 shadow-2xl overflow-hidden">
+                      <img
+                        src="/Hero-1.jpg"
+                        alt="SplitDine app showing bill split between guests"
+                        className="w-full h-auto rounded-[2rem]"
+                      />
+                    </div>
+                    {/* Floating badge */}
+                    <div className="absolute -bottom-3 -right-3 bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-xl">
+                      See who&apos;s paid ✓
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile Phone View - Center aligned */}
+                <div className="lg:hidden flex justify-center mt-8">
+                  <div className="relative w-[300px]">
+                    <div className="border-4 border-slate-200 dark:border-slate-700 rounded-[2.5rem] bg-white dark:bg-slate-800 shadow-2xl overflow-hidden">
+                      <img
+                        src="/Hero-1.jpg"
+                        alt="SplitDine app showing bill split between guests"
+                        className="w-full h-auto rounded-[2rem]"
+                      />
+                    </div>
+                    <div className="absolute -bottom-3 -right-3 bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-xl">
+                      See who&apos;s paid ✓
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA Buttons - Full Width Section */}
+              <div className="max-w-7xl mx-auto px-4 mt-8">
+                <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+                  <button
+                    onClick={() => {
+                      if (currentUser) {
+                        setShowStartEventModal(true);
+                        setTimeout(() => eventNameRef.current?.focus(), 0);
+                      } else {
+                        setShowRegisterRequiredModal(true);
+                      }
+                    }}
+                    className="w-full sm:w-auto px-12 py-4 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-lg font-semibold rounded-lg transition-colors shadow-lg"
+                  >
+                    Create a Group Bill
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (currentUser) {
+                        setShowJoinEventModal(true);
+                        setTimeout(() => joinCodeRef.current?.focus(), 0);
+                      } else {
+                        setShowRegisterRequiredModal(true);
+                      }
+                    }}
+                    className="w-full sm:w-auto px-12 py-4 border-2 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-lg font-semibold rounded-lg transition-colors"
+                  >
+                    Join an Event
+                  </button>
+                </div>
+
+                {/* Free Badge */}
+                {!currentUser && (
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-4">
+                    <span className="inline-flex items-center px-3 py-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-full text-sm text-green-700 dark:text-green-400 font-semibold">
+                      Currently Free
+                    </span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      No credit card required
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Pain / Value Section - Always visible for SEO */}
+            <div className="max-w-4xl mx-auto pt-12 pb-4">
+                <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-8">
+                  <h2 className="text-2xl font-light text-slate-800 dark:text-slate-100 mb-4">
+                    The worst part of group meals? Settling the bill.
+                  </h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 font-light mb-6 leading-relaxed">
+                    When 8–10 people eat together, settling up can take 20–30 minutes — staff reprint receipts, people argue over who had what, and someone always overpays.
+                    <br /><br />
+                    <strong className="text-slate-700 dark:text-slate-300">SplitDine fixes it all:</strong>
+                  </p>
+                  <ul className="space-y-3 mb-6">
+                    <li className="flex items-start">
+                      <span className="text-green-600 dark:text-green-400 mr-2 mt-0.5">✓</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-400 font-light">Guests know what they owe before the bill even arrives</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-green-600 dark:text-green-400 mr-2 mt-0.5">✓</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-400 font-light">You know who&apos;s paid and who hasn&apos;t in real time</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-green-600 dark:text-green-400 mr-2 mt-0.5">✓</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-400 font-light">One clean total means you can settle in seconds, not half an hour</span>
+                    </li>
+                  </ul>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                    ✅ Result: No waiting. No confusion. No stress.
+                  </p>
+                </div>
+            </div>
+
+            {/* How It Works Section - Always visible for SEO */}
+            <div className="max-w-4xl mx-auto pt-16 pb-8">
                 <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-8 sm:p-12">
                   <h2 className="text-2xl font-light text-center text-slate-800 dark:text-slate-100 mb-12">
                     How It Works
@@ -2429,10 +2570,10 @@ export default function Home() {
                       <span className="text-lg font-medium text-slate-700 dark:text-slate-300">1</span>
                     </div>
                     <h3 className="text-base font-medium text-slate-800 dark:text-slate-200 mb-2">
-                      Create new event and bill
+                      Create your event
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
-                      Register and create an event and bill for your meal or gathering
+                      Set up your group meal in minutes — add the date, restaurant, and any details guests need. You can also optionally include your bank details or payment link if you want to collect money directly.
                     </p>
                   </div>
                   <div className="text-center">
@@ -2440,10 +2581,10 @@ export default function Home() {
                       <span className="text-lg font-medium text-slate-700 dark:text-slate-300">2</span>
                     </div>
                     <h3 className="text-base font-medium text-slate-800 dark:text-slate-200 mb-2">
-                      Add Guests
+                      Guests enter their share
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
-                      Share the code with guests who track their items and amounts
+                      Each guest selects what they ordered or enters the amount they owe. Live totals update automatically, so everyone knows the balance before the bill arrives.
                     </p>
                   </div>
                   <div className="text-center">
@@ -2451,20 +2592,18 @@ export default function Home() {
                       <span className="text-lg font-medium text-slate-700 dark:text-slate-300">3</span>
                     </div>
                     <h3 className="text-base font-medium text-slate-800 dark:text-slate-200 mb-2">
-                      Settle Up
+                      Settle up quickly
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
-                      Share payment details and everyone pays their fair share
+                      With totals calculated in advance, you can either settle the bill in one payment or provide the restaurant with a clear breakdown of names and balances for individual card payments — no 30-minute chaos at the till.
                     </p>
                   </div>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
-            {/* Use Cases Section - Only show for anonymous users */}
-            {!currentUser && (
-              <div className="max-w-4xl mx-auto pt-8 pb-8">
+            {/* Use Cases Section - Always visible for SEO */}
+            <div className="max-w-4xl mx-auto pt-8 pb-8">
                 <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-8">
                   <h2 className="text-2xl font-light text-center text-slate-800 dark:text-slate-100 mb-10">
                     Perfect For Any Group Meal
@@ -2496,12 +2635,10 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
-            {/* Feature Showcase - Only show for anonymous users */}
-            {!currentUser && (
-              <div className="max-w-5xl mx-auto pt-8 pb-8">
+            {/* Feature Showcase - Always visible for SEO */}
+            <div className="max-w-5xl mx-auto pt-8 pb-8">
                 <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-8">
                   <h2 className="text-2xl font-light text-center text-slate-800 dark:text-slate-100 mb-10">
                     Simple Interface
@@ -2638,52 +2775,79 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
-            {/* Social Proof Section - Only show for anonymous users */}
-            {!currentUser && (
-              <div className="max-w-4xl mx-auto pt-8 pb-16">
-                <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-8 sm:p-12">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-                    <div>
-                      <div className="text-2xl font-light text-slate-800 dark:text-slate-100 mb-2">
-                        No More Math
-                      </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
-                        Automatic calculations mean no awkward moments
-                      </p>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-light text-slate-800 dark:text-slate-100 mb-2">
-                        Save Time
-                      </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
-                        Quick setup and instant sharing for everyone
-                      </p>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-light text-slate-800 dark:text-slate-100 mb-2">
-                        Fair & Clear
-                      </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
-                        Everyone sees exactly what they owe
-                      </p>
-                    </div>
+            {/* Features Section - Always visible for SEO */}
+            <div className="max-w-4xl mx-auto pt-8 pb-8">
+                <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-8">
+                  <h2 className="text-2xl font-light text-center text-slate-800 dark:text-slate-100 mb-10">
+                    Features
+                  </h2>
+
+                  {/* For Hosts */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-4">
+                      For Hosts — Total Control Over the Bill
+                    </h3>
+                    <ul className="space-y-2">
+                      <li className="flex items-start text-sm text-slate-600 dark:text-slate-400 font-light">
+                        <span className="text-blue-600 dark:text-blue-400 mr-2 mt-0.5">•</span>
+                        <span>Know exactly what everyone owes – real-time tracking of guest contributions</span>
+                      </li>
+                      <li className="flex items-start text-sm text-slate-600 dark:text-slate-400 font-light">
+                        <span className="text-blue-600 dark:text-blue-400 mr-2 mt-0.5">•</span>
+                        <span>Optional payment collection – share bank details or a payment link, or skip it entirely</span>
+                      </li>
+                      <li className="flex items-start text-sm text-slate-600 dark:text-slate-400 font-light">
+                        <span className="text-blue-600 dark:text-blue-400 mr-2 mt-0.5">•</span>
+                        <span>Collect deposits easily – secure commitment before the meal</span>
+                      </li>
+                      <li className="flex items-start text-sm text-slate-600 dark:text-slate-400 font-light">
+                        <span className="text-blue-600 dark:text-blue-400 mr-2 mt-0.5">•</span>
+                        <span>Live bill overview – total owed, payments received, and outstanding balances</span>
+                      </li>
+                      <li className="flex items-start text-sm text-slate-600 dark:text-slate-400 font-light">
+                        <span className="text-blue-600 dark:text-blue-400 mr-2 mt-0.5">•</span>
+                        <span>Faster bill settlement – no more 20-30 minute delays</span>
+                      </li>
+                      <li className="flex items-start text-sm text-slate-600 dark:text-slate-400 font-light">
+                        <span className="text-blue-600 dark:text-blue-400 mr-2 mt-0.5">•</span>
+                        <span>Event tracking made simple – see confirmations and payment status at a glance</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* For Guests */}
+                  <div>
+                    <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-4">
+                      For Guests — Easy, Fair, and Transparent
+                    </h3>
+                    <ul className="space-y-2">
+                      <li className="flex items-start text-sm text-slate-600 dark:text-slate-400 font-light">
+                        <span className="text-green-600 dark:text-green-400 mr-2 mt-0.5">•</span>
+                        <span>Pay only for what you ordered – no more splitting evenly when you didn&apos;t have dessert</span>
+                      </li>
+                      <li className="flex items-start text-sm text-slate-600 dark:text-slate-400 font-light">
+                        <span className="text-green-600 dark:text-green-400 mr-2 mt-0.5">•</span>
+                        <span>Clear instructions – guests know how much to pay and when</span>
+                      </li>
+                      <li className="flex items-start text-sm text-slate-600 dark:text-slate-400 font-light">
+                        <span className="text-green-600 dark:text-green-400 mr-2 mt-0.5">•</span>
+                        <span>Walk out when you&apos;re ready – no mental maths, no awkward conversations</span>
+                      </li>
+                    </ul>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
-            {/* Bottom CTA - Only show for anonymous users */}
-            {!currentUser && (
-              <div className="max-w-3xl mx-auto pt-8 pb-16">
+            {/* Bottom CTA - Always visible for SEO */}
+            <div className="max-w-3xl mx-auto pt-8 pb-16">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-light text-slate-800 dark:text-slate-100 mb-3">
-                    Ready to get started?
+                    Make your next group meal stress-free
                   </h2>
                   <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
-                    Create an event or join one in seconds
+                    Create your first event today and skip the 30-minute chaos at the end of dinner.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
@@ -2698,7 +2862,7 @@ export default function Home() {
                     }}
                     className="w-full sm:w-auto px-8 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded transition-colors"
                   >
-                    New Bill +
+                    Create a Group Bill
                   </button>
                   <button
                     onClick={() => {
@@ -2711,35 +2875,32 @@ export default function Home() {
                     }}
                     className="w-full sm:w-auto px-8 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium rounded transition-colors"
                   >
-                    Join Event
+                    Join an Event
                   </button>
                 </div>
-              </div>
-            )}
+            </div>
 
             {/* My Events List - Only show for logged-in users */}
-            {currentUser && isLoadingEvents ? (
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
+            {currentUser && (isLoadingEvents || myEvents.length > 0) && (
+              <div data-my-events className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">
                   My Events
                 </h2>
-                <div className="space-y-2">
-                  {/* Loading skeleton */}
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="p-4 bg-slate-50 dark:bg-slate-700 rounded-lg animate-pulse">
-                      <div className="h-5 bg-slate-300 dark:bg-slate-600 rounded w-3/4 mb-2"></div>
-                      <div className="h-4 bg-slate-200 dark:bg-slate-650 rounded w-1/2"></div>
+                <div className="space-y-2 min-h-[200px]">
+                  {isLoadingEvents ? (
+                    /* Loading skeleton with fade */
+                    <div className="animate-fadeIn">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="p-4 bg-slate-50 dark:bg-slate-700 rounded-lg animate-pulse mb-2">
+                          <div className="h-5 bg-slate-300 dark:bg-slate-600 rounded w-3/4 mb-2"></div>
+                          <div className="h-4 bg-slate-200 dark:bg-slate-650 rounded w-1/2"></div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ) : currentUser && myEvents.length > 0 ? (
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
-                <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">
-                  My Events
-                </h2>
-                <div className="space-y-2">
-                  {myEvents.map((event) => (
+                  ) : (
+                    /* Events list with fade */
+                    <div className="animate-fadeIn">
+                      {myEvents.map((event) => (
                     <EventListItem
                       key={event!.id}
                       event={event as Event & { userRole: 'host' | 'guest' }}
@@ -2776,10 +2937,12 @@ export default function Home() {
                         leaveEventAsGuest();
                       }}
                     />
-                  ))}
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            ) : null}
+            )}
           </div>
         ) : (
           /* Event View */
