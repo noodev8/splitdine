@@ -1684,7 +1684,7 @@ export default function Home() {
                 }}
                 className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
               >
-                Delete Event
+                Delete Event Bill
               </button>
             </div>
           </div>
@@ -1750,7 +1750,7 @@ export default function Home() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
               <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
-                Start New Event
+                Create new event and bill
               </h2>
               <input
                 ref={eventNameRef}
@@ -1791,7 +1791,7 @@ export default function Home() {
                       Creating...
                     </>
                   ) : (
-                    'New Bill +'
+                    'OK'
                   )}
                 </button>
               </div>
@@ -2228,7 +2228,7 @@ export default function Home() {
                   </svg>
                 </div>
                 <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-                  Delete Event?
+                  Delete Event Bill?
                 </h2>
                 <p className="text-slate-600 dark:text-slate-400 text-sm">
                   Are you sure you want to delete <span className="font-semibold">&quot;{currentEvent.name}&quot;</span>?
@@ -2429,10 +2429,10 @@ export default function Home() {
                       <span className="text-lg font-medium text-slate-700 dark:text-slate-300">1</span>
                     </div>
                     <h3 className="text-base font-medium text-slate-800 dark:text-slate-200 mb-2">
-                      Create Event
+                      Create new event and bill
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400 font-light">
-                      Register and start a new event for your meal or gathering
+                      Register and create an event and bill for your meal or gathering
                     </p>
                   </div>
                   <div className="text-center">
@@ -2773,7 +2773,7 @@ export default function Home() {
                       }}
                       onLeaveEvent={(eventId) => {
                         setCurrentEventId(eventId);
-                        handleLeaveEvent();
+                        leaveEventAsGuest();
                       }}
                     />
                   ))}

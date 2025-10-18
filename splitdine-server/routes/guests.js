@@ -489,6 +489,7 @@ API Route: delete_guest
 =======================================================================================================================================
 Method: POST
 Purpose: Deletes a guest and all associated items from an event.
+         Note: Does not archive - archiving only happens when entire event is deleted.
 =======================================================================================================================================
 Request Payload:
 {
@@ -554,6 +555,7 @@ router.post('/delete_guest', verifyToken, async (req, res) => {
 
     // =============================================================================
     // Delete guest and all associated items in a transaction
+    // Note: No archiving here - only archive when entire event is deleted
     // =============================================================================
     await withTransaction(async (client) => {
       // Delete all guest items first (foreign key constraint)
@@ -738,6 +740,7 @@ API Route: delete_item
 =======================================================================================================================================
 Method: POST
 Purpose: Deletes an item from a guest.
+         Note: Does not archive - archiving only happens when entire event is deleted.
 =======================================================================================================================================
 Request Payload:
 {
@@ -825,6 +828,7 @@ router.post('/delete_item', verifyToken, async (req, res) => {
 
     // =============================================================================
     // Delete item
+    // Note: No archiving here - only archive when entire event is deleted
     // =============================================================================
     await query(
       `DELETE FROM guest_items WHERE id = $1`,

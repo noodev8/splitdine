@@ -810,7 +810,8 @@ router.post('/leave_event', verifyToken, async (req, res) => {
 API Route: delete_event
 =======================================================================================================================================
 Method: POST
-Purpose: Deletes an event and all associated data (guests, items, memberships).
+Purpose: Archives and deletes an event and all associated data (guests, items).
+         Data is first copied to archive tables for analytics, then permanently deleted.
          Only the host can delete an event.
          Requires authentication.
 =======================================================================================================================================
@@ -867,17 +868,57 @@ router.post('/delete_event', verifyToken, async (req, res) => {
     }
 
     // =============================================================================
-    // Delete event and all associated data
-    // Database CASCADE will handle:
-    // - guests table (ON DELETE CASCADE via event_id FK)
-    // - guest_items table (ON DELETE CASCADE via guest_id FK)
+    // Archive event and all associated data, then delete
     // =============================================================================
-    await query(
-      `DELETE FROM events WHERE id = $1`,
-      [event_id]
-    );
+    await withTransaction(async (client) => {
+      // Archive all guest items first
+      await client.query(
+        `INSERT INTO zarchive_guest_items
+         (id, guest_id, note, created_at, price, event_id, archived_at, archived_by)
+         SELECT id, guest_id, note, created_at, price, event_id, CURRENT_TIMESTAMP, $2
+         FROM guest_items
+         WHERE event_id = $1`,
+        [event_id, userId]
+      );
 
-    console.log(`✓ Event ${event_id} deleted successfully`);
+      // Archive all guests
+      await client.query(
+        `INSERT INTO zarchive_guests
+         (id, event_id, name, amount, deposit, notes, paid, created_at, updated_at, app_user_id, co_host, archived_at, archived_by)
+         SELECT id, event_id, name, amount, deposit, notes, paid, created_at, updated_at, app_user_id, co_host, CURRENT_TIMESTAMP, $2
+         FROM guests
+         WHERE event_id = $1`,
+        [event_id, userId]
+      );
+
+      // Archive the event
+      await client.query(
+        `INSERT INTO zarchive_events
+         (id, name, guest_code, created_at, updated_at, user_id, bank_account_number, bank_sort_code, bank_account_name, payment_method, allow_guest_editing, allow_guest_notes_edit, host_contact_info, archived_at, archived_by)
+         SELECT id, name, guest_code, created_at, updated_at, user_id, bank_account_number, bank_sort_code, bank_account_name, payment_method, allow_guest_editing, allow_guest_notes_edit, host_contact_info, CURRENT_TIMESTAMP, $2
+         FROM events
+         WHERE id = $1`,
+        [event_id, userId]
+      );
+
+      // Delete guest_items, guests, then event (in order due to foreign keys)
+      await client.query(
+        `DELETE FROM guest_items WHERE event_id = $1`,
+        [event_id]
+      );
+
+      await client.query(
+        `DELETE FROM guests WHERE event_id = $1`,
+        [event_id]
+      );
+
+      await client.query(
+        `DELETE FROM events WHERE id = $1`,
+        [event_id]
+      );
+    });
+
+    console.log(`✓ Event ${event_id} archived and deleted successfully`);
 
     // =============================================================================
     // Return success response
