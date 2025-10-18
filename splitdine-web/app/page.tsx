@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import {
   createEvent as apiCreateEvent,
   joinEvent as apiJoinEvent,
@@ -63,264 +64,15 @@ interface UserEventMembership {
   joinedAt: number;
 }
 
-// Event list item component
-interface EventListItemProps {
-  event: Event & { userRole: 'host' | 'guest' };
-  onOpenEvent: (eventId: string) => void;
-  onDeleteEvent: (eventId: string) => void;
-  onCopyGuestCode: (code: string) => void;
-  onShowToast: (message: string) => void;
-  onShowPaymentDetails: (eventId: string) => void;
-  onShowNotesSummary: (eventId: string) => void;
-  onShowContactHost: (eventId: string) => void;
-  onShowManageGuestName: (eventId: string) => void;
-  onLeaveEvent: (eventId: string) => void;
-}
-
-function EventListItem({ event, onOpenEvent, onDeleteEvent, onCopyGuestCode, onShowToast, onShowPaymentDetails, onShowNotesSummary, onShowContactHost, onShowManageGuestName, onLeaveEvent }: EventListItemProps) {
-  const [showMenu, setShowMenu] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowMenu(false);
-      }
-    };
-
-    if (showMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showMenu]);
-
-  return (
-    <>
-      <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-650 transition-colors">
-        <div className="flex items-center justify-between gap-3">
-          <div
-            className="flex-1 min-w-0 cursor-pointer"
-            onClick={() => onOpenEvent(event.id)}
-          >
-            {/* Event name and role badge */}
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 truncate">
-                  {event.name}
-                </h3>
-                {event.userRole === 'host' && (
-                  <span className="px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                    Host
-                  </span>
-                )}
-              </div>
-              {/* Guest code - subtle and copyable */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCopyGuestCode(event.guestCode);
-                }}
-                className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors font-mono"
-                title="Click to copy guest code"
-              >
-                Join code: {event.guestCode}
-              </button>
-            </div>
-          </div>
-
-          {/* Three-dot menu button */}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-              className="p-2 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors flex-shrink-0"
-              aria-label="More options"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-600 dark:text-slate-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
-              </svg>
-            </button>
-
-            {/* Dropdown menu */}
-            {showMenu && (
-              <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-600 py-1 z-10">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMenu(false);
-                    onOpenEvent(event.id);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  Open Event
-                </button>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMenu(false);
-                    onShowPaymentDetails(event.id);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  Payment Details
-                </button>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMenu(false);
-                    onShowNotesSummary(event.id);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  Notes Summary
-                </button>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMenu(false);
-                    onShowManageGuestName(event.id);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  My Guest Name
-                </button>
-
-                {event.userRole === 'guest' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowMenu(false);
-                      onShowContactHost(event.id);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    Contact Host
-                  </button>
-                )}
-
-                {event.userRole === 'host' && (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowMenu(false);
-                        setShowShareModal(true);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                      Share Details
-                    </button>
-
-                    <div className="border-t border-slate-200 dark:border-slate-600 my-1"></div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowMenu(false);
-                        onDeleteEvent(event.id);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    >
-                      Delete Bill
-                    </button>
-                  </>
-                )}
-
-                {event.userRole === 'guest' && (
-                  <>
-                    <div className="border-t border-slate-200 dark:border-slate-600 my-1"></div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowMenu(false);
-                        onLeaveEvent(event.id);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    >
-                      Leave Event
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Share Modal */}
-      {showShareModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
-                Share Details
-              </h2>
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-500 dark:text-slate-400">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="text-center mb-4">
-              <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Invite guests to</div>
-              <div className="text-blue-600 dark:text-blue-400 font-medium mb-3">https://splitdine.co.uk</div>
-              <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">using event code:</div>
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="font-mono text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-wider">
-                  {event.guestCode}
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigator.clipboard.writeText(event.guestCode);
-                    onShowToast('Code copied to clipboard');
-                  }}
-                  className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded transition-colors text-sm"
-                >
-                  Copy Code
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCopyGuestCode(event.guestCode);
-              }}
-              className="w-full px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-              </svg>
-              Copy Message (WhatsApp, email, etc.)
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Event system state
   const [events, setEvents] = useState<Event[]>([]);
   const [userMemberships, setUserMemberships] = useState<UserEventMembership[]>([]);
   const [currentEventId, setCurrentEventId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'host' | 'guest' | null>(null);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
 
   // Guest management state
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -430,7 +182,7 @@ export default function Home() {
   };
 
   // Helper function to load guests for an event (hybrid approach)
-  const loadGuestsForEvent = async (eventId: string): Promise<Guest[]> => {
+  const loadGuestsForEvent = useCallback(async (eventId: string): Promise<Guest[]> => {
     const result = await apiGetGuests(parseInt(eventId));
 
     if (!result.success) {
@@ -463,7 +215,7 @@ export default function Home() {
     setGuests(convertedApiGuests);
 
     return convertedApiGuests;
-  };
+  }, []);
 
   // Load current user on mount
   useEffect(() => {
@@ -473,8 +225,7 @@ export default function Home() {
 
   // Detect guest code from URL on mount
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
+    const code = searchParams.get('code');
 
     if (code) {
       setPendingGuestCode(code);
@@ -485,18 +236,43 @@ export default function Home() {
         setShowJoinEventModal(true);
       }
     }
-  }, [currentUser]);
+  }, [currentUser, searchParams]);
+
+  // Detect event from URL and open it
+  useEffect(() => {
+    const eventIdFromUrl = searchParams.get('event');
+
+    if (eventIdFromUrl && currentUser && events.length > 0) {
+      // Only set state if it's different from current (avoid infinite loop)
+      if (eventIdFromUrl !== currentEventId) {
+        const event = events.find(e => e.id === eventIdFromUrl);
+        if (event) {
+          const membership = userMemberships.find(m => m.eventId === eventIdFromUrl);
+          if (membership) {
+            // Load guests and set state
+            loadGuestsForEvent(eventIdFromUrl).then(loadedGuests => {
+              setGuests(loadedGuests);
+              setCurrentEventId(eventIdFromUrl);
+              setUserRole(membership.role);
+            });
+          }
+        }
+      }
+    } else if (!eventIdFromUrl && currentEventId) {
+      // URL doesn't have event param but we have one open - close it
+      setCurrentEventId(null);
+      setUserRole(null);
+      setGuests([]);
+    }
+  }, [searchParams, currentUser, events, userMemberships, currentEventId, loadGuestsForEvent]);
 
   // Load events and memberships from API when user logs in
   useEffect(() => {
     const loadEvents = async () => {
       // Only load events if user is logged in
       if (!currentUser) {
-        setIsLoadingEvents(false);
         return;
       }
-
-      setIsLoadingEvents(true);
 
       try {
         const apiEvents = await apiGetMyEvents();
@@ -529,8 +305,6 @@ export default function Home() {
       } catch (error) {
         console.error('Error loading events from API:', error);
         showToastNotification('Failed to load events. Please check your connection.');
-      } finally {
-        setIsLoadingEvents(false);
       }
     };
 
@@ -580,42 +354,8 @@ export default function Home() {
         setLoginEmail('');
         setLoginPassword('');
 
-        // Reload events after successful login
-        try {
-          const apiEvents = await apiGetMyEvents();
-
-          const convertedApiEvents: Event[] = apiEvents.map(apiEvent => ({
-            id: apiEvent.id.toString(),
-            name: apiEvent.name,
-            guestCode: apiEvent.guest_code,
-            guests: [],
-            createdAt: new Date(apiEvent.created_at).getTime(),
-            paymentMethod: apiEvent.payment_method as 'venue' | 'bank_transfer' | undefined,
-            bankAccountNumber: apiEvent.bank_account_number,
-            bankSortCode: apiEvent.bank_sort_code,
-            bankAccountName: apiEvent.bank_account_name,
-            allowGuestEditing: apiEvent.allow_guest_editing ?? true,
-            allowGuestNotesEdit: apiEvent.allow_guest_notes_edit ?? true,
-            hostContactInfo: apiEvent.host_contact_info,
-          }));
-
-          const convertedApiMemberships: UserEventMembership[] = apiEvents.map(apiEvent => ({
-            eventId: apiEvent.id.toString(),
-            role: apiEvent.role,
-            joinedAt: apiEvent.joined_at ? new Date(apiEvent.joined_at).getTime() : Date.now(),
-          }));
-          setEvents(convertedApiEvents);
-          setUserMemberships(convertedApiMemberships);
-
-          // If there's a pending guest code from URL, auto-open join modal
-          if (pendingGuestCode) {
-            setJoinCode(pendingGuestCode);
-            setShowJoinEventModal(true);
-            setPendingGuestCode(null); // Clear the pending code
-          }
-        } catch (error) {
-          console.error('Error loading events after login:', error);
-        }
+        // TEMP: Disabled redirect to test original
+        // router.push('/events');
       } else {
         setAuthError(response.message || 'Login failed');
       }
@@ -650,12 +390,8 @@ export default function Home() {
         setRegisterPassword('');
         showToastNotification(`Welcome to SplitDine, ${response.user.name}!`);
 
-        // If there's a pending guest code from URL, auto-open join modal
-        if (pendingGuestCode) {
-          setJoinCode(pendingGuestCode);
-          setShowJoinEventModal(true);
-          setPendingGuestCode(null); // Clear the pending code
-        }
+        // TEMP: Disabled redirect to test original
+        // router.push('/events');
       } else {
         setAuthError(response.message || 'Registration failed');
       }
@@ -801,9 +537,7 @@ export default function Home() {
         console.error('Error leaving event:', error);
       }
       setPendingEventId(null);
-      setCurrentEventId(null);
-      setUserRole(null);
-      setGuests([]);
+      router.push('/');
     }
     setShowClaimGuestModal(false);
     setIsCreatingNewGuest(false);
@@ -915,12 +649,6 @@ export default function Home() {
         setIsCreatingEvent(false);
       }
     }
-  };
-
-  const copyGuestCode = (code: string) => {
-    const shareMessage = `Invite guests to\nhttps://splitdine.co.uk\n\nusing event code:\n\n${code}`;
-    navigator.clipboard.writeText(shareMessage);
-    showToastNotification('Guest invite copied! Ready to share.');
   };
 
   const joinEvent = async () => {
@@ -1059,10 +787,8 @@ export default function Home() {
       setEvents(events.filter(e => e.id !== currentEventId));
       setUserMemberships(userMemberships.filter(m => m.eventId !== currentEventId));
 
-      // Navigate back to home
-      setCurrentEventId(null);
-      setUserRole(null);
-      setGuests([]);
+      // Navigate back to home - URL change will trigger state cleanup
+      router.push('/');
 
       showToastNotification('Left event successfully');
     } catch (error) {
@@ -1077,21 +803,6 @@ export default function Home() {
   //   setGuests([]);
   // };
 
-  const openEvent = async (eventId: string) => {
-    const event = events.find(e => e.id === eventId);
-    const membership = userMemberships.find(m => m.eventId === eventId);
-
-    if (event && membership) {
-      // Load guests from API first to prevent flicker
-      const loadedGuests = await loadGuestsForEvent(eventId);
-
-      // Then set all state together
-      setGuests(loadedGuests);
-      setCurrentEventId(eventId);
-      setUserRole(membership.role);
-    }
-  };
-
   const confirmDeleteEvent = async () => {
     if (!currentEventId || userRole !== 'host') return;
 
@@ -1103,10 +814,8 @@ export default function Home() {
       setEvents(events.filter(e => e.id !== currentEventId));
       // Remove all memberships for this event
       setUserMemberships(userMemberships.filter(m => m.eventId !== currentEventId));
-      // Clear current event
-      setCurrentEventId(null);
-      setUserRole(null);
-      setGuests([]);
+      // Navigate back to home - URL change will trigger state cleanup
+      router.push('/');
       setShowDeleteConfirmModal(false);
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -1497,15 +1206,6 @@ export default function Home() {
   }, 0);
   const editingGuest = guests.find((g) => g.id === editingGuestId);
   const currentEvent = events.find((e) => e.id === currentEventId);
-
-  // Get user's events sorted by join time
-  const myEvents = userMemberships
-    .map(m => {
-      const event = events.find(e => e.id === m.eventId);
-      return event ? { ...event, userRole: m.role, joinedAt: m.joinedAt } : null;
-    })
-    .filter(e => e !== null)
-    .sort((a, b) => b!.joinedAt - a!.joinedAt);
 
   // Show settings screen if open
   if (showEventSettings && currentEvent) {
@@ -2402,7 +2102,7 @@ export default function Home() {
             )}
 
             {/* My Events Quick Access - Show for logged-in users */}
-            {currentUser && myEvents.length > 0 && (
+            {currentUser && (
               <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 max-w-3xl mx-auto">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="text-center sm:text-left">
@@ -2410,15 +2110,11 @@ export default function Home() {
                       Welcome back, {currentUser.name}!
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
-                      You have {myEvents.length} {myEvents.length === 1 ? 'event' : 'events'}
+                      Manage your group dining events
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      // Scroll to My Events section
-                      const myEventsSection = document.querySelector('[data-my-events]');
-                      myEventsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
+                    onClick={() => router.push('/events')}
                     className="px-6 py-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
                   >
                     View My Events
@@ -2448,9 +2144,11 @@ export default function Home() {
                   <div className="relative transform lg:rotate-[-4deg] lg:translate-x-8">
                     {/* Phone with lighter outline frame */}
                     <div className="relative w-[320px] xl:w-[380px] border-4 border-slate-200 dark:border-slate-700 rounded-[2.5rem] bg-white dark:bg-slate-800 shadow-2xl overflow-hidden">
-                      <img
+                      <Image
                         src="/Hero-1.jpg"
                         alt="SplitDine app showing bill split between guests"
+                        width={380}
+                        height={760}
                         className="w-full h-auto rounded-[2rem]"
                       />
                     </div>
@@ -2465,9 +2163,11 @@ export default function Home() {
                 <div className="lg:hidden flex justify-center mt-8">
                   <div className="relative w-[300px]">
                     <div className="border-4 border-slate-200 dark:border-slate-700 rounded-[2.5rem] bg-white dark:bg-slate-800 shadow-2xl overflow-hidden">
-                      <img
+                      <Image
                         src="/Hero-1.jpg"
                         alt="SplitDine app showing bill split between guests"
+                        width={300}
+                        height={600}
                         className="w-full h-auto rounded-[2rem]"
                       />
                     </div>
@@ -2946,70 +2646,6 @@ export default function Home() {
                   </button>
                 </div>
             </div>
-
-            {/* My Events List - Only show for logged-in users */}
-            {currentUser && (isLoadingEvents || myEvents.length > 0) && (
-              <div data-my-events className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 sm:p-6">
-                <h2 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">
-                  My Events
-                </h2>
-                <div className="space-y-2 min-h-[200px]">
-                  {isLoadingEvents ? (
-                    /* Loading skeleton with fade */
-                    <div className="animate-fadeIn">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="p-4 bg-slate-50 dark:bg-slate-700 rounded-lg animate-pulse mb-2">
-                          <div className="h-5 bg-slate-300 dark:bg-slate-600 rounded w-3/4 mb-2"></div>
-                          <div className="h-4 bg-slate-200 dark:bg-slate-650 rounded w-1/2"></div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    /* Events list with fade */
-                    <div className="animate-fadeIn">
-                      {myEvents.map((event) => (
-                    <EventListItem
-                      key={event!.id}
-                      event={event as Event & { userRole: 'host' | 'guest' }}
-                      onOpenEvent={openEvent}
-                      onDeleteEvent={(eventId) => {
-                        setCurrentEventId(eventId);
-                        setUserRole('host');
-                        setShowDeleteConfirmModal(true);
-                      }}
-                      onCopyGuestCode={copyGuestCode}
-                      onShowToast={showToastNotification}
-                      onShowPaymentDetails={(eventId) => {
-                        openEvent(eventId).then(() => {
-                          setShowPaymentDetailsModal(true);
-                        });
-                      }}
-                      onShowNotesSummary={(eventId) => {
-                        openEvent(eventId).then(() => {
-                          setShowingNotesSummary(true);
-                        });
-                      }}
-                      onShowContactHost={(eventId) => {
-                        openEvent(eventId).then(() => {
-                          setShowContactHostModal(true);
-                        });
-                      }}
-                      onShowManageGuestName={(eventId) => {
-                        openEvent(eventId).then(() => {
-                          openClaimGuestModal();
-                        });
-                      }}
-                      onLeaveEvent={(eventId) => {
-                        setCurrentEventId(eventId);
-                        leaveEventAsGuest();
-                      }}
-                    />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           /* Event View */
@@ -3032,9 +2668,7 @@ export default function Home() {
                       setViewingGuestId(null);
                     } else {
                       // If on event page, go back to events list
-                      setCurrentEventId(null);
-                      setUserRole(null);
-                      setGuests([]);
+                      router.push('/');
                       setShowMenu(false);
                     }
                   }}
@@ -4733,5 +4367,15 @@ export default function Home() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+      <div className="text-slate-600 dark:text-slate-400">Loading...</div>
+    </div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
