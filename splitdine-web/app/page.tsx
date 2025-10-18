@@ -2433,15 +2433,12 @@ export default function Home() {
                 {/* Left Column - Text Content */}
                 <div className="text-center lg:text-left space-y-6 lg:pr-8">
                   <div>
-                    {/* Eyebrow text targeting hosts */}
-                    <p className="text-sm font-semibold tracking-wider uppercase text-blue-600 dark:text-blue-400 mb-3">
-                      For Group Hosts
-                    </p>
                     <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-slate-50 mb-4 tracking-tight leading-tight">
-                      The <span className="text-blue-600 dark:text-blue-400">group dining management tool</span> — split the bill <span className="text-blue-600 dark:text-blue-400">in seconds</span>, not 30 minutes
+                      Split the bill <span className="text-blue-600 dark:text-blue-400 text-5xl sm:text-6xl lg:text-7xl">in seconds</span>
+                      <span className="block text-2xl sm:text-3xl font-normal text-slate-500 dark:text-slate-400 mt-2">— not 30 minutes</span>
                     </h1>
                     <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-light leading-relaxed">
-                      SplitDine is your group dining control centre — track RSVPs, collect deposits, manage what everyone owes, and settle the bill in seconds.
+                      Your group dining control centre — track RSVPs, collect deposits, manage what everyone owes, and settle up fast.
                     </p>
                   </div>
                 </div>
