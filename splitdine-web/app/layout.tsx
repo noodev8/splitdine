@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SplitDine - Split the bill in seconds, not 30 minutes",
-  description: "Tired of standing at the till with a calculator? SplitDine makes group meals effortless — track what everyone owes, collect payments, and settle the bill smoothly. Free to use.",
-  keywords: ["bill splitting", "group dining", "restaurant bills", "split bill app", "group meals", "payment tracking", "event management"],
+  title: "SplitDine - Group Dining Management Tool | Split the Bill in Seconds",
+  description: "The complete group dining management platform for hosts. Track RSVPs, collect deposits, manage what everyone owes, and settle the bill in seconds — not 30 minutes. Free to use.",
+  keywords: ["group dining management", "bill splitting", "group meals", "restaurant organizer", "RSVP tracking", "deposit collection", "payment tracking", "event management", "group event planning"],
   authors: [{ name: "SplitDine" }],
   creator: "SplitDine",
   publisher: "SplitDine",
@@ -24,8 +24,8 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: "SplitDine - Split the bill in seconds, not 30 minutes",
-    description: "Make your next group meal stress-free. Track what everyone owes, collect payments, and skip the 30-minute chaos at the till.",
+    title: "SplitDine - Group Dining Management Tool",
+    description: "Your group dining control centre — track RSVPs, collect deposits, manage what everyone owes, and settle the bill in seconds. Free for hosts.",
     url: 'https://splitdine.com',
     siteName: 'SplitDine',
     locale: 'en_GB',
@@ -33,8 +33,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: "SplitDine - Split the bill in seconds, not 30 minutes",
-    description: "Make your next group meal stress-free. Track what everyone owes and settle the bill smoothly.",
+    title: "SplitDine - Group Dining Management Tool",
+    description: "Track RSVPs, collect deposits, and split the bill in seconds. The complete platform for managing group meals.",
     creator: '@splitdine',
   },
   robots: {

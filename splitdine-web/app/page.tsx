@@ -2438,11 +2438,10 @@ export default function Home() {
                       For Group Hosts
                     </p>
                     <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-slate-50 mb-4 tracking-tight leading-tight">
-                      Split the bill <span className="text-blue-600 dark:text-blue-400 text-5xl sm:text-6xl lg:text-7xl">in seconds</span>
-                      <span className="block text-2xl sm:text-3xl font-normal text-slate-500 dark:text-slate-400 mt-2">— not 30 minutes</span>
+                      The <span className="text-blue-600 dark:text-blue-400">group dining management tool</span> — split the bill <span className="text-blue-600 dark:text-blue-400">in seconds</span>, not 30 minutes
                     </h1>
                     <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-light leading-relaxed">
-                      Track everyone&apos;s share. Skip the chaos at the till.
+                      SplitDine is your group dining control centre — track RSVPs, collect deposits, manage what everyone owes, and settle the bill in seconds.
                     </p>
                   </div>
                 </div>
@@ -2496,7 +2495,7 @@ export default function Home() {
                     }}
                     className="w-full sm:w-auto px-12 py-4 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-lg font-semibold rounded-lg transition-colors shadow-lg"
                   >
-                    Create a Group Bill
+                    Start a Group Bill
                   </button>
                   <button
                     onClick={() => {
@@ -2524,6 +2523,77 @@ export default function Home() {
                     </span>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* All-in-One Tool Section */}
+            <div className="max-w-4xl mx-auto pt-12 pb-4">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-50 mb-4">
+                  All-in-One Tool for Group Meals
+                </h2>
+                <p className="text-lg text-slate-600 dark:text-slate-400 mb-8">
+                  SplitDine isn&apos;t just for paying the bill — it&apos;s a complete group dining management platform that helps you stay in control from start to finish.
+                </p>
+              </div>
+
+              {/* Feature List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+                <div className="flex items-start gap-3 p-4">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">Collect deposits before the meal</h3>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">Track who&apos;s coming and who&apos;s paid</h3>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">Let guests enter their share in advance</h3>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">See live totals before the bill arrives</h3>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 md:col-span-2">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">Pay once and leave without the 30-minute chaos</h3>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -2780,8 +2850,8 @@ export default function Home() {
             {/* Features Section - Always visible for SEO */}
             <div className="max-w-4xl mx-auto pt-8 pb-8">
                 <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-8">
-                  <h2 className="text-2xl font-light text-center text-slate-800 dark:text-slate-100 mb-10">
-                    Features
+                  <h2 className="text-2xl font-bold text-center text-slate-800 dark:text-slate-100 mb-10">
+                    Everything You Need to Manage a Group Meal
                   </h2>
 
                   {/* For Hosts */}
@@ -2862,7 +2932,7 @@ export default function Home() {
                     }}
                     className="w-full sm:w-auto px-8 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded transition-colors"
                   >
-                    Create a Group Bill
+                    Start a Group Bill
                   </button>
                   <button
                     onClick={() => {
