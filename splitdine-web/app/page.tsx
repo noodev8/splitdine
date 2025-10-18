@@ -70,9 +70,14 @@ interface EventListItemProps {
   onDeleteEvent: (eventId: string) => void;
   onCopyGuestCode: (code: string) => void;
   onShowToast: (message: string) => void;
+  onShowPaymentDetails: (eventId: string) => void;
+  onShowNotesSummary: (eventId: string) => void;
+  onShowContactHost: (eventId: string) => void;
+  onShowManageGuestName: (eventId: string) => void;
+  onLeaveEvent: (eventId: string) => void;
 }
 
-function EventListItem({ event, onOpenEvent, onDeleteEvent, onCopyGuestCode, onShowToast }: EventListItemProps) {
+function EventListItem({ event, onOpenEvent, onDeleteEvent, onCopyGuestCode, onShowToast, onShowPaymentDetails, onShowNotesSummary, onShowContactHost, onShowManageGuestName, onLeaveEvent }: EventListItemProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -154,6 +159,52 @@ function EventListItem({ event, onOpenEvent, onDeleteEvent, onCopyGuestCode, onS
                   Open Event
                 </button>
 
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onShowPaymentDetails(event.id);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Payment Details
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onShowNotesSummary(event.id);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Notes Summary
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onShowManageGuestName(event.id);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  My Guest Name
+                </button>
+
+                {event.userRole === 'guest' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      onShowContactHost(event.id);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Contact Host
+                  </button>
+                )}
+
                 {event.userRole === 'host' && (
                   <>
                     <button
@@ -177,7 +228,23 @@ function EventListItem({ event, onOpenEvent, onDeleteEvent, onCopyGuestCode, onS
                       }}
                       className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
-                      Delete Event
+                      Delete Bill
+                    </button>
+                  </>
+                )}
+
+                {event.userRole === 'guest' && (
+                  <>
+                    <div className="border-t border-slate-200 dark:border-slate-600 my-1"></div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenu(false);
+                        onLeaveEvent(event.id);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      Leave Event
                     </button>
                   </>
                 )}
@@ -984,12 +1051,13 @@ export default function Home() {
     const membership = userMemberships.find(m => m.eventId === eventId);
 
     if (event && membership) {
+      // Load guests from API first to prevent flicker
+      const loadedGuests = await loadGuestsForEvent(eventId);
+
+      // Then set all state together
+      setGuests(loadedGuests);
       setCurrentEventId(eventId);
       setUserRole(membership.role);
-
-      // Load guests from API (hybrid approach)
-      const loadedGuests = await loadGuestsForEvent(eventId);
-      setGuests(loadedGuests);
     }
   };
 
@@ -1677,7 +1745,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Start Event Modal */}
+        {/* New Bill + Modal */}
         {showStartEventModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
@@ -1723,7 +1791,7 @@ export default function Home() {
                       Creating...
                     </>
                   ) : (
-                    'Start Event'
+                    'New Bill +'
                   )}
                 </button>
               </div>
@@ -2299,7 +2367,7 @@ export default function Home() {
                 }}
                 className="w-full sm:w-auto px-8 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded transition-colors"
               >
-                Start Event
+                New Bill +
               </button>
               <button
                 onClick={() => {
@@ -2630,7 +2698,7 @@ export default function Home() {
                     }}
                     className="w-full sm:w-auto px-8 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded transition-colors"
                   >
-                    Start Event
+                    New Bill +
                   </button>
                   <button
                     onClick={() => {
@@ -2683,6 +2751,30 @@ export default function Home() {
                       }}
                       onCopyGuestCode={copyGuestCode}
                       onShowToast={showToastNotification}
+                      onShowPaymentDetails={(eventId) => {
+                        openEvent(eventId).then(() => {
+                          setShowPaymentDetailsModal(true);
+                        });
+                      }}
+                      onShowNotesSummary={(eventId) => {
+                        openEvent(eventId).then(() => {
+                          setShowingNotesSummary(true);
+                        });
+                      }}
+                      onShowContactHost={(eventId) => {
+                        openEvent(eventId).then(() => {
+                          setShowContactHostModal(true);
+                        });
+                      }}
+                      onShowManageGuestName={(eventId) => {
+                        openEvent(eventId).then(() => {
+                          openClaimGuestModal();
+                        });
+                      }}
+                      onLeaveEvent={(eventId) => {
+                        setCurrentEventId(eventId);
+                        handleLeaveEvent();
+                      }}
                     />
                   ))}
                 </div>
@@ -2778,7 +2870,7 @@ export default function Home() {
                         <span className="text-sm font-medium">Notes Summary</span>
                       </button>
 
-                      {/* Manage Profile (for guests with claimed profiles) */}
+                      {/* My Guest Name (for guests with claimed profiles) */}
                       {guests.length > 0 && (
                         <button
                           onClick={() => {
@@ -2790,7 +2882,7 @@ export default function Home() {
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                           </svg>
-                          <span className="text-sm font-medium">Manage Profile</span>
+                          <span className="text-sm font-medium">My Guest Name</span>
                         </button>
                       )}
 
@@ -3095,55 +3187,31 @@ export default function Home() {
                         </h2>
                       </div>
 
-                      {/* Item Breakdown Section */}
-                      <div className="bg-slate-50 dark:bg-slate-900 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 p-6">
-                        <div className="flex items-baseline gap-2 mb-6">
-                          <h3 className="text-base font-semibold text-slate-600 dark:text-slate-400">
-                            Item Breakdown
-                          </h3>
-                          <span className="text-xs text-slate-500 dark:text-slate-500 italic">
-                            (for reference)
-                          </span>
-                        </div>
-
-                        {/* Add Item Section - at the top */}
-                        {userRole === 'host' && (
-                          <div className="space-y-4 mb-6 pb-6 border-b border-slate-300 dark:border-slate-700">
-                            <label className="block text-base font-semibold text-slate-600 dark:text-slate-400">
-                              Add Item
-                            </label>
-                            <div className="space-y-3">
+                      {/* Sticky Top Input Field - Add Item */}
+                      {userRole === 'host' && (
+                        <div className="sticky top-0 z-40 bg-white dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700 shadow-sm mb-6">
+                          <div className="px-4 py-3">
+                            <div className="flex gap-2">
                               <input
                                 type="text"
-                                placeholder="Item name (e.g., Margarita Pizza)"
+                                placeholder="Item name"
                                 value={itemNote}
                                 onChange={(e) => setItemNote(e.target.value)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
-                                    document.getElementById('item-price-input')?.focus();
+                                    document.getElementById('sticky-top-item-price-input')?.focus();
                                   }
                                 }}
-                                className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                                className="flex-1 px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
                               />
-                              <div className="grid grid-cols-3 gap-3">
-                                <input
-                                  id="item-price-input"
-                                  type="number"
-                                  placeholder="£0.00"
-                                  value={itemPrice}
-                                  onChange={(e) => setItemPrice(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      setEditingGuestId(viewingGuestId);
-                                      addItemToGuest();
-                                    }
-                                  }}
-                                  step="0.01"
-                                  className="col-span-1 px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={async () => {
+                              <input
+                                id="sticky-top-item-price-input"
+                                type="number"
+                                placeholder="£0.00"
+                                value={itemPrice}
+                                onChange={(e) => setItemPrice(e.target.value)}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter') {
                                     if (!itemNote.trim() || !viewingGuestId) return;
 
                                     const noteText = itemNote.trim();
@@ -3163,128 +3231,186 @@ export default function Home() {
                                           guest.id === viewingGuestId
                                             ? {
                                                 ...guest,
-                                                items: [...guest.items, newItem],
+                                                items: [newItem, ...guest.items],
                                               }
                                             : guest
                                         )
                                       );
                                       setItemNote('');
                                       setItemPrice('');
+                                      // Focus back on the item name field
+                                      setTimeout(() => {
+                                        const itemNameInput = document.querySelector('input[placeholder="Item name"]') as HTMLInputElement;
+                                        itemNameInput?.focus();
+                                      }, 0);
                                     } catch (error) {
                                       console.error('Error adding item:', error);
                                     }
-                                  }}
-                                  disabled={!itemNote.trim()}
-                                  className="col-span-2 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
-                                >
-                                  Add Item
-                                </button>
-                              </div>
+                                  }
+                                }}
+                                step="0.01"
+                                className="w-24 px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <button
+                                onClick={async () => {
+                                  if (!itemNote.trim() || !viewingGuestId) return;
+
+                                  const noteText = itemNote.trim();
+                                  const priceValue = itemPrice.trim() ? parseFloat(itemPrice) : undefined;
+
+                                  try {
+                                    const apiItem = await apiAddGuestItem(parseInt(viewingGuestId), noteText, priceValue);
+
+                                    const newItem = {
+                                      id: apiItem.id.toString(),
+                                      note: apiItem.note,
+                                      price: apiItem.price
+                                    };
+
+                                    setGuests(
+                                      guests.map((guest) =>
+                                        guest.id === viewingGuestId
+                                          ? {
+                                              ...guest,
+                                              items: [newItem, ...guest.items],
+                                            }
+                                          : guest
+                                      )
+                                    );
+                                    setItemNote('');
+                                    setItemPrice('');
+                                    // Focus back on the item name field
+                                    setTimeout(() => {
+                                      const itemNameInput = document.querySelector('input[placeholder="Item name"]') as HTMLInputElement;
+                                      itemNameInput?.focus();
+                                    }, 0);
+                                  } catch (error) {
+                                    console.error('Error adding item:', error);
+                                  }
+                                }}
+                                disabled={!itemNote.trim()}
+                                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+                              >
+                                Add
+                              </button>
                             </div>
                           </div>
-                        )}
+                        </div>
+                      )}
 
+                      {/* Item Breakdown Section */}
+                      <div className="space-y-6 pb-6">
                         {/* Items List */}
-                        {viewingGuest.items.length > 0 && (
-                          <div className="mb-6">
-                            <div className="space-y-1.5 mb-4">
-                              {viewingGuest.items.map((item) => (
-                                <div
-                                  key={item.id}
-                                  className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-700 rounded-lg"
-                                >
-                                  <div className="flex-1">
-                                    <span className="text-slate-700 dark:text-slate-200">
-                                      {item.note}
-                                    </span>
-                                    {item.price !== null && item.price !== undefined && (
-                                      <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">
+                        <div className="space-y-3">
+                          {viewingGuest.items.length > 0 ? (
+                            viewingGuest.items.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between px-4 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:shadow-md transition-shadow"
+                              >
+                                <div className="flex-1">
+                                  <span className="text-base font-medium text-slate-800 dark:text-slate-100">
+                                    {item.note}
+                                  </span>
+                                  {item.price !== null && item.price !== undefined && (
+                                    <div className="mt-1">
+                                      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
                                         £{item.price.toFixed(2)}
                                       </span>
-                                    )}
-                                  </div>
-                                  {userRole === 'host' && (
-                                    <button
-                                      onClick={() => removeItem(viewingGuest.id, item.id)}
-                                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
-                                      aria-label="Remove item"
-                                    >
-                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                      </svg>
-                                    </button>
+                                    </div>
                                   )}
                                 </div>
-                              ))}
+                                {userRole === 'host' && (
+                                  <button
+                                    onClick={() => removeItem(viewingGuest.id, item.id)}
+                                    className="ml-3 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    aria-label="Remove item"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center py-12">
+                              <p className="text-slate-500 dark:text-slate-400 text-sm">No items yet</p>
                             </div>
-                            {(() => {
-                              const itemsTotal = viewingGuest.items.reduce((sum, item) => {
-                                return sum + (item.price || 0);
-                              }, 0);
+                          )}
+                        </div>
 
-                              if (viewingGuest.items.length > 0) {
-                                const difference = itemsTotal - viewingGuest.amount;
-                                return (
-                                  <div className="border-t border-slate-200 dark:border-slate-600 pt-3 mt-3 space-y-2">
-                                    <div className="flex justify-between items-center px-3">
-                                      <span className="text-sm text-slate-600 dark:text-slate-400">
-                                        Items Subtotal
-                                      </span>
-                                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                        £{itemsTotal.toFixed(2)}
-                                      </span>
-                                    </div>
-                                    {Math.abs(difference) > 0.01 && (
-                                      <div className="flex justify-between items-center px-3 pb-2 border-b border-slate-200 dark:border-slate-700">
-                                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                                          {difference < 0 ? 'Missing' : 'Extra'}
-                                        </span>
-                                        <span className={`text-sm font-medium ${difference < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                                          {difference < 0 ? '-' : ''}£{Math.abs(difference).toFixed(2)}
-                                        </span>
-                                      </div>
-                                    )}
-                                    <div className="space-y-2">
-                                      <div className="flex justify-between items-center px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                                        <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-                                          Bill Total
-                                        </span>
-                                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                          £{viewingGuest.amount.toFixed(2)}
-                                        </span>
-                                      </div>
-                                      {itemsTotal > 0 && Math.abs(difference) > 0.01 && (
-                                        <button
-                                          onClick={async () => {
-                                            try {
-                                              await apiUpdateGuest(parseInt(viewingGuestId), { amount: itemsTotal });
-                                              setGuests(
-                                                guests.map((g) =>
-                                                  g.id === viewingGuestId
-                                                    ? { ...g, amount: itemsTotal }
-                                                    : g
-                                                )
-                                              );
-                                            } catch (error) {
-                                              console.error('Error updating bill total:', error);
-                                            }
-                                          }}
-                                          className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                                        >
-                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                                          </svg>
-                                          Set bill total to £{itemsTotal.toFixed(2)}
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
-                          </div>
-                        )}
+                        {/* Summary Section */}
+                        {viewingGuest.items.length > 0 && (() => {
+                          const itemsTotal = viewingGuest.items.reduce((sum, item) => {
+                            return sum + (item.price || 0);
+                          }, 0);
+                          const difference = itemsTotal - viewingGuest.amount;
+
+                          return (
+                            <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 space-y-3 border border-slate-200 dark:border-slate-700">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-slate-600 dark:text-slate-400">
+                                  Items Subtotal
+                                </span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300">
+                                  £{itemsTotal.toFixed(2)}
+                                </span>
+                              </div>
+                              {Math.abs(difference) > 0.01 ? (
+                                <div className="flex justify-between items-center text-sm pb-2 border-b border-slate-200 dark:border-slate-700">
+                                  <span className="text-red-600 dark:text-red-400">
+                                    {difference < 0 ? 'Missing' : 'Extra'}
+                                  </span>
+                                  <span className="font-medium text-red-600 dark:text-red-400">
+                                    {difference < 0 ? '-' : ''}£{Math.abs(difference).toFixed(2)}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex justify-between items-center text-sm pb-2 border-b border-slate-200 dark:border-slate-700">
+                                  <span className="text-green-600 dark:text-green-400">
+                                    Matches
+                                  </span>
+                                  <span className="font-medium text-green-600 dark:text-green-400">
+                                    ✓
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex justify-between items-center py-2 px-3 bg-white dark:bg-slate-800 rounded-lg">
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  Bill Total
+                                </span>
+                                <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                                  £{viewingGuest.amount.toFixed(2)}
+                                </span>
+                              </div>
+                              {userRole === 'host' && itemsTotal > 0 && Math.abs(difference) > 0.01 && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await apiUpdateGuest(parseInt(viewingGuestId), { amount: itemsTotal });
+                                      setGuests(
+                                        guests.map((g) =>
+                                          g.id === viewingGuestId
+                                            ? { ...g, amount: itemsTotal }
+                                            : g
+                                        )
+                                      );
+                                    } catch (error) {
+                                      console.error('Error updating bill total:', error);
+                                    }
+                                  }}
+                                  className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                  </svg>
+                                  Set bill total to £{itemsTotal.toFixed(2)}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </>
                   );
