@@ -3622,7 +3622,8 @@ function HomeContent() {
             {/* Add Guest - Host Only */}
             {userRole === 'host' && (
               <div className="mt-4 sm:mt-6">
-                <div className="flex gap-2">
+                <p className="text-red-600 font-bold text-lg mb-2">TEST: Layout updated - button should be below on mobile</p>
+                <div className="flex flex-col md:flex-row gap-2">
                   <input
                     ref={nameInputRef}
                     type="text"
@@ -3632,12 +3633,12 @@ function HomeContent() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') addGuest();
                     }}
-                    className="flex-1 px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                    className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
                   />
                   <button
                     onClick={addGuest}
                     disabled={!name.trim()}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                    className="w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
                   >
                     Add
                   </button>

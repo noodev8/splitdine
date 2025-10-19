@@ -66,6 +66,9 @@ export default function EventDetailPage() {
   const [calculatorGuestId, setCalculatorGuestId] = useState<string | null>(null);
   const [isFirstInput, setIsFirstInput] = useState(true);
 
+  // Deposits tracking state
+  const [depositsPaid, setDepositsPaid] = useState(false);
+
   const togglePaid = async (guestId: string) => {
     if (userRole !== 'host') return;
 
@@ -390,12 +393,14 @@ export default function EventDetailPage() {
   // Calculate totals
   const realGuests = guests.filter(g => g.name !== '');
   const totalBill = realGuests.reduce((sum, guest) => sum + guest.amount, 0);
+  const totalDeposits = realGuests.reduce((sum, guest) => sum + guest.deposit, 0);
   const totalOwed = realGuests.reduce((sum, guest) => {
     if (!guest.paid) {
-      return sum + guest.amount;
+      return sum + (guest.amount - guest.deposit); // Use balance, not full amount
     }
     return sum;
   }, 0);
+  const depositsOwed = depositsPaid ? 0 : totalDeposits;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
@@ -781,26 +786,39 @@ export default function EventDetailPage() {
           /* Guest List View */
           <>
             {/* Bill Total Section - Show at top */}
-            <div className={`px-4 py-3 rounded-lg border mb-6 transition-all duration-300 ${
-              totalBill > 0 && totalOwed === 0
+            <div className={`px-4 py-4 rounded-lg border mb-6 transition-all duration-300 ${
+              totalBill > 0 && totalOwed === 0 && depositsOwed === 0
                 ? 'bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/40 dark:to-green-900/20 border-green-300 dark:border-green-700'
                 : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
             }`}>
-              <div className="flex items-center justify-center gap-2">
-                <span className={`text-sm font-medium ${
-                  totalBill > 0 && totalOwed === 0
-                    ? 'text-green-800 dark:text-green-200'
-                    : 'text-slate-600 dark:text-slate-400'
-                }`}>
-                  {totalBill > 0 && totalOwed === 0 ? '✓ Fully Paid!' : 'Bill Total:'}
-                </span>
-                <span className={`font-bold text-2xl ${
-                  totalBill > 0 && totalOwed === 0
-                    ? 'text-green-700 dark:text-green-300'
-                    : 'text-slate-800 dark:text-slate-100'
-                }`}>
-                  £{totalBill.toFixed(2)}
-                </span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold text-slate-600 dark:text-slate-400">
+                    Total
+                  </span>
+                  <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                    £{totalBill.toFixed(2)}
+                  </span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400">
+                    {realGuests.filter(g => g.paid).length}/{realGuests.length} paid
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-600">
+                  <span className={`text-base font-semibold ${
+                    totalOwed === 0 && depositsOwed === 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-blue-600 dark:text-blue-400'
+                  }`}>
+                    Outstanding
+                  </span>
+                  <span className={`text-2xl font-bold ${
+                    totalOwed === 0 && depositsOwed === 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-blue-600 dark:text-blue-400'
+                  }`}>
+                    £{(totalOwed + depositsOwed).toFixed(2)}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -825,13 +843,17 @@ export default function EventDetailPage() {
               {guests.filter(g => g.name !== '').map((guest) => (
                 <div
                   key={guest.id}
-                  className="p-3 sm:p-4 rounded-lg border-2 bg-slate-50 dark:bg-slate-700 border-transparent"
+                  onClick={() => setViewingGuestId(guest.id)}
+                  className="p-3 sm:p-4 rounded-lg border-2 bg-slate-50 dark:bg-slate-700 border-transparent cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
                 >
                   <div className="flex items-start sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {userRole === 'host' && (
                         <button
-                          onClick={() => togglePaid(guest.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePaid(guest.id);
+                          }}
                           className={`flex-shrink-0 w-10 h-10 sm:w-8 sm:h-8 rounded border-2 transition-colors flex items-center justify-center ${
                             guest.paid
                               ? 'bg-green-500 border-green-500'
@@ -846,10 +868,7 @@ export default function EventDetailPage() {
                           )}
                         </button>
                       )}
-                      <button
-                        onClick={() => setViewingGuestId(guest.id)}
-                        className="flex-1 text-left min-w-0"
-                      >
+                      <div className="flex-1 text-left min-w-0">
                         <span className={`font-medium text-xl sm:text-2xl break-words transition-colors ${
                           guest.paid
                             ? 'text-slate-400 dark:text-slate-500 line-through'
@@ -859,19 +878,38 @@ export default function EventDetailPage() {
                         }`}>
                           {guest.name}
                         </span>
-                      </button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
-                      <span className={`text-xl sm:text-2xl font-bold ${
-                        guest.paid
-                          ? 'text-slate-400 dark:text-slate-500'
-                          : 'text-slate-800 dark:text-slate-100'
-                      }`}>
-                        £{guest.amount.toFixed(2)}
-                      </span>
+                      {userRole === 'host' ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCalculator('amount', guest.id, guest.amount);
+                          }}
+                          className={`text-xl sm:text-2xl font-bold px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${
+                            guest.paid
+                              ? 'text-slate-400 dark:text-slate-500'
+                              : 'text-slate-800 dark:text-slate-100'
+                          }`}
+                        >
+                          £{(guest.amount - guest.deposit).toFixed(2)}
+                        </button>
+                      ) : (
+                        <span className={`text-xl sm:text-2xl font-bold ${
+                          guest.paid
+                            ? 'text-slate-400 dark:text-slate-500'
+                            : 'text-slate-800 dark:text-slate-100'
+                        }`}>
+                          £{(guest.amount - guest.deposit).toFixed(2)}
+                        </span>
+                      )}
                       {userRole === 'host' && (
                         <button
-                          onClick={() => removeGuest(guest.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeGuest(guest.id);
+                          }}
                           className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           aria-label="Delete guest"
                         >
@@ -884,13 +922,59 @@ export default function EventDetailPage() {
                   </div>
                 </div>
               ))}
+
+              {/* Deposits (Host) Row - Only show if there are deposits and user is host */}
+              {userRole === 'host' && totalDeposits > 0 && (
+                <div className="p-3 sm:p-4 rounded-lg border-2 bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600">
+                  <div className="flex items-start sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <button
+                        onClick={() => setDepositsPaid(!depositsPaid)}
+                        className={`flex-shrink-0 w-10 h-10 sm:w-8 sm:h-8 rounded border-2 transition-colors flex items-center justify-center ${
+                          depositsPaid
+                            ? 'bg-green-500 border-green-500'
+                            : 'border-slate-300 dark:border-slate-600 hover:border-green-400'
+                        }`}
+                        aria-label="Mark deposits as paid"
+                      >
+                        {depositsPaid && (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="white" className="w-6 h-6 sm:w-5 sm:h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </button>
+                      <div className="flex-1 text-left min-w-0">
+                        <span className={`font-medium text-xl sm:text-2xl break-words transition-colors ${
+                          depositsPaid
+                            ? 'text-slate-400 dark:text-slate-500 line-through'
+                            : 'text-slate-800 dark:text-slate-100'
+                        }`}>
+                          Deposit
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
+                      <span className={`text-xl sm:text-2xl font-bold px-2 py-1 ${
+                        depositsPaid
+                          ? 'text-slate-400 dark:text-slate-500'
+                          : 'text-slate-800 dark:text-slate-100'
+                      }`}>
+                        £{totalDeposits.toFixed(2)}
+                      </span>
+                      <div className="p-2">
+                        <div className="w-5 h-5"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* Add Guest - Host Only */}
           {userRole === 'host' && (
             <div className="mt-4 sm:mt-6">
-              <div className="flex gap-2">
+              <div className="flex flex-col md:flex-row gap-2">
                 <input
                   ref={nameInputRef}
                   type="text"
@@ -900,12 +984,12 @@ export default function EventDetailPage() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') addGuest();
                   }}
-                  className="flex-1 px-4 py-3 text-xl sm:text-2xl font-medium border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                  className="w-full px-4 py-3 text-xl sm:text-2xl font-medium border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
                 />
                 <button
                   onClick={addGuest}
                   disabled={!name.trim()}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                  className="w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
                 >
                   Add
                 </button>
