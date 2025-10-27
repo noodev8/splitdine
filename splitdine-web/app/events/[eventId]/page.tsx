@@ -12,6 +12,8 @@ import {
   addGuestItem as apiAddGuestItem,
   deleteGuestItem as apiDeleteGuestItem,
   updateEventSettings as apiUpdateEventSettings,
+  claimGuest as apiClaimGuest,
+  unclaimGuest as apiUnclaimGuest,
   getCurrentUser,
 } from '@/lib/api-client';
 
@@ -45,15 +47,32 @@ export default function EventDetailPage() {
   const [showPaymentDetailsModal, setShowPaymentDetailsModal] = useState(false);
   const [showEventSettings, setShowEventSettings] = useState(false);
 
+  // Claim guest modal state
+  const [showClaimGuestModal, setShowClaimGuestModal] = useState(false);
+  const [selectedClaimGuestId, setSelectedClaimGuestId] = useState<string | null>(null);
+  const [isClaimingGuest, setIsClaimingGuest] = useState(false);
+  const [isEditingGuestName, setIsEditingGuestName] = useState(false);
+  const [editedGuestName, setEditedGuestName] = useState('');
+  const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
+  const [newGuestName, setNewGuestName] = useState('');
+
   // Settings state
   const [settingsEventName, setSettingsEventName] = useState('');
   const [settingsPaymentMethod, setSettingsPaymentMethod] = useState<'venue' | 'bank_transfer'>('venue');
   const [settingsBankAccountNumber, setSettingsBankAccountNumber] = useState('');
   const [settingsBankSortCode, setSettingsBankSortCode] = useState('');
   const [settingsBankAccountName, setSettingsBankAccountName] = useState('');
+  const [settingsAllowGuestPriceEdit, setSettingsAllowGuestPriceEdit] = useState(false);
   const [settingsAllowGuestNotesEdit, setSettingsAllowGuestNotesEdit] = useState(true);
   const [settingsHostContactInfo, setSettingsHostContactInfo] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Notes summary modal state
+  const [showNotesSummary, setShowNotesSummary] = useState(false);
 
   // Item management state
   const [itemNote, setItemNote] = useState('');
@@ -179,22 +198,50 @@ export default function EventDetailPage() {
     const numValue = calculatorValue === '' ? 0 : parseFloat(calculatorValue);
 
     if (calculatorField === 'amount') {
+      // Save old value for rollback
+      const oldGuests = [...guests];
+
+      // Optimistic update
       setGuests(guests.map(g =>
         g.id === calculatorGuestId ? { ...g, amount: isNaN(numValue) ? 0 : numValue } : g
       ));
+
       try {
         await apiUpdateGuest(parseInt(calculatorGuestId), { amount: isNaN(numValue) ? 0 : numValue });
       } catch (error) {
-        console.error('Error updating guest:', error);
+        // Revert optimistic update
+        setGuests(oldGuests);
+
+        // Show error to user
+        const errorMsg = error instanceof Error ? error.message : 'Failed to update amount';
+        setErrorMessage(errorMsg);
+        setShowErrorModal(true);
+
+        console.error('Error updating guest amount:', error);
+        return; // Don't close calculator on error
       }
     } else if (calculatorField === 'deposit') {
+      // Save old value for rollback
+      const oldGuests = [...guests];
+
+      // Optimistic update
       setGuests(guests.map(g =>
         g.id === calculatorGuestId ? { ...g, deposit: isNaN(numValue) ? 0 : numValue } : g
       ));
+
       try {
         await apiUpdateGuest(parseInt(calculatorGuestId), { deposit: isNaN(numValue) ? 0 : numValue });
       } catch (error) {
-        console.error('Error updating guest:', error);
+        // Revert optimistic update
+        setGuests(oldGuests);
+
+        // Show error to user
+        const errorMsg = error instanceof Error ? error.message : 'Failed to update deposit';
+        setErrorMessage(errorMsg);
+        setShowErrorModal(true);
+
+        console.error('Error updating guest deposit:', error);
+        return; // Don't close calculator on error
       }
     }
 
@@ -274,7 +321,8 @@ export default function EventDetailPage() {
     setSettingsBankAccountNumber(event.bankAccountNumber || '');
     setSettingsBankSortCode(event.bankSortCode || '');
     setSettingsBankAccountName(event.bankAccountName || '');
-    setSettingsAllowGuestNotesEdit(event.allowGuestNotesEdit !== false);
+    setSettingsAllowGuestPriceEdit(event.allowGuestPriceEdit ?? true); // Default to true if undefined
+    setSettingsAllowGuestNotesEdit(event.allowGuestNotesEdit ?? true); // Default to true if undefined
     setSettingsHostContactInfo(event.hostContactInfo || '');
     setShowEventSettings(true);
   };
@@ -290,6 +338,7 @@ export default function EventDetailPage() {
         bank_account_number: settingsBankAccountNumber,
         bank_sort_code: settingsBankSortCode,
         bank_account_name: settingsBankAccountName,
+        allow_guest_price_edit: settingsAllowGuestPriceEdit,
         allow_guest_notes_edit: settingsAllowGuestNotesEdit,
         host_contact_info: settingsHostContactInfo,
       });
@@ -302,6 +351,7 @@ export default function EventDetailPage() {
         bankAccountNumber: updatedEvent.bank_account_number,
         bankSortCode: updatedEvent.bank_sort_code,
         bankAccountName: updatedEvent.bank_account_name,
+        allowGuestPriceEdit: updatedEvent.allow_guest_price_edit,
         allowGuestNotesEdit: updatedEvent.allow_guest_notes_edit,
         hostContactInfo: updatedEvent.host_contact_info,
       });
@@ -311,6 +361,235 @@ export default function EventDetailPage() {
       console.error('Error saving settings:', error);
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  // Claim guest functions
+  const openClaimGuestModal = () => {
+    setSelectedClaimGuestId(null);
+    setIsCreatingNewGuest(false);
+    setNewGuestName('');
+    setShowClaimGuestModal(true);
+  };
+
+  const handleClaimGuest = async () => {
+    if (!selectedClaimGuestId || !eventId) return;
+
+    setIsClaimingGuest(true);
+    try {
+      const result = await apiClaimGuest(parseInt(eventId), parseInt(selectedClaimGuestId));
+
+      if (result.success) {
+        setShowClaimGuestModal(false);
+        setSelectedClaimGuestId(null);
+
+        // Reload guests to reflect the claim
+        const guestResult = await apiGetGuests(parseInt(eventId));
+        if (guestResult.success && guestResult.guests) {
+          const convertedGuests: Guest[] = guestResult.guests.map((g: import('@/lib/api-client').Guest) => ({
+            id: g.id.toString(),
+            name: g.name,
+            amount: g.amount,
+            deposit: g.deposit,
+            items: g.items.map((item: import('@/lib/api-client').GuestItem) => ({
+              id: item.id.toString(),
+              note: item.note,
+              price: item.price,
+            })),
+            notes: g.notes,
+            paid: g.paid,
+            app_user_id: g.app_user_id,
+          }));
+          setGuests(convertedGuests);
+        }
+      }
+    } catch (error) {
+      console.error('Error claiming guest:', error);
+    } finally {
+      setIsClaimingGuest(false);
+    }
+  };
+
+  const handleUnclaimGuest = async () => {
+    if (!eventId) return;
+
+    try {
+      const result = await apiUnclaimGuest(parseInt(eventId));
+
+      if (result.success) {
+        // Reload guests to reflect the unclaim
+        const guestResult = await apiGetGuests(parseInt(eventId));
+        if (guestResult.success && guestResult.guests) {
+          const convertedGuests: Guest[] = guestResult.guests.map((g: import('@/lib/api-client').Guest) => ({
+            id: g.id.toString(),
+            name: g.name,
+            amount: g.amount,
+            deposit: g.deposit,
+            items: g.items.map((item: import('@/lib/api-client').GuestItem) => ({
+              id: item.id.toString(),
+              note: item.note,
+              price: item.price,
+            })),
+            notes: g.notes,
+            paid: g.paid,
+            app_user_id: g.app_user_id,
+          }));
+          setGuests(convertedGuests);
+        }
+      }
+    } catch (error) {
+      console.error('Error unclaiming guest:', error);
+    }
+  };
+
+  const handleCancelClaimModal = () => {
+    setShowClaimGuestModal(false);
+    setSelectedClaimGuestId(null);
+  };
+
+  const handleAddAndClaimNewGuest = async () => {
+    if (!newGuestName.trim() || !eventId) return;
+
+    setIsClaimingGuest(true);
+    try {
+      // Check if an unclaimed guest with this name already exists (case-insensitive)
+      const existingGuest = guests.find(
+        g => g.name.toLowerCase() === newGuestName.trim().toLowerCase() && !g.app_user_id
+      );
+
+      if (existingGuest) {
+        // Claim the existing guest
+        const result = await apiClaimGuest(parseInt(eventId), parseInt(existingGuest.id));
+        if (result.success) {
+          setShowClaimGuestModal(false);
+          setIsCreatingNewGuest(false);
+          setNewGuestName('');
+
+          // Reload guests
+          const guestResult = await apiGetGuests(parseInt(eventId));
+          if (guestResult.success && guestResult.guests) {
+            const convertedGuests: Guest[] = guestResult.guests.map((g: import('@/lib/api-client').Guest) => ({
+              id: g.id.toString(),
+              name: g.name,
+              amount: g.amount,
+              deposit: g.deposit,
+              items: g.items.map((item: import('@/lib/api-client').GuestItem) => ({
+                id: item.id.toString(),
+                note: item.note,
+                price: item.price,
+              })),
+              notes: g.notes,
+              paid: g.paid,
+              app_user_id: g.app_user_id,
+            }));
+            setGuests(convertedGuests);
+          }
+        }
+      } else {
+        // Add new guest and claim
+        const apiGuest = await apiAddGuest(parseInt(eventId), newGuestName.trim(), 0, 0);
+        const result = await apiClaimGuest(parseInt(eventId), apiGuest.id);
+
+        if (result.success) {
+          setShowClaimGuestModal(false);
+          setIsCreatingNewGuest(false);
+          setNewGuestName('');
+
+          // Reload guests
+          const guestResult = await apiGetGuests(parseInt(eventId));
+          if (guestResult.success && guestResult.guests) {
+            const convertedGuests: Guest[] = guestResult.guests.map((g: import('@/lib/api-client').Guest) => ({
+              id: g.id.toString(),
+              name: g.name,
+              amount: g.amount,
+              deposit: g.deposit,
+              items: g.items.map((item: import('@/lib/api-client').GuestItem) => ({
+                id: item.id.toString(),
+                note: item.note,
+                price: item.price,
+              })),
+              notes: g.notes,
+              paid: g.paid,
+              app_user_id: g.app_user_id,
+            }));
+            setGuests(convertedGuests);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error adding and claiming guest:', error);
+    } finally {
+      setIsClaimingGuest(false);
+    }
+  };
+
+  const handleAddMyselfAsGuest = async () => {
+    if (!eventId || !currentUser) return;
+
+    setIsClaimingGuest(true);
+    try {
+      // Check if an unclaimed guest with user's name already exists (case-insensitive)
+      const existingGuest = guests.find(
+        g => g.name.toLowerCase() === currentUser.name.trim().toLowerCase() && !g.app_user_id
+      );
+
+      if (existingGuest) {
+        // Claim the existing guest
+        const result = await apiClaimGuest(parseInt(eventId), parseInt(existingGuest.id));
+        if (result.success) {
+          setShowClaimGuestModal(false);
+          // Reload guests
+          const guestResult = await apiGetGuests(parseInt(eventId));
+          if (guestResult.success && guestResult.guests) {
+            const convertedGuests: Guest[] = guestResult.guests.map((g: import('@/lib/api-client').Guest) => ({
+              id: g.id.toString(),
+              name: g.name,
+              amount: g.amount,
+              deposit: g.deposit,
+              items: g.items.map((item: import('@/lib/api-client').GuestItem) => ({
+                id: item.id.toString(),
+                note: item.note,
+                price: item.price,
+              })),
+              notes: g.notes,
+              paid: g.paid,
+              app_user_id: g.app_user_id,
+            }));
+            setGuests(convertedGuests);
+          }
+        }
+      } else {
+        // Add new guest with user's account name and claim
+        const apiGuest = await apiAddGuest(parseInt(eventId), currentUser.name, 0, 0);
+        const result = await apiClaimGuest(parseInt(eventId), apiGuest.id);
+
+        if (result.success) {
+          setShowClaimGuestModal(false);
+          // Reload guests
+          const guestResult = await apiGetGuests(parseInt(eventId));
+          if (guestResult.success && guestResult.guests) {
+            const convertedGuests: Guest[] = guestResult.guests.map((g: import('@/lib/api-client').Guest) => ({
+              id: g.id.toString(),
+              name: g.name,
+              amount: g.amount,
+              deposit: g.deposit,
+              items: g.items.map((item: import('@/lib/api-client').GuestItem) => ({
+                id: item.id.toString(),
+                note: item.note,
+                price: item.price,
+              })),
+              notes: g.notes,
+              paid: g.paid,
+              app_user_id: g.app_user_id,
+            }));
+            setGuests(convertedGuests);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error adding myself as guest:', error);
+    } finally {
+      setIsClaimingGuest(false);
     }
   };
 
@@ -345,6 +624,7 @@ export default function EventDetailPage() {
           bankAccountNumber: foundEvent.bank_account_number,
           bankSortCode: foundEvent.bank_sort_code,
           bankAccountName: foundEvent.bank_account_name,
+          allowGuestPriceEdit: foundEvent.allow_guest_price_edit,
           allowGuestNotesEdit: foundEvent.allow_guest_notes_edit,
           hostContactInfo: foundEvent.host_contact_info,
         };
@@ -470,7 +750,7 @@ export default function EventDetailPage() {
                   <button
                     onClick={() => {
                       setShowMenu(false);
-                      // TODO: Open notes summary modal
+                      setShowNotesSummary(true);
                     }}
                     className="w-full px-4 py-3 text-left hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-3"
                   >
@@ -483,7 +763,7 @@ export default function EventDetailPage() {
                   <button
                     onClick={() => {
                       setShowMenu(false);
-                      // TODO: Open my guest name modal
+                      openClaimGuestModal();
                     }}
                     className="w-full px-4 py-3 text-left hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-3"
                   >
@@ -711,45 +991,118 @@ export default function EventDetailPage() {
 
                     {/* Total and Deposit - Side by Side */}
                     <div className="border-t border-slate-200 dark:border-slate-700 pt-4 grid grid-cols-2 gap-4">
-                      {/* Total */}
-                      <div className="text-center">
-                        <label className="block text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">
-                          Total
-                        </label>
-                        <div
-                          onClick={() => userRole === 'host' && openCalculator('amount', viewingGuestId, viewingGuest.amount)}
-                          className={`w-full px-4 py-4 text-xl font-semibold rounded-lg text-slate-800 dark:text-slate-100 ${
-                            userRole === 'host'
-                              ? 'bg-slate-50 dark:bg-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500'
-                              : 'bg-slate-50 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-700'
-                          }`}
-                        >
-                          £{viewingGuest.amount.toFixed(2)}
-                          {userRole === 'host' && (
-                            <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tap to edit</div>
-                          )}
-                        </div>
-                      </div>
+                      {(() => {
+                        // User can edit if: (1) they are host, OR (2) they are viewing their own guest AND allowGuestPriceEdit is enabled
+                        const canEditPrice = userRole === 'host' || (viewingGuest.app_user_id === currentUser?.id && event?.allowGuestPriceEdit);
 
-                      {/* Deposit */}
-                      <div className="text-center">
-                        <label className="block text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">
-                          Deposit
-                        </label>
-                        <div
-                          onClick={() => userRole === 'host' && openCalculator('deposit', viewingGuestId, viewingGuest.deposit)}
-                          className={`w-full px-4 py-4 text-xl font-semibold rounded-lg text-slate-800 dark:text-slate-100 ${
-                            userRole === 'host'
-                              ? 'bg-slate-50 dark:bg-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500'
-                              : 'bg-slate-50 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-700'
-                          }`}
-                        >
-                          £{viewingGuest.deposit.toFixed(2)}
-                          {userRole === 'host' && (
-                            <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tap to edit</div>
-                          )}
-                        </div>
-                      </div>
+                        return (
+                          <>
+                            {/* Total */}
+                            <div className="text-center">
+                              <label className="block text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">
+                                Total
+                              </label>
+                              <div
+                                onClick={async () => {
+                                  if (!canEditPrice) return;
+
+                                  // If guest, check permissions first
+                                  if (userRole === 'guest' && viewingGuest.app_user_id === currentUser?.id) {
+                                    try {
+                                      const events = await apiGetMyEvents();
+                                      const latestEvent = events.find(ev => ev.id.toString() === eventId);
+
+                                      if (!latestEvent?.allow_guest_price_edit) {
+                                        setErrorMessage('The host has disabled price editing for guests. Please contact the host if you need to update your amount.');
+                                        setShowErrorModal(true);
+                                        return;
+                                      }
+
+                                      // Update local state
+                                      if (event && latestEvent) {
+                                        setEvent({
+                                          ...event,
+                                          allowGuestPriceEdit: latestEvent.allow_guest_price_edit,
+                                          allowGuestNotesEdit: latestEvent.allow_guest_notes_edit,
+                                        });
+                                      }
+                                    } catch (error) {
+                                      console.error('Error checking permissions:', error);
+                                      setErrorMessage('Unable to verify permissions. Please try again.');
+                                      setShowErrorModal(true);
+                                      return;
+                                    }
+                                  }
+
+                                  openCalculator('amount', viewingGuestId, viewingGuest.amount);
+                                }}
+                                className={`w-full px-4 py-4 text-xl font-semibold rounded-lg text-slate-800 dark:text-slate-100 ${
+                                  canEditPrice
+                                    ? 'bg-slate-50 dark:bg-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500'
+                                    : 'bg-slate-50 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-700'
+                                }`}
+                              >
+                                £{viewingGuest.amount.toFixed(2)}
+                                {canEditPrice && (
+                                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tap to edit</div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Deposit */}
+                            <div className="text-center">
+                              <label className="block text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">
+                                Deposit
+                              </label>
+                              <div
+                                onClick={async () => {
+                                  if (!canEditPrice) return;
+
+                                  // If guest, check permissions first
+                                  if (userRole === 'guest' && viewingGuest.app_user_id === currentUser?.id) {
+                                    try {
+                                      const events = await apiGetMyEvents();
+                                      const latestEvent = events.find(ev => ev.id.toString() === eventId);
+
+                                      if (!latestEvent?.allow_guest_price_edit) {
+                                        setErrorMessage('The host has disabled price editing for guests. Please contact the host if you need to update your amount.');
+                                        setShowErrorModal(true);
+                                        return;
+                                      }
+
+                                      // Update local state
+                                      if (event && latestEvent) {
+                                        setEvent({
+                                          ...event,
+                                          allowGuestPriceEdit: latestEvent.allow_guest_price_edit,
+                                          allowGuestNotesEdit: latestEvent.allow_guest_notes_edit,
+                                        });
+                                      }
+                                    } catch (error) {
+                                      console.error('Error checking permissions:', error);
+                                      setErrorMessage('Unable to verify permissions. Please try again.');
+                                      setShowErrorModal(true);
+                                      return;
+                                    }
+                                  }
+
+                                  openCalculator('deposit', viewingGuestId, viewingGuest.deposit);
+                                }}
+                                className={`w-full px-4 py-4 text-xl font-semibold rounded-lg text-slate-800 dark:text-slate-100 ${
+                                  canEditPrice
+                                    ? 'bg-slate-50 dark:bg-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500'
+                                    : 'bg-slate-50 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-700'
+                                }`}
+                              >
+                                £{viewingGuest.deposit.toFixed(2)}
+                                {canEditPrice && (
+                                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tap to edit</div>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -881,29 +1234,74 @@ export default function EventDetailPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
-                      {userRole === 'host' ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openCalculator('amount', guest.id, guest.amount);
-                          }}
-                          className={`text-xl sm:text-2xl font-bold px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${
+                      {(() => {
+                        // Show as button if: (1) host, OR (2) guest viewing their own profile (permission check happens onClick)
+                        const isOwnProfile = guest.app_user_id === currentUser?.id;
+                        const showAsButton = userRole === 'host' || isOwnProfile;
+
+                        return showAsButton ? (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+
+                              // If guest editing their own profile, check permissions from server
+                              if (userRole === 'guest' && isOwnProfile) {
+                                try {
+                                  const events = await apiGetMyEvents();
+                                  const latestEvent = events.find(ev => ev.id.toString() === eventId);
+
+                                  if (!latestEvent?.allow_guest_price_edit) {
+                                    setErrorMessage('The host has disabled price editing for guests. Please contact the host if you need to update your amount.');
+                                    setShowErrorModal(true);
+                                    return;
+                                  }
+
+                                  // Update local state with fresh settings
+                                  if (event && latestEvent) {
+                                    setEvent({
+                                      ...event,
+                                      allowGuestPriceEdit: latestEvent.allow_guest_price_edit,
+                                      allowGuestNotesEdit: latestEvent.allow_guest_notes_edit,
+                                    });
+                                  }
+                                } catch (error) {
+                                  console.error('Error checking permissions:', error);
+                                  setErrorMessage('Unable to verify permissions. Please try again.');
+                                  setShowErrorModal(true);
+                                  return;
+                                }
+                              }
+
+                              // Open calculator
+                              setCalculatorField('amount');
+                              setCalculatorGuestId(guest.id);
+                              setCalculatorValue(guest.amount === 0 ? '' : guest.amount.toString());
+                              setIsFirstInput(true);
+                              setShowCalculator(true);
+                            }}
+                            className={`text-xl sm:text-2xl font-bold px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${
+                              guest.paid
+                                ? 'text-slate-400 dark:text-slate-500'
+                                : guest.app_user_id === currentUser?.id
+                                  ? 'text-blue-600 dark:text-blue-400'
+                                  : 'text-slate-800 dark:text-slate-100'
+                            }`}
+                          >
+                            £{(guest.amount - guest.deposit).toFixed(2)}
+                          </button>
+                        ) : (
+                          <span className={`text-xl sm:text-2xl font-bold ${
                             guest.paid
                               ? 'text-slate-400 dark:text-slate-500'
-                              : 'text-slate-800 dark:text-slate-100'
-                          }`}
-                        >
-                          £{(guest.amount - guest.deposit).toFixed(2)}
-                        </button>
-                      ) : (
-                        <span className={`text-xl sm:text-2xl font-bold ${
-                          guest.paid
-                            ? 'text-slate-400 dark:text-slate-500'
-                            : 'text-slate-800 dark:text-slate-100'
-                        }`}>
-                          £{(guest.amount - guest.deposit).toFixed(2)}
-                        </span>
-                      )}
+                              : guest.app_user_id === currentUser?.id
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-slate-700 dark:text-slate-200'
+                          }`}>
+                            £{(guest.amount - guest.deposit).toFixed(2)}
+                          </span>
+                        );
+                      })()}
                       {userRole === 'host' && (
                         <button
                           onClick={(e) => {
@@ -1164,18 +1562,33 @@ export default function EventDetailPage() {
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                   <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4">Guest Permissions</h3>
 
-                  <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={settingsAllowGuestNotesEdit}
-                      onChange={(e) => setSettingsAllowGuestNotesEdit(e.target.checked)}
-                      className="w-4 h-4 rounded"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-slate-800 dark:text-slate-200">Allow guests to edit their pre-order notes</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">Guests can add or modify their own notes and pre-orders</div>
-                    </div>
-                  </label>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={settingsAllowGuestPriceEdit}
+                        onChange={(e) => setSettingsAllowGuestPriceEdit(e.target.checked)}
+                        className="w-4 h-4 rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-800 dark:text-slate-200">Allow guests to edit prices</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Guests can modify their own price amounts only</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={settingsAllowGuestNotesEdit}
+                        onChange={(e) => setSettingsAllowGuestNotesEdit(e.target.checked)}
+                        className="w-4 h-4 rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-800 dark:text-slate-200">Allow guests to edit their pre-order notes</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Guests can add or modify their own notes and pre-orders</div>
+                      </div>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Host Contact Info Section */}
@@ -1520,6 +1933,340 @@ export default function EventDetailPage() {
                   OK
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Claim Guest Modal */}
+      {showClaimGuestModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleCancelClaimModal}>
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              {(() => {
+                const myClaimedGuest = guests.find(g => g.app_user_id === currentUser?.id);
+                const hasRealProfile = myClaimedGuest && myClaimedGuest.name !== '';
+
+                return (
+                  <>
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                        {hasRealProfile ? 'Your Profile' : 'Claim Guest Profile'}
+                      </h3>
+                      <button
+                        onClick={handleCancelClaimModal}
+                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                        aria-label="Close"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {(() => {
+                      const unclaimedGuests = guests.filter(g => !g.app_user_id && g.name !== '');
+
+                      if (hasRealProfile) {
+                        return (
+                          <>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                              Your profile for this event:
+                            </p>
+
+                            <div className="p-4 border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
+                              {isEditingGuestName ? (
+                                <div className="space-y-3">
+                                  <input
+                                    type="text"
+                                    value={editedGuestName}
+                                    onChange={(e) => setEditedGuestName(e.target.value)}
+                                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                    placeholder="Enter your name"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setIsEditingGuestName(false);
+                                        setEditedGuestName('');
+                                      }}
+                                      className="flex-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={async () => {
+                                        if (!editedGuestName.trim()) return;
+                                        try {
+                                          await apiUpdateGuest(parseInt(myClaimedGuest.id), { name: editedGuestName.trim() });
+                                          setGuests(guests.map(g =>
+                                            g.id === myClaimedGuest.id ? { ...g, name: editedGuestName.trim() } : g
+                                          ));
+                                          setIsEditingGuestName(false);
+                                          setEditedGuestName('');
+                                          setShowClaimGuestModal(false);
+                                        } catch (error) {
+                                          console.error('Error updating guest name:', error);
+                                        }
+                                      }}
+                                      disabled={!editedGuestName.trim()}
+                                      className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                                    >
+                                      Save
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-800 dark:text-slate-200 font-medium">
+                                    {myClaimedGuest.name}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      setEditedGuestName(myClaimedGuest.name);
+                                      setIsEditingGuestName(true);
+                                    }}
+                                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Unclaim button temporarily hidden */}
+                            {/* <button
+                              onClick={async () => {
+                                await handleUnclaimGuest();
+                                setIsEditingGuestName(false);
+                                setEditedGuestName('');
+                              }}
+                              className="w-full mt-1 py-2.5 text-xs text-slate-400 dark:text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                            >
+                              Unclaim this profile
+                            </button> */}
+                          </>
+                        );
+                      }
+
+                      if (unclaimedGuests.length === 0 && !isCreatingNewGuest) {
+                        return (
+                          <>
+                            <div className="text-center py-8 mb-4">
+                              <p className="text-slate-600 dark:text-slate-400">No unclaimed guests available.</p>
+                              <p className="text-sm text-slate-500 dark:text-slate-500 mt-2">Add yourself to continue.</p>
+                            </div>
+                            <button
+                              onClick={handleAddMyselfAsGuest}
+                              disabled={isClaimingGuest}
+                              className="w-full mb-4 px-4 py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isClaimingGuest ? 'Adding...' : `+ Add myself as ${currentUser?.name}`}
+                            </button>
+                          </>
+                        );
+                      }
+
+                      return (
+                        <>
+                          <div className="mb-4">
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              Select your name from the list, or add yourself if your name is not listed.
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                              You can change the display name after claiming.
+                            </p>
+                          </div>
+
+                          {unclaimedGuests.length > 0 && (
+                            <div className="space-y-2 mb-4 max-h-[40vh] overflow-y-auto pr-1">
+                              {unclaimedGuests.map((guest) => (
+                                <label
+                                  key={guest.id}
+                                  className={`flex items-center justify-between gap-3 p-3.5 border-2 rounded-lg cursor-pointer transition-colors ${
+                                    selectedClaimGuestId === guest.id
+                                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                  }`}
+                                  onClick={() => {
+                                    setSelectedClaimGuestId(guest.id);
+                                  }}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <input
+                                      type="radio"
+                                      name="claimGuest"
+                                      value={guest.id}
+                                      checked={selectedClaimGuestId === guest.id}
+                                      onChange={() => {}}
+                                      className="w-4 h-4 text-blue-600 flex-shrink-0"
+                                    />
+                                    <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
+                                      {guest.name}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">
+                                    £{guest.amount.toFixed(2)}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+
+                          <button
+                            onClick={handleAddMyselfAsGuest}
+                            disabled={isClaimingGuest}
+                            className="w-full mb-4 px-4 py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isClaimingGuest ? 'Adding...' : `+ Add myself as ${currentUser?.name}`}
+                          </button>
+
+                          <div className="flex gap-3">
+                            <button
+                              onClick={handleCancelClaimModal}
+                              className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleClaimGuest}
+                              disabled={!selectedClaimGuestId || isClaimingGuest}
+                              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                            >
+                              OK
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowErrorModal(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Unable to Edit</h3>
+                <button
+                  onClick={() => setShowErrorModal(false)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                  aria-label="Close"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="text-slate-600 dark:text-slate-400 mb-6">
+                {errorMessage}
+              </p>
+
+              <button
+                onClick={() => setShowErrorModal(false)}
+                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notes Summary Modal */}
+      {showNotesSummary && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4 z-50" onClick={() => setShowNotesSummary(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-4 py-3 sm:p-6 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-slate-200">Notes Summary</h2>
+                <button
+                  onClick={() => setShowNotesSummary(false)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors flex-shrink-0"
+                  aria-label="Close"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {/* Host Contact Info */}
+              {event?.hostContactInfo && event.hostContactInfo.trim() && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Host Contact</h3>
+                      <div className="text-sm text-blue-800 dark:text-blue-300 whitespace-pre-wrap break-words">
+                        {event.hostContactInfo}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {guests.length > 0 ? (
+                <div className="space-y-2">
+                  {guests.filter(g => g.name !== '').sort((a, b) => a.name.localeCompare(b.name)).map((guest) => {
+                    const canEdit = userRole === 'host' || (guest.app_user_id === currentUser?.id && event?.allowGuestNotesEdit !== false);
+
+                    return (
+                      <div
+                        key={guest.id}
+                        className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                            {guest.name}
+                          </h3>
+                          {canEdit && (
+                            <button
+                              onClick={() => {
+                                setTempGuestNotes(guest.notes);
+                                setEditingGuestNotesId(guest.id);
+                                setViewingGuestId(guest.id);
+                                setShowNotesSummary(false);
+                              }}
+                              className="p-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex-shrink-0 min-w-12 min-h-12 flex items-center justify-center"
+                              aria-label="Edit notes"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-600 dark:text-slate-400">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        {guest.notes && guest.notes.trim() ? (
+                          <div className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap text-sm">
+                            {guest.notes}
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 dark:text-slate-500 text-sm italic">
+                            No notes
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-slate-500 dark:text-slate-400">No guests yet</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

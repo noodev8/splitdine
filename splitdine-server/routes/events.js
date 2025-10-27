@@ -119,7 +119,7 @@ router.post('/create', verifyToken, async (req, res) => {
     const result = await query(
       `INSERT INTO events (name, guest_code, user_id, bank_account_number, bank_sort_code, bank_account_name, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-       RETURNING id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, created_at`,
+       RETURNING id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, allow_guest_price_edit, created_at`,
       [event_name.trim(), guestCode, userId, bank_account_number || null, bank_sort_code || null, bank_account_name || null]
     );
 
@@ -139,7 +139,7 @@ router.post('/create', verifyToken, async (req, res) => {
         bank_account_number: newEvent.bank_account_number,
         bank_sort_code: newEvent.bank_sort_code,
         bank_account_name: newEvent.bank_account_name,
-        allow_guest_editing: newEvent.allow_guest_editing,
+        allow_guest_price_edit: newEvent.allow_guest_price_edit,
         created_at: newEvent.created_at,
         role: 'host'
       },
@@ -219,7 +219,7 @@ router.post('/join', verifyToken, async (req, res) => {
     // Find event by guest code
     // =============================================================================
     const eventResult = await query(
-      `SELECT id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit, host_contact_info, created_at
+      `SELECT id, name, guest_code, bank_account_number, bank_sort_code, bank_account_name, allow_guest_price_edit, allow_guest_notes_edit, host_contact_info, created_at
        FROM events
        WHERE guest_code = $1`,
       [upperCode]
@@ -280,7 +280,7 @@ router.post('/join', verifyToken, async (req, res) => {
         bank_account_number: event.bank_account_number,
         bank_sort_code: event.bank_sort_code,
         bank_account_name: event.bank_account_name,
-        allow_guest_editing: event.allow_guest_editing,
+        allow_guest_price_edit: event.allow_guest_price_edit,
         allow_guest_notes_edit: event.allow_guest_notes_edit,
         host_contact_info: event.host_contact_info,
         role: role,
@@ -341,7 +341,7 @@ router.post('/get_my_events', verifyToken, async (req, res) => {
     // Query user's events - both created and joined
     // =============================================================================
     const result = await query(
-      `SELECT e.id, e.name, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.allow_guest_editing, e.allow_guest_notes_edit, e.host_contact_info, e.created_at,
+      `SELECT e.id, e.name, e.guest_code, e.bank_account_number, e.bank_sort_code, e.bank_account_name, e.allow_guest_price_edit, e.allow_guest_notes_edit, e.host_contact_info, e.created_at,
               CASE
                 WHEN e.user_id = $1 THEN 'host'
                 WHEN g.co_host = true THEN 'host'
@@ -365,7 +365,7 @@ router.post('/get_my_events', verifyToken, async (req, res) => {
       bank_account_number: event.bank_account_number,
       bank_sort_code: event.bank_sort_code,
       bank_account_name: event.bank_account_name,
-      allow_guest_editing: event.allow_guest_editing,
+      allow_guest_price_edit: event.allow_guest_price_edit,
       allow_guest_notes_edit: event.allow_guest_notes_edit,
       host_contact_info: event.host_contact_info,
       role: event.role,
@@ -516,7 +516,7 @@ router.post('/update_bank_details', verifyToken, async (req, res) => {
 API Route: update_event_settings
 =======================================================================================================================================
 Method: POST
-Purpose: Updates basic event settings including name, bank details, and guest editing permission.
+Purpose: Updates basic event settings including name, bank details, and guest editing permissions.
          Only the host can update event settings.
          Requires authentication.
 =======================================================================================================================================
@@ -527,7 +527,9 @@ Request Payload:
   "bank_account_number": "12345678",                      // string, optional
   "bank_sort_code": "04-00-03",                           // string, optional
   "bank_account_name": "John Doe",                        // string, optional
-  "allow_guest_editing": true                             // boolean, optional
+  "allow_guest_price_edit": true,                         // boolean, optional
+  "allow_guest_notes_edit": true,                         // boolean, optional
+  "host_contact_info": "Call me at 555-1234"              // string, optional
 }
 
 Success Response:
@@ -539,7 +541,9 @@ Success Response:
     "bank_account_number": "12345678",
     "bank_sort_code": "04-00-03",
     "bank_account_name": "John Doe",
-    "allow_guest_editing": true
+    "allow_guest_price_edit": true,
+    "allow_guest_notes_edit": true,
+    "host_contact_info": "Call me at 555-1234"
   },
   "message": "Event settings updated successfully"
 }
@@ -558,7 +562,7 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
     // =============================================================================
     // Extract and validate request data
     // =============================================================================
-    const { event_id, event_name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit, host_contact_info } = req.body;
+    const { event_id, event_name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_price_edit, allow_guest_notes_edit, host_contact_info } = req.body;
     const userId = req.user.id; // User is authenticated
 
     if (!event_id) {
@@ -629,9 +633,9 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
       paramCount++;
     }
 
-    if (allow_guest_editing !== undefined) {
-      updates.push(`allow_guest_editing = $${paramCount}`);
-      values.push(allow_guest_editing);
+    if (allow_guest_price_edit !== undefined) {
+      updates.push(`allow_guest_price_edit = $${paramCount}`);
+      values.push(allow_guest_price_edit);
       paramCount++;
     }
 
@@ -667,7 +671,7 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
       UPDATE events
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_editing, allow_guest_notes_edit, host_contact_info
+      RETURNING id, name, bank_account_number, bank_sort_code, bank_account_name, allow_guest_price_edit, allow_guest_notes_edit, host_contact_info
     `;
 
     const updateResult = await query(updateQuery, values);
@@ -690,7 +694,7 @@ router.post('/update_event_settings', verifyToken, async (req, res) => {
         bank_account_number: updateResult.rows[0].bank_account_number,
         bank_sort_code: updateResult.rows[0].bank_sort_code,
         bank_account_name: updateResult.rows[0].bank_account_name,
-        allow_guest_editing: updateResult.rows[0].allow_guest_editing,
+        allow_guest_price_edit: updateResult.rows[0].allow_guest_price_edit,
         allow_guest_notes_edit: updateResult.rows[0].allow_guest_notes_edit,
         host_contact_info: updateResult.rows[0].host_contact_info
       },
@@ -897,8 +901,8 @@ router.post('/delete_event', verifyToken, async (req, res) => {
       // Archive the event
       await client.query(
         `INSERT INTO zarchive_events
-         (id, name, guest_code, created_at, updated_at, user_id, bank_account_number, bank_sort_code, bank_account_name, payment_method, allow_guest_editing, allow_guest_notes_edit, host_contact_info, archived_at, archived_by)
-         SELECT id, name, guest_code, created_at, updated_at, user_id, bank_account_number, bank_sort_code, bank_account_name, payment_method, allow_guest_editing, allow_guest_notes_edit, host_contact_info, CURRENT_TIMESTAMP, $2
+         (id, name, guest_code, created_at, updated_at, user_id, bank_account_number, bank_sort_code, bank_account_name, payment_method, allow_guest_price_edit, allow_guest_notes_edit, host_contact_info, archived_at, archived_by)
+         SELECT id, name, guest_code, created_at, updated_at, user_id, bank_account_number, bank_sort_code, bank_account_name, payment_method, allow_guest_price_edit, allow_guest_notes_edit, host_contact_info, CURRENT_TIMESTAMP, $2
          FROM events
          WHERE id = $1`,
         [event_id, userId]

@@ -27,7 +27,7 @@ export interface Event {
   bankAccountNumber?: string;
   bankSortCode?: string;
   bankAccountName?: string;
-  allowGuestEditing?: boolean;
+  allowGuestPriceEdit?: boolean;
   allowGuestNotesEdit?: boolean;
   hostContactInfo?: string;
 }

@@ -34,7 +34,7 @@ export interface Event {
   bank_account_number?: string;
   bank_sort_code?: string;
   bank_account_name?: string;
-  allow_guest_editing?: boolean;
+  allow_guest_price_edit?: boolean;
   allow_guest_notes_edit?: boolean;
   host_contact_info?: string;
 }
@@ -257,11 +257,12 @@ export const updateEventSettings = async (
     bank_account_number?: string;
     bank_sort_code?: string;
     bank_account_name?: string;
+    allow_guest_price_edit?: boolean;
     allow_guest_notes_edit?: boolean;
     host_contact_info?: string;
   }
-): Promise<{id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string, allow_guest_notes_edit?: boolean, host_contact_info?: string}> => {
-  const response = await apiCall<ApiResponse & { event: {id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string, allow_guest_notes_edit?: boolean, host_contact_info?: string} }>('/api/events/update_event_settings', {
+): Promise<{id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string, allow_guest_price_edit?: boolean, allow_guest_notes_edit?: boolean, host_contact_info?: string}> => {
+  const response = await apiCall<ApiResponse & { event: {id: number, name: string, payment_method?: string, bank_account_number?: string, bank_sort_code?: string, bank_account_name?: string, allow_guest_price_edit?: boolean, allow_guest_notes_edit?: boolean, host_contact_info?: string} }>('/api/events/update_event_settings', {
     event_id: eventId,
     ...settings,
   });

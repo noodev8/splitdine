@@ -53,7 +53,7 @@ interface Event {
   bankAccountNumber?: string;
   bankSortCode?: string;
   bankAccountName?: string;
-  allowGuestEditing?: boolean;
+  allowGuestPriceEdit?: boolean;
   allowGuestNotesEdit?: boolean;
   hostContactInfo?: string;
 }
@@ -303,7 +303,7 @@ function HomeContent() {
           bankAccountNumber: apiEvent.bank_account_number,
           bankSortCode: apiEvent.bank_sort_code,
           bankAccountName: apiEvent.bank_account_name,
-          allowGuestEditing: apiEvent.allow_guest_editing ?? true,
+          allowGuestPriceEdit: apiEvent.allow_guest_price_edit ?? false,
           allowGuestNotesEdit: apiEvent.allow_guest_notes_edit ?? true,
           hostContactInfo: apiEvent.host_contact_info,
         }));
@@ -639,7 +639,7 @@ function HomeContent() {
           bankAccountNumber: apiEvent.bank_account_number,
           bankSortCode: apiEvent.bank_sort_code,
           bankAccountName: apiEvent.bank_account_name,
-          allowGuestEditing: apiEvent.allow_guest_editing ?? true,
+          allowGuestPriceEdit: apiEvent.allow_guest_price_edit ?? false,
           allowGuestNotesEdit: apiEvent.allow_guest_notes_edit ?? true,
           hostContactInfo: apiEvent.host_contact_info,
         };
@@ -690,7 +690,7 @@ function HomeContent() {
         bankAccountNumber: apiEvent.bank_account_number,
         bankSortCode: apiEvent.bank_sort_code,
         bankAccountName: apiEvent.bank_account_name,
-        allowGuestEditing: apiEvent.allow_guest_editing ?? true,
+        allowGuestPriceEdit: apiEvent.allow_guest_price_edit ?? false,
         allowGuestNotesEdit: apiEvent.allow_guest_notes_edit ?? true,
         hostContactInfo: apiEvent.host_contact_info,
       };

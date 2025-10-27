@@ -2,13 +2,17 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Event, UserEventMembership } from '@/lib/types';
+import type { Event, UserEventMembership, Guest } from '@/lib/types';
 import {
   createEvent as apiCreateEvent,
   joinEvent as apiJoinEvent,
   getMyEvents as apiGetMyEvents,
   deleteEvent as apiDeleteEvent,
   leaveEvent as apiLeaveEvent,
+  getGuests as apiGetGuests,
+  addGuest as apiAddGuest,
+  claimGuest as apiClaimGuest,
+  getMyClaimedGuest as apiGetMyClaimedGuest,
   getCurrentUser,
 } from '@/lib/api-client';
 import type { EventListItemProps } from '@/lib/types';
@@ -268,6 +272,15 @@ export default function EventsPage() {
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
   const [eventToLeave, setEventToLeave] = useState<string | null>(null);
 
+  // Claim guest modal state
+  const [showClaimGuestModal, setShowClaimGuestModal] = useState(false);
+  const [selectedClaimGuestId, setSelectedClaimGuestId] = useState<string | null>(null);
+  const [pendingEventId, setPendingEventId] = useState<string | null>(null);
+  const [pendingGuests, setPendingGuests] = useState<Guest[]>([]);
+  const [isClaimingGuest, setIsClaimingGuest] = useState(false);
+  const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
+  const [newGuestName, setNewGuestName] = useState('');
+
   // Form states
   const [eventName, setEventName] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -392,34 +405,133 @@ export default function EventsPage() {
       const response = await apiJoinEvent(joinCode.trim());
 
       if (response.success && response.event) {
+        const apiEvent = response.event;
         const joinedEvent: Event = {
-          id: response.event.id.toString(),
-          name: response.event.name,
-          guestCode: response.event.guest_code,
+          id: apiEvent.id.toString(),
+          name: apiEvent.name,
+          guestCode: apiEvent.guest_code,
           guests: [],
-          createdAt: new Date(response.event.created_at).getTime(),
-          paymentMethod: response.event.payment_method,
-          bankAccountNumber: response.event.bank_account_number,
-          bankSortCode: response.event.bank_sort_code,
-          bankAccountName: response.event.bank_account_name,
-          allowGuestNotesEdit: response.event.allow_guest_notes_edit,
-          hostContactInfo: response.event.host_contact_info,
+          createdAt: new Date(apiEvent.created_at).getTime(),
+          paymentMethod: apiEvent.payment_method,
+          bankAccountNumber: apiEvent.bank_account_number,
+          bankSortCode: apiEvent.bank_sort_code,
+          bankAccountName: apiEvent.bank_account_name,
+          allowGuestNotesEdit: apiEvent.allow_guest_notes_edit,
+          hostContactInfo: apiEvent.host_contact_info,
         };
 
-        const newMembership: UserEventMembership = {
-          eventId: joinedEvent.id,
-          role: response.event.role as 'host' | 'guest',
-          joinedAt: Date.now(),
-        };
+        // Check if event already exists in local state
+        const existingEvent = events.find(e => e.id === joinedEvent.id);
+        if (!existingEvent) {
+          setEvents([...events, joinedEvent]);
+        }
 
-        setEvents([...events, joinedEvent]);
-        setUserMemberships([...userMemberships, newMembership]);
+        // Check if already a member
+        const existingMembership = userMemberships.find(m => m.eventId === joinedEvent.id);
+        if (!existingMembership) {
+          const newMembership: UserEventMembership = {
+            eventId: joinedEvent.id,
+            role: apiEvent.role as 'host' | 'guest',
+            joinedAt: Date.now(),
+          };
+          setUserMemberships([...userMemberships, newMembership]);
+        }
+
         setShowJoinEventModal(false);
         setJoinCode('');
         setJoinCodeError('');
 
-        // Navigate to the joined event
-        router.push(`/events/${joinedEvent.id}`);
+        // Load guests first (needed for modal to show unclaimed list)
+        let loadedGuests: Guest[] = [];
+        try {
+          const guestResult = await apiGetGuests(parseInt(joinedEvent.id));
+          if (guestResult.success && guestResult.guests) {
+            loadedGuests = guestResult.guests.map((g: import('@/lib/api-client').Guest) => ({
+              id: g.id.toString(),
+              name: g.name,
+              amount: g.amount,
+              deposit: g.deposit,
+              items: g.items.map((item: import('@/lib/api-client').GuestItem) => ({
+                id: item.id.toString(),
+                note: item.note,
+                price: item.price,
+              })),
+              notes: g.notes,
+              paid: g.paid,
+              app_user_id: g.app_user_id,
+            }));
+          }
+          setPendingGuests(loadedGuests);
+        } catch (error) {
+          console.log('Could not load guests:', error);
+          setPendingGuests([]);
+        }
+
+        // Check if user needs to claim a guest profile
+        const myClaimedGuestResult = await apiGetMyClaimedGuest(parseInt(joinedEvent.id));
+
+        // User needs to claim if they're a guest AND either:
+        // 1. They have no guest at all
+        // 2. They have a placeholder guest (name is empty)
+        const needsToClaim = apiEvent.role === 'guest' &&
+                            myClaimedGuestResult.success &&
+                            (!myClaimedGuestResult.guest || myClaimedGuestResult.guest.name === '');
+
+        if (needsToClaim) {
+          // Check for case-insensitive name match in unclaimed guests
+          const unclaimedGuests = loadedGuests.filter(g => !g.app_user_id && g.name !== '');
+          const exactMatch = unclaimedGuests.find(g =>
+            g.name.trim().toLowerCase() === currentUser.name.trim().toLowerCase()
+          );
+
+          if (exactMatch) {
+            // Auto-claim the matching guest
+            try {
+              const claimResult = await apiClaimGuest(parseInt(joinedEvent.id), parseInt(exactMatch.id));
+
+              if (claimResult.success) {
+                // Successfully claimed, navigate to event
+                router.push(`/events/${joinedEvent.id}`);
+              } else {
+                // Claim failed, show modal
+                setPendingEventId(joinedEvent.id);
+                setShowClaimGuestModal(true);
+              }
+            } catch (error) {
+              console.error('Error auto-claiming:', error);
+              // On error, show modal
+              setPendingEventId(joinedEvent.id);
+              setShowClaimGuestModal(true);
+            }
+          } else if (unclaimedGuests.length === 0) {
+            // No unclaimed guests - automatically add and claim user with their account name
+            try {
+              const apiGuest = await apiAddGuest(parseInt(joinedEvent.id), currentUser.name, 0, 0);
+              const claimResult = await apiClaimGuest(parseInt(joinedEvent.id), apiGuest.id);
+
+              if (claimResult.success) {
+                // Successfully added and claimed, navigate to event
+                router.push(`/events/${joinedEvent.id}`);
+              } else {
+                // Claim failed, show modal
+                setPendingEventId(joinedEvent.id);
+                setShowClaimGuestModal(true);
+              }
+            } catch (error) {
+              console.error('Error auto-adding guest:', error);
+              // On error, show modal
+              setPendingEventId(joinedEvent.id);
+              setShowClaimGuestModal(true);
+            }
+          } else {
+            // No exact match but there are unclaimed guests - show claim modal to let them choose
+            setPendingEventId(joinedEvent.id);
+            setShowClaimGuestModal(true);
+          }
+        } else {
+          // User already claimed or is host - navigate to event immediately
+          router.push(`/events/${joinedEvent.id}`);
+        }
       } else {
         setJoinCodeError(response.error || 'Invalid event code');
       }
@@ -458,6 +570,133 @@ export default function EventsPage() {
     } catch (error) {
       console.error('Error leaving event:', error);
       showToastNotification('Failed to leave event');
+    }
+  };
+
+  // Claim guest handlers
+  const handleClaimGuest = async () => {
+    if (!selectedClaimGuestId || !pendingEventId) return;
+
+    setIsClaimingGuest(true);
+    try {
+      const result = await apiClaimGuest(parseInt(pendingEventId), parseInt(selectedClaimGuestId));
+
+      if (result.success) {
+        setShowClaimGuestModal(false);
+        setSelectedClaimGuestId(null);
+        setPendingEventId(null);
+        setPendingGuests([]);
+
+        // Navigate to the event
+        router.push(`/events/${pendingEventId}`);
+      }
+    } catch (error) {
+      console.error('Error claiming guest:', error);
+      showToastNotification('Failed to claim guest');
+    } finally {
+      setIsClaimingGuest(false);
+    }
+  };
+
+  const handleCancelClaimModal = async () => {
+    // If closing during pending join, leave the event
+    if (pendingEventId) {
+      try {
+        await apiLeaveEvent(parseInt(pendingEventId));
+        // Remove event from events list
+        setEvents(events.filter(e => e.id !== pendingEventId));
+        setUserMemberships(userMemberships.filter(m => m.eventId !== pendingEventId));
+      } catch (error) {
+        console.error('Error leaving event:', error);
+      }
+      setPendingEventId(null);
+    }
+    setShowClaimGuestModal(false);
+    setSelectedClaimGuestId(null);
+    setPendingGuests([]);
+  };
+
+  const handleAddAndClaimNewGuest = async () => {
+    if (!newGuestName.trim() || !pendingEventId) return;
+
+    setIsClaimingGuest(true);
+    try {
+      // Check if an unclaimed guest with this name already exists (case-insensitive)
+      const existingGuest = pendingGuests.find(
+        g => g.name.toLowerCase() === newGuestName.trim().toLowerCase() && !g.app_user_id
+      );
+
+      if (existingGuest) {
+        // Claim the existing guest
+        const result = await apiClaimGuest(parseInt(pendingEventId), parseInt(existingGuest.id));
+        if (result.success) {
+          setShowClaimGuestModal(false);
+          setIsCreatingNewGuest(false);
+          setNewGuestName('');
+          setPendingEventId(null);
+          setPendingGuests([]);
+          router.push(`/events/${pendingEventId}`);
+        }
+      } else {
+        // Add new guest and claim
+        const apiGuest = await apiAddGuest(parseInt(pendingEventId), newGuestName.trim(), 0, 0);
+        const result = await apiClaimGuest(parseInt(pendingEventId), apiGuest.id);
+
+        if (result.success) {
+          setShowClaimGuestModal(false);
+          setIsCreatingNewGuest(false);
+          setNewGuestName('');
+          const eventIdToNav = pendingEventId;
+          setPendingEventId(null);
+          setPendingGuests([]);
+          router.push(`/events/${eventIdToNav}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error adding and claiming guest:', error);
+      showToastNotification('Failed to add guest');
+    } finally {
+      setIsClaimingGuest(false);
+    }
+  };
+
+  const handleAddMyselfAsGuest = async () => {
+    if (!pendingEventId || !currentUser) return;
+
+    setIsClaimingGuest(true);
+    try {
+      // Check if an unclaimed guest with user's name already exists (case-insensitive)
+      const existingGuest = pendingGuests.find(
+        g => g.name.toLowerCase() === currentUser.name.trim().toLowerCase() && !g.app_user_id
+      );
+
+      if (existingGuest) {
+        // Claim the existing guest
+        const result = await apiClaimGuest(parseInt(pendingEventId), parseInt(existingGuest.id));
+        if (result.success) {
+          setShowClaimGuestModal(false);
+          setPendingEventId(null);
+          setPendingGuests([]);
+          router.push(`/events/${pendingEventId}`);
+        }
+      } else {
+        // Add new guest with user's account name and claim
+        const apiGuest = await apiAddGuest(parseInt(pendingEventId), currentUser.name, 0, 0);
+        const result = await apiClaimGuest(parseInt(pendingEventId), apiGuest.id);
+
+        if (result.success) {
+          setShowClaimGuestModal(false);
+          const eventIdToNav = pendingEventId;
+          setPendingEventId(null);
+          setPendingGuests([]);
+          router.push(`/events/${eventIdToNav}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error adding myself as guest:', error);
+      showToastNotification('Failed to add guest');
+    } finally {
+      setIsClaimingGuest(false);
     }
   };
 
@@ -622,7 +861,7 @@ export default function EventsPage() {
               type="text"
               value={joinCode}
               onChange={(e) => {
-                setJoinCode(e.target.value);
+                setJoinCode(e.target.value.toUpperCase());
                 setJoinCodeError('');
               }}
               onKeyDown={(e) => {
@@ -634,7 +873,7 @@ export default function EventsPage() {
                 }
               }}
               placeholder="Enter event code"
-              className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 mb-2"
+              className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 mb-2 uppercase"
             />
             {joinCodeError && (
               <p className="text-sm text-red-600 dark:text-red-400 mb-4">{joinCodeError}</p>
@@ -719,6 +958,106 @@ export default function EventsPage() {
               >
                 Leave
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Claim Guest Modal */}
+      {showClaimGuestModal && pendingEventId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleCancelClaimModal}>
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                  Claim Guest Profile
+                </h3>
+                <button
+                  onClick={handleCancelClaimModal}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                  aria-label="Close"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {(() => {
+                const unclaimedGuests = pendingGuests.filter(g => !g.app_user_id && g.name !== '');
+
+                return (
+                  <>
+                    <div className="mb-4">
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Select your name from the list, or add yourself if your name is not listed.
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                        You can change the display name after claiming.
+                      </p>
+                    </div>
+
+                    {unclaimedGuests.length > 0 && (
+                      <div className="space-y-2 mb-4 max-h-[40vh] overflow-y-auto pr-1">
+                        {unclaimedGuests.map((guest) => (
+                          <label
+                            key={guest.id}
+                            className={`flex items-center justify-between gap-3 p-3.5 border-2 rounded-lg cursor-pointer transition-colors ${
+                              selectedClaimGuestId === guest.id
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                            }`}
+                            onClick={() => {
+                              setSelectedClaimGuestId(guest.id);
+                            }}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <input
+                                type="radio"
+                                name="claimGuest"
+                                value={guest.id}
+                                checked={selectedClaimGuestId === guest.id}
+                                onChange={() => {}}
+                                className="w-4 h-4 text-blue-600 flex-shrink-0"
+                              />
+                              <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
+                                {guest.name}
+                              </span>
+                            </div>
+                            <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">
+                              £{guest.amount.toFixed(2)}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleAddMyselfAsGuest}
+                      disabled={isClaimingGuest}
+                      className="w-full mb-4 px-4 py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isClaimingGuest ? 'Adding...' : `+ Add myself as ${currentUser?.name}`}
+                    </button>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleCancelClaimModal}
+                        className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleClaimGuest}
+                        disabled={!selectedClaimGuestId || isClaimingGuest}
+                        className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

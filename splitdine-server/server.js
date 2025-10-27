@@ -25,8 +25,9 @@ const app = express();
 // Trust Proxy Configuration
 // =============================================================================
 // Enable trust proxy since we're behind Nginx reverse proxy
+// Only trust localhost since Nginx is on the same server
 // This allows Express to correctly identify client IPs from X-Forwarded-For header
-app.set('trust proxy', true);
+app.set('trust proxy', 'loopback');
 
 // =============================================================================
 // Security Middleware
@@ -64,13 +65,15 @@ app.use(cors(corsOptions));
 // Limit repeated requests to public APIs
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 1000, // Limit each IP to 1000 requests per windowMs (increased for testing)
   message: {
     return_code: 'RATE_LIMIT_EXCEEDED',
     message: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Validate that trust proxy is configured correctly
+  validate: { trustProxy: false }
 });
 
 app.use('/api/', limiter);

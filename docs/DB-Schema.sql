@@ -5,7 +5,7 @@
 -- Dumped from database version 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 17.4
 
--- Started on 2025-10-18 11:49:50
+-- Started on 2025-10-27 17:53:30
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -184,7 +184,7 @@ CREATE TABLE public.events (
     bank_sort_code character varying(20),
     bank_account_name character varying(255),
     payment_method character varying(20) DEFAULT 'venue'::character varying NOT NULL,
-    allow_guest_editing boolean DEFAULT true,
+    allow_guest_price_edit boolean DEFAULT true,
     allow_guest_notes_edit boolean DEFAULT true NOT NULL,
     host_contact_info character varying(200)
 );
@@ -241,6 +241,15 @@ COMMENT ON COLUMN public.events.payment_method IS 'Payment method: ''venue'' for
 --
 -- TOC entry 3541 (class 0 OID 0)
 -- Dependencies: 217
+-- Name: COLUMN events.allow_guest_price_edit; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
+--
+
+COMMENT ON COLUMN public.events.allow_guest_price_edit IS 'Whether guests can edit item prices in their bill breakdown';
+
+
+--
+-- TOC entry 3542 (class 0 OID 0)
+-- Dependencies: 217
 -- Name: COLUMN events.allow_guest_notes_edit; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
 
@@ -248,7 +257,7 @@ COMMENT ON COLUMN public.events.allow_guest_notes_edit IS 'Whether guests can ed
 
 
 --
--- TOC entry 3542 (class 0 OID 0)
+-- TOC entry 3543 (class 0 OID 0)
 -- Dependencies: 217
 -- Name: COLUMN events.host_contact_info; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -273,7 +282,7 @@ CREATE SEQUENCE public.events_id_seq
 ALTER SEQUENCE public.events_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3543 (class 0 OID 0)
+-- TOC entry 3544 (class 0 OID 0)
 -- Dependencies: 216
 -- Name: events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -315,7 +324,7 @@ CREATE SEQUENCE public.guest_items_id_seq
 ALTER SEQUENCE public.guest_items_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3544 (class 0 OID 0)
+-- TOC entry 3545 (class 0 OID 0)
 -- Dependencies: 220
 -- Name: guest_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -346,7 +355,7 @@ CREATE TABLE public.guests (
 ALTER TABLE public.guests OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3545 (class 0 OID 0)
+-- TOC entry 3546 (class 0 OID 0)
 -- Dependencies: 219
 -- Name: COLUMN guests.co_host; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -371,7 +380,7 @@ CREATE SEQUENCE public.guests_id_seq
 ALTER SEQUENCE public.guests_id_seq OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3546 (class 0 OID 0)
+-- TOC entry 3547 (class 0 OID 0)
 -- Dependencies: 218
 -- Name: guests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: splitdine_prod_user
 --
@@ -395,7 +404,7 @@ CREATE TABLE public.zarchive_events (
     bank_sort_code character varying(20),
     bank_account_name character varying(255),
     payment_method character varying(20) DEFAULT 'venue'::character varying NOT NULL,
-    allow_guest_editing boolean DEFAULT true,
+    allow_guest_price_edit boolean DEFAULT true,
     allow_guest_notes_edit boolean DEFAULT true NOT NULL,
     host_contact_info character varying(200),
     archived_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -406,7 +415,7 @@ CREATE TABLE public.zarchive_events (
 ALTER TABLE public.zarchive_events OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3547 (class 0 OID 0)
+-- TOC entry 3548 (class 0 OID 0)
 -- Dependencies: 224
 -- Name: TABLE zarchive_events; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -415,7 +424,7 @@ COMMENT ON TABLE public.zarchive_events IS 'Archive of deleted events for analyt
 
 
 --
--- TOC entry 3548 (class 0 OID 0)
+-- TOC entry 3549 (class 0 OID 0)
 -- Dependencies: 224
 -- Name: COLUMN zarchive_events.id; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -424,7 +433,7 @@ COMMENT ON COLUMN public.zarchive_events.id IS 'Original event ID from events ta
 
 
 --
--- TOC entry 3549 (class 0 OID 0)
+-- TOC entry 3550 (class 0 OID 0)
 -- Dependencies: 224
 -- Name: COLUMN zarchive_events.archived_at; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -433,7 +442,7 @@ COMMENT ON COLUMN public.zarchive_events.archived_at IS 'When the event was dele
 
 
 --
--- TOC entry 3550 (class 0 OID 0)
+-- TOC entry 3551 (class 0 OID 0)
 -- Dependencies: 224
 -- Name: COLUMN zarchive_events.archived_by; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -461,7 +470,7 @@ CREATE TABLE public.zarchive_guest_items (
 ALTER TABLE public.zarchive_guest_items OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3551 (class 0 OID 0)
+-- TOC entry 3552 (class 0 OID 0)
 -- Dependencies: 226
 -- Name: TABLE zarchive_guest_items; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -470,7 +479,7 @@ COMMENT ON TABLE public.zarchive_guest_items IS 'Archive of deleted guest items 
 
 
 --
--- TOC entry 3552 (class 0 OID 0)
+-- TOC entry 3553 (class 0 OID 0)
 -- Dependencies: 226
 -- Name: COLUMN zarchive_guest_items.id; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -479,7 +488,7 @@ COMMENT ON COLUMN public.zarchive_guest_items.id IS 'Original item ID from guest
 
 
 --
--- TOC entry 3553 (class 0 OID 0)
+-- TOC entry 3554 (class 0 OID 0)
 -- Dependencies: 226
 -- Name: COLUMN zarchive_guest_items.guest_id; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -488,7 +497,7 @@ COMMENT ON COLUMN public.zarchive_guest_items.guest_id IS 'Guest ID this item be
 
 
 --
--- TOC entry 3554 (class 0 OID 0)
+-- TOC entry 3555 (class 0 OID 0)
 -- Dependencies: 226
 -- Name: COLUMN zarchive_guest_items.event_id; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -497,7 +506,7 @@ COMMENT ON COLUMN public.zarchive_guest_items.event_id IS 'Event ID this item be
 
 
 --
--- TOC entry 3555 (class 0 OID 0)
+-- TOC entry 3556 (class 0 OID 0)
 -- Dependencies: 226
 -- Name: COLUMN zarchive_guest_items.archived_at; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -506,7 +515,7 @@ COMMENT ON COLUMN public.zarchive_guest_items.archived_at IS 'When the item was 
 
 
 --
--- TOC entry 3556 (class 0 OID 0)
+-- TOC entry 3557 (class 0 OID 0)
 -- Dependencies: 226
 -- Name: COLUMN zarchive_guest_items.archived_by; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -539,7 +548,7 @@ CREATE TABLE public.zarchive_guests (
 ALTER TABLE public.zarchive_guests OWNER TO splitdine_prod_user;
 
 --
--- TOC entry 3557 (class 0 OID 0)
+-- TOC entry 3558 (class 0 OID 0)
 -- Dependencies: 225
 -- Name: TABLE zarchive_guests; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -548,7 +557,7 @@ COMMENT ON TABLE public.zarchive_guests IS 'Archive of deleted guests for analyt
 
 
 --
--- TOC entry 3558 (class 0 OID 0)
+-- TOC entry 3559 (class 0 OID 0)
 -- Dependencies: 225
 -- Name: COLUMN zarchive_guests.id; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -557,7 +566,7 @@ COMMENT ON COLUMN public.zarchive_guests.id IS 'Original guest ID from guests ta
 
 
 --
--- TOC entry 3559 (class 0 OID 0)
+-- TOC entry 3560 (class 0 OID 0)
 -- Dependencies: 225
 -- Name: COLUMN zarchive_guests.event_id; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -566,7 +575,7 @@ COMMENT ON COLUMN public.zarchive_guests.event_id IS 'Event ID this guest belong
 
 
 --
--- TOC entry 3560 (class 0 OID 0)
+-- TOC entry 3561 (class 0 OID 0)
 -- Dependencies: 225
 -- Name: COLUMN zarchive_guests.archived_at; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -575,7 +584,7 @@ COMMENT ON COLUMN public.zarchive_guests.archived_at IS 'When the guest was dele
 
 
 --
--- TOC entry 3561 (class 0 OID 0)
+-- TOC entry 3562 (class 0 OID 0)
 -- Dependencies: 225
 -- Name: COLUMN zarchive_guests.archived_by; Type: COMMENT; Schema: public; Owner: splitdine_prod_user
 --
@@ -812,7 +821,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENC
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO splitdine_prod_user;
 
 
--- Completed on 2025-10-18 11:49:52
+-- Completed on 2025-10-27 17:53:31
 
 --
 -- PostgreSQL database dump complete
