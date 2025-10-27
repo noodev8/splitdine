@@ -5,3 +5,8 @@ rsync -av --delete --exclude='.env' --exclude='node_modules' --exclude='.git' --
 cd /apps/production/splitdine-server
 npm install
 pm2 restart server.js --name splitdine_prod
+
+-- Vercel
+-- Updates automatically
+-- cd /splitdine
+-- vercel --prod

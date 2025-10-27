@@ -1120,7 +1120,26 @@ export default function EventDetailPage() {
                   </button>
 
                   <button
-                    onClick={() => {
+                    onClick={async () => {
+                      // If guest editing their own notes, check permissions from server
+                      if (userRole === 'guest' && viewingGuest.app_user_id === currentUser?.id) {
+                        try {
+                          const events = await apiGetMyEvents();
+                          const latestEvent = events.find(ev => ev.id.toString() === eventId);
+
+                          // Update local state with fresh settings
+                          if (event && latestEvent) {
+                            setEvent({
+                              ...event,
+                              allowGuestPriceEdit: latestEvent.allow_guest_price_edit,
+                              allowGuestNotesEdit: latestEvent.allow_guest_notes_edit,
+                            });
+                          }
+                        } catch (error) {
+                          console.error('Error fetching fresh event settings:', error);
+                        }
+                      }
+
                       setTempGuestNotes(viewingGuest.notes);
                       setEditingGuestNotesId(viewingGuestId);
                     }}
@@ -1786,26 +1805,28 @@ export default function EventDetailPage() {
 
                 {/* Guest Name */}
                 <div className="mb-4">
-                  <p className="text-base font-medium text-slate-600 dark:text-slate-400">
-                    {guest.name}
-                  </p>
-                </div>
-
-                {/* Locked Message for Guests */}
-                {!canEditNotes && !isHost && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
-                      Note editing is currently locked by the host. Please contact your host if you need to make changes.
+                  <div className="flex items-center justify-between">
+                    <p className="text-base font-medium text-slate-600 dark:text-slate-400">
+                      {guest.name}
                     </p>
+                    {/* Show lock icon only when guest is viewing their own notes but editing is disabled */}
+                    {isOwnGuest && event?.allowGuestNotesEdit === false && (
+                      <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
+                        <span>Locked</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Notes Textarea */}
                 <div className="mb-2">
                   <textarea
                     value={tempGuestNotes}
                     onChange={(e) => setTempGuestNotes(e.target.value)}
-                    placeholder="e.g., Vegetarian option, no onions..."
+                    placeholder={!canEditNotes && !isHost ? "Read only" : "e.g., Vegetarian option, no onions..."}
                     maxLength={500}
                     rows={8}
                     readOnly={!canEditNotes}
