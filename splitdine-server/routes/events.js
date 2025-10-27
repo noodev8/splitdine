@@ -210,7 +210,10 @@ router.post('/join', verifyToken, async (req, res) => {
 
     const upperCode = code.trim().toUpperCase();
     const userId = req.user.id; // User is authenticated
-    const userName = req.user.name; // User's display name
+
+    // Fetch user's name from database
+    const userResult = await query('SELECT name FROM app_user WHERE id = $1', [userId]);
+    const userName = userResult.rows[0].name;
 
     // =============================================================================
     // Find event by guest code

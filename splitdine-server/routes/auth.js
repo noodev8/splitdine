@@ -109,9 +109,7 @@ router.post('/login', async (req, res) => {
     // Generate JWT token
     // =============================================================================
     const token = generateToken({
-      id: user.id,
-      email: user.email,
-      name: user.name
+      id: user.id
     });
 
     // =============================================================================
@@ -246,9 +244,7 @@ router.post('/register', async (req, res) => {
     // Generate JWT token
     // =============================================================================
     const token = generateToken({
-      id: newUser.id,
-      email: newUser.email,
-      name: newUser.name
+      id: newUser.id
     });
 
     // =============================================================================
@@ -365,19 +361,29 @@ router.post('/update_profile', async (req, res) => {
     // =============================================================================
     // Check if new email already exists (if email is being updated)
     // =============================================================================
-    if (email && email.toLowerCase() !== decoded.email.toLowerCase()) {
-      const existingUser = await query(
-        'SELECT id FROM app_user WHERE email = $1 AND id != $2',
-        [email.toLowerCase(), decoded.id]
+    if (email) {
+      // Fetch current email from database
+      const currentUserResult = await query(
+        'SELECT email FROM app_user WHERE id = $1',
+        [decoded.id]
       );
+      const currentEmail = currentUserResult.rows[0].email;
 
-      if (existingUser.rows.length > 0) {
-        responseData = {
-          return_code: 'EMAIL_ALREADY_EXISTS',
-          message: 'An account with this email already exists'
-        };
-        logApiCall(req, res, responseData, startTime);
-        return res.status(200).json(responseData);
+      // Only check for duplicate if email is actually changing
+      if (email.toLowerCase() !== currentEmail.toLowerCase()) {
+        const existingUser = await query(
+          'SELECT id FROM app_user WHERE email = $1 AND id != $2',
+          [email.toLowerCase(), decoded.id]
+        );
+
+        if (existingUser.rows.length > 0) {
+          responseData = {
+            return_code: 'EMAIL_ALREADY_EXISTS',
+            message: 'An account with this email already exists'
+          };
+          logApiCall(req, res, responseData, startTime);
+          return res.status(200).json(responseData);
+        }
       }
     }
 
@@ -418,9 +424,7 @@ router.post('/update_profile', async (req, res) => {
     // Generate new token with updated info
     // =============================================================================
     const newToken = generateToken({
-      id: updatedUser.id,
-      email: updatedUser.email,
-      name: updatedUser.name
+      id: updatedUser.id
     });
 
     // =============================================================================
