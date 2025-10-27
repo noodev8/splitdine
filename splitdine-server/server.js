@@ -22,6 +22,13 @@ const { closePool } = require('./database');
 const app = express();
 
 // =============================================================================
+// Trust Proxy Configuration
+// =============================================================================
+// Enable trust proxy since we're behind Nginx reverse proxy
+// This allows Express to correctly identify client IPs from X-Forwarded-For header
+app.set('trust proxy', true);
+
+// =============================================================================
 // Security Middleware
 // =============================================================================
 // Helmet helps secure Express apps by setting various HTTP headers

@@ -94,6 +94,20 @@ export const apiCall = async <T = ApiResponse>(
     }
 
     const data = await response.json();
+
+    // Handle expired JWT tokens
+    if (data.return_code === 'TOKEN_EXPIRED') {
+      // Clear auth tokens
+      logout();
+
+      // Redirect to home page (login)
+      if (typeof window !== 'undefined') {
+        window.location.href = '/?sessionExpired=true';
+      }
+
+      throw new Error('Your session has expired. Please login again.');
+    }
+
     return data as T;
   } catch (error) {
     console.error(`API call failed [${endpoint}]:`, error);

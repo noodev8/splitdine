@@ -223,6 +223,21 @@ function HomeContent() {
     setCurrentUser(user);
   }, []);
 
+  // Detect session expiry from URL and show notification
+  useEffect(() => {
+    const sessionExpired = searchParams.get('sessionExpired');
+
+    if (sessionExpired === 'true') {
+      showToastNotification('Your session has expired. Please login again.');
+      // Clear the URL parameter without triggering a reload
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('sessionExpired');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [searchParams]);
+
   // Detect guest code from URL on mount
   useEffect(() => {
     const code = searchParams.get('code');
