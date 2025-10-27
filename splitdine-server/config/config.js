@@ -40,7 +40,7 @@ const config = {
   // =============================================================================
   jwt: {
     secret: process.env.JWT_SECRET || 'default_secret_change_in_production',
-    expiresIn: process.env.JWT_EXPIRES_IN || '5m' // Set to 5 minutes for testing expiration flow
+    expiresIn: process.env.JWT_EXPIRES_IN // Must be set in .env file
   },
 
   // =============================================================================
