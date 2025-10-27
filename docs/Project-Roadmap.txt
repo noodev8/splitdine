@@ -1,0 +1,141 @@
+PHASE 0 – MVP: Free While You Test (You as the Host)
+
+Goal: Prove the concept, refine the product, and observe real user behaviour before charging anyone.
+
+✅ What to focus on:
+
+Host-first experience: You create events, share links, track what guests owe, and optionally collect deposits or payments.
+
+Pain solved: The 20–30 minute chaos at the end of group meals is eliminated. Guests know what they owe, and you know who’s paid before the bill arrives.
+
+Payments optional: Guests can pay by bank transfer, cash, or however they prefer — SplitDine doesn’t need to handle money yet.
+
+Data gathering: Use these events to understand how people interact, where they drop off, what features they use most, and what they ignore.
+
+✅ Actions during this phase:
+
+Host 3–5 of your own meals (even if you don’t attend every one).
+
+Collect direct feedback from guests and note where friction exists.
+
+Refine UI/UX based on real use, not theory.
+
+Build screenshots, testimonials, and real-world examples for marketing later.
+
+PHASE 1 – Early Users: Meetup Organisers & Community Hosts
+
+Goal: Turn SplitDine from a personal tool into something other organisers use.
+
+🎯 Who you’re targeting:
+
+Meetup organisers
+
+Supper club hosts
+
+Event planners for casual dinners, book clubs, language exchanges, etc.
+
+Anyone who regularly organises group meals and hates chasing money or doing maths at the end.
+
+✅ Core value for them:
+
+Save time: No more spreadsheets or calculators — they know who’s paid and how much in real time.
+
+Avoid stress: Deposits reduce last-minute cancellations and no-shows.
+
+Look organised: They appear more professional to their groups.
+
+End meals faster: No more 30-minute end-of-meal delays.
+
+💡 Product features that matter most:
+
+Event creation & sharing links
+
+Guest RSVP + payment tracking
+
+Optional deposits & reminders
+
+Live totals and “who’s paid” view
+
+Exportable summaries or receipts
+
+💸 Monetisation options here:
+
+Freemium model: Free basic events, but paid for unlimited events or premium features (e.g. deposits, custom reminders, co-hosting).
+
+Per-event fee: £0.50–£1 per guest per event.
+
+Monthly subscription: £4.99–£9.99/month for organisers who run multiple meals.
+
+✅ Once ~5–10 hosts are actively using it (without you holding their hand), you know you’ve reached product–market fit for organisers.
+
+PHASE 2 – Restaurant-Facing Landing Page & White-Label Solution
+
+Goal: Expand SplitDine from an organiser tool into a restaurant solution.
+
+🎯 The restaurant problem:
+
+Group bookings are often handled by email and spreadsheets.
+
+Collecting deposits is manual and time-consuming.
+
+Guests change orders and totals constantly.
+
+Large tables block staff and slow down service when splitting bills.
+
+✅ The value proposition for restaurants:
+
+Reduce admin: No more spreadsheets or payment chasing.
+
+Secure bookings: Collect deposits or prepayments automatically.
+
+Speed up service: Final bill is ready when the group arrives — no 10 separate card payments at the till.
+
+Improve guest experience: Groups leave happier and faster, freeing tables for the next booking.
+
+🛠 What the product could offer:
+
+Restaurant-branded event pages (white-label version)
+
+Deposit collection and order tracking
+
+One single payout instead of 10 individual card charges
+
+Dashboard to view guest names, RSVPs, payments, and dietary notes
+
+💸 Monetisation options here:
+
+SaaS subscription (£30–£150/month per venue)
+
+Per booking fee (£1–£2 per guest)
+
+Hybrid model (free for organisers, paid for restaurants)
+
+✅ At this point, SplitDine evolves from “a tool for hosts” → a platform restaurants actively recommend to their group bookings.
+
+📊 Timeline (Realistic Stages)
+Phase	Milestone	Focus
+0. MVP	0–3 months	You use it for your own events. Refine UI/UX. Gather feedback.
+1. Organisers	3–6 months	Start onboarding Meetup and community hosts. Add premium features. Test pricing.
+2. Restaurants	6–12 months	Build white-label dashboard + landing page. Launch restaurant beta program.
+3. Scale	12+ months	Add payment processing, card payments, analytics, and deeper integrations.
+📌 Key Principles to Stick To
+
+Host-first, always: Everything should make their job easier. They are your first paying customers.
+
+Guests are secondary: They benefit from clarity and fairness, but they’re not who you sell to.
+
+Restaurants come later: They become your B2B revenue layer once the product is proven.
+
+Payments are the long-term play: Don’t rush them — build trust and adoption first.
+
+Platform, not feature: Always position SplitDine as “how group meals are organised”, not just a calculator.
+
+✨ Long-Term Vision (What Success Looks Like)
+
+Hosts across Meetup, WhatsApp, and supper clubs use SplitDine to run every meal they organise.
+
+Guests associate SplitDine with “fast, fair, and painless” group payments.
+
+Restaurants recommend it for large tables because it saves them time and labour.
+
+Eventually, SplitDine handles the entire group dining lifecycle: RSVPs → deposits → menu choices → payments → receipts.

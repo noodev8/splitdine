@@ -3069,8 +3069,8 @@ function HomeContent() {
                       {/* Sticky Top Input Field - Add Item */}
                       {userRole === 'host' && (
                         <div className="sticky top-0 z-40 bg-white dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700 shadow-sm mb-6">
-                          <div className="px-4 py-3">
-                            <div className="flex gap-2">
+                          <div className="px-3 sm:px-4 py-3">
+                            <div className="flex gap-1.5 sm:gap-2">
                               <input
                                 type="text"
                                 placeholder="Item name"
@@ -3081,7 +3081,7 @@ function HomeContent() {
                                     document.getElementById('sticky-top-item-price-input')?.focus();
                                   }
                                 }}
-                                className="flex-1 px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                                className="flex-1 min-w-0 px-2 sm:px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
                               />
                               <input
                                 id="sticky-top-item-price-input"
@@ -3128,7 +3128,7 @@ function HomeContent() {
                                   }
                                 }}
                                 step="0.01"
-                                className="w-24 px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-16 sm:w-24 px-2 sm:px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               <button
                                 onClick={async () => {
@@ -3168,7 +3168,7 @@ function HomeContent() {
                                   }
                                 }}
                                 disabled={!itemNote.trim()}
-                                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+                                className="px-2.5 sm:px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap"
                               >
                                 Add
                               </button>

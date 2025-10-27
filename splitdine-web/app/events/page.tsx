@@ -278,8 +278,6 @@ export default function EventsPage() {
   const [pendingEventId, setPendingEventId] = useState<string | null>(null);
   const [pendingGuests, setPendingGuests] = useState<Guest[]>([]);
   const [isClaimingGuest, setIsClaimingGuest] = useState(false);
-  const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
-  const [newGuestName, setNewGuestName] = useState('');
 
   // Form states
   const [eventName, setEventName] = useState('');
@@ -616,50 +614,6 @@ export default function EventsPage() {
     setPendingGuests([]);
   };
 
-  const handleAddAndClaimNewGuest = async () => {
-    if (!newGuestName.trim() || !pendingEventId) return;
-
-    setIsClaimingGuest(true);
-    try {
-      // Check if an unclaimed guest with this name already exists (case-insensitive)
-      const existingGuest = pendingGuests.find(
-        g => g.name.toLowerCase() === newGuestName.trim().toLowerCase() && !g.app_user_id
-      );
-
-      if (existingGuest) {
-        // Claim the existing guest
-        const result = await apiClaimGuest(parseInt(pendingEventId), parseInt(existingGuest.id));
-        if (result.success) {
-          setShowClaimGuestModal(false);
-          setIsCreatingNewGuest(false);
-          setNewGuestName('');
-          setPendingEventId(null);
-          setPendingGuests([]);
-          router.push(`/events/${pendingEventId}`);
-        }
-      } else {
-        // Add new guest and claim
-        const apiGuest = await apiAddGuest(parseInt(pendingEventId), newGuestName.trim(), 0, 0);
-        const result = await apiClaimGuest(parseInt(pendingEventId), apiGuest.id);
-
-        if (result.success) {
-          setShowClaimGuestModal(false);
-          setIsCreatingNewGuest(false);
-          setNewGuestName('');
-          const eventIdToNav = pendingEventId;
-          setPendingEventId(null);
-          setPendingGuests([]);
-          router.push(`/events/${eventIdToNav}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error adding and claiming guest:', error);
-      showToastNotification('Failed to add guest');
-    } finally {
-      setIsClaimingGuest(false);
-    }
-  };
-
   const handleAddMyselfAsGuest = async () => {
     if (!pendingEventId || !currentUser) return;
 
@@ -794,10 +748,10 @@ export default function EventsPage() {
                   }}
                   onCopyGuestCode={copyGuestCode}
                   onShowToast={showToastNotification}
-                  onShowPaymentDetails={() => {}} // Not implemented yet
-                  onShowNotesSummary={() => {}} // Not implemented yet
-                  onShowContactHost={() => {}} // Not implemented yet
-                  onShowManageGuestName={() => {}} // Not implemented yet
+                  onShowPaymentDetails={(eventId) => router.push(`/events/${eventId}?modal=payment`)}
+                  onShowNotesSummary={(eventId) => router.push(`/events/${eventId}?modal=notes`)}
+                  onShowContactHost={(eventId) => router.push(`/events/${eventId}?modal=contact-host`)}
+                  onShowManageGuestName={(eventId) => router.push(`/events/${eventId}?modal=guest-name`)}
                 />
               );
             })}

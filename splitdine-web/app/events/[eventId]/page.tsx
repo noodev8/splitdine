@@ -1,16 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import type { Event, Guest } from '@/lib/types';
+import CalculatorModal from '@/components/calculator-modal';
 import {
   getMyEvents as apiGetMyEvents,
   getGuests as apiGetGuests,
   updateGuest as apiUpdateGuest,
   addGuest as apiAddGuest,
   deleteGuest as apiDeleteGuest,
-  addGuestItem as apiAddGuestItem,
-  deleteGuestItem as apiDeleteGuestItem,
   updateEventSettings as apiUpdateEventSettings,
   claimGuest as apiClaimGuest,
   unclaimGuest as apiUnclaimGuest,
@@ -20,6 +19,7 @@ import {
 export default function EventDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const eventId = params.eventId as string;
 
   // Auth state
@@ -36,14 +36,10 @@ export default function EventDetailPage() {
   const [name, setName] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Guest detail view state
-  const [viewingGuestId, setViewingGuestId] = useState<string | null>(null);
+  // Menu state
   const [showMenu, setShowMenu] = useState(false);
 
   // Modal states
-  const [showingBreakdown, setShowingBreakdown] = useState(false);
-  const [editingGuestNotesId, setEditingGuestNotesId] = useState<string | null>(null);
-  const [tempGuestNotes, setTempGuestNotes] = useState('');
   const [showPaymentDetailsModal, setShowPaymentDetailsModal] = useState(false);
   const [showEventSettings, setShowEventSettings] = useState(false);
 
@@ -54,7 +50,6 @@ export default function EventDetailPage() {
   const [isEditingGuestName, setIsEditingGuestName] = useState(false);
   const [editedGuestName, setEditedGuestName] = useState('');
   const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
-  const [newGuestName, setNewGuestName] = useState('');
 
   // Settings state
   const [settingsEventName, setSettingsEventName] = useState('');
@@ -67,26 +62,21 @@ export default function EventDetailPage() {
   const [settingsHostContactInfo, setSettingsHostContactInfo] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  // Error modal state
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
   // Notes summary modal state
   const [showNotesSummary, setShowNotesSummary] = useState(false);
 
-  // Item management state
-  const [itemNote, setItemNote] = useState('');
-  const [itemPrice, setItemPrice] = useState('');
-
   // Calculator modal state
   const [showCalculator, setShowCalculator] = useState(false);
-  const [calculatorValue, setCalculatorValue] = useState('');
+  const [calculatorInitialValue, setCalculatorInitialValue] = useState(0);
   const [calculatorField, setCalculatorField] = useState<'amount' | 'deposit' | null>(null);
   const [calculatorGuestId, setCalculatorGuestId] = useState<string | null>(null);
-  const [isFirstInput, setIsFirstInput] = useState(true);
 
   // Deposits tracking state
   const [depositsPaid, setDepositsPaid] = useState(false);
+
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const togglePaid = async (guestId: string) => {
     if (userRole !== 'host') return;
@@ -169,54 +159,33 @@ export default function EventDetailPage() {
   const openCalculator = (field: 'amount' | 'deposit', guestId: string, currentValue: number) => {
     setCalculatorField(field);
     setCalculatorGuestId(guestId);
-    setCalculatorValue(currentValue === 0 ? '' : currentValue.toString());
-    setIsFirstInput(true);
+    setCalculatorInitialValue(currentValue);
     setShowCalculator(true);
   };
 
-  const handleCalculatorNumberPress = (num: string) => {
-    if (isFirstInput) {
-      setCalculatorValue(num);
-      setIsFirstInput(false);
-    } else {
-      // Prevent multiple decimal points
-      if (num === '.' && calculatorValue.includes('.')) return;
-      setCalculatorValue(calculatorValue + num);
-    }
-  };
-
-  const handleCalculatorBackspace = () => {
-    if (calculatorValue.length > 0) {
-      setCalculatorValue(calculatorValue.slice(0, -1));
-      setIsFirstInput(false);
-    }
-  };
-
-  const handleCalculatorOK = async () => {
+  const handleCalculatorSave = async (numValue: number) => {
     if (!calculatorGuestId || !calculatorField) return;
 
-    const numValue = calculatorValue === '' ? 0 : parseFloat(calculatorValue);
-
     if (calculatorField === 'amount') {
+      // User edited the balance (amount - deposit), so we need to add deposit back
+      const guest = guests.find(g => g.id === calculatorGuestId);
+      if (!guest) return;
+
+      const newAmount = (isNaN(numValue) ? 0 : numValue) + guest.deposit;
+
       // Save old value for rollback
       const oldGuests = [...guests];
 
       // Optimistic update
       setGuests(guests.map(g =>
-        g.id === calculatorGuestId ? { ...g, amount: isNaN(numValue) ? 0 : numValue } : g
+        g.id === calculatorGuestId ? { ...g, amount: newAmount } : g
       ));
 
       try {
-        await apiUpdateGuest(parseInt(calculatorGuestId), { amount: isNaN(numValue) ? 0 : numValue });
+        await apiUpdateGuest(parseInt(calculatorGuestId), { amount: newAmount });
       } catch (error) {
         // Revert optimistic update
         setGuests(oldGuests);
-
-        // Show error to user
-        const errorMsg = error instanceof Error ? error.message : 'Failed to update amount';
-        setErrorMessage(errorMsg);
-        setShowErrorModal(true);
-
         console.error('Error updating guest amount:', error);
         return; // Don't close calculator on error
       }
@@ -234,81 +203,20 @@ export default function EventDetailPage() {
       } catch (error) {
         // Revert optimistic update
         setGuests(oldGuests);
-
-        // Show error to user
-        const errorMsg = error instanceof Error ? error.message : 'Failed to update deposit';
-        setErrorMessage(errorMsg);
-        setShowErrorModal(true);
-
         console.error('Error updating guest deposit:', error);
         return; // Don't close calculator on error
       }
     }
 
     setShowCalculator(false);
-    setCalculatorValue('');
     setCalculatorField(null);
     setCalculatorGuestId(null);
   };
 
   const handleCalculatorCancel = () => {
     setShowCalculator(false);
-    setCalculatorValue('');
     setCalculatorField(null);
     setCalculatorGuestId(null);
-  };
-
-  // Item management functions
-  const addItemToGuest = async () => {
-    if (!viewingGuestId || !itemNote.trim()) return;
-
-    const noteText = itemNote.trim();
-    const priceValue = itemPrice.trim() ? parseFloat(itemPrice) : undefined;
-
-    try {
-      const apiItem = await apiAddGuestItem(parseInt(viewingGuestId), noteText, priceValue);
-
-      const newItem = {
-        id: apiItem.id.toString(),
-        note: apiItem.note,
-        price: apiItem.price
-      };
-
-      setGuests(
-        guests.map((guest) =>
-          guest.id === viewingGuestId
-            ? {
-                ...guest,
-                items: [newItem, ...guest.items],
-              }
-            : guest
-        )
-      );
-      setItemNote('');
-      setItemPrice('');
-    } catch (error) {
-      console.error('Error adding item:', error);
-    }
-  };
-
-  const removeItem = async (guestId: string, itemId: string) => {
-    if (userRole !== 'host') return;
-
-    // Remove from local state first (immediate UI feedback)
-    setGuests(
-      guests.map((guest) =>
-        guest.id === guestId
-          ? { ...guest, items: guest.items.filter((item) => item.id !== itemId) }
-          : guest
-      )
-    );
-
-    // Sync with API
-    try {
-      await apiDeleteGuestItem(parseInt(itemId));
-    } catch (error) {
-      console.error('Error deleting item:', error);
-    }
   };
 
   // Settings functions
@@ -368,7 +276,6 @@ export default function EventDetailPage() {
   const openClaimGuestModal = () => {
     setSelectedClaimGuestId(null);
     setIsCreatingNewGuest(false);
-    setNewGuestName('');
     setShowClaimGuestModal(true);
   };
 
@@ -410,6 +317,7 @@ export default function EventDetailPage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleUnclaimGuest = async () => {
     if (!eventId) return;
 
@@ -445,82 +353,6 @@ export default function EventDetailPage() {
   const handleCancelClaimModal = () => {
     setShowClaimGuestModal(false);
     setSelectedClaimGuestId(null);
-  };
-
-  const handleAddAndClaimNewGuest = async () => {
-    if (!newGuestName.trim() || !eventId) return;
-
-    setIsClaimingGuest(true);
-    try {
-      // Check if an unclaimed guest with this name already exists (case-insensitive)
-      const existingGuest = guests.find(
-        g => g.name.toLowerCase() === newGuestName.trim().toLowerCase() && !g.app_user_id
-      );
-
-      if (existingGuest) {
-        // Claim the existing guest
-        const result = await apiClaimGuest(parseInt(eventId), parseInt(existingGuest.id));
-        if (result.success) {
-          setShowClaimGuestModal(false);
-          setIsCreatingNewGuest(false);
-          setNewGuestName('');
-
-          // Reload guests
-          const guestResult = await apiGetGuests(parseInt(eventId));
-          if (guestResult.success && guestResult.guests) {
-            const convertedGuests: Guest[] = guestResult.guests.map((g: import('@/lib/api-client').Guest) => ({
-              id: g.id.toString(),
-              name: g.name,
-              amount: g.amount,
-              deposit: g.deposit,
-              items: g.items.map((item: import('@/lib/api-client').GuestItem) => ({
-                id: item.id.toString(),
-                note: item.note,
-                price: item.price,
-              })),
-              notes: g.notes,
-              paid: g.paid,
-              app_user_id: g.app_user_id,
-            }));
-            setGuests(convertedGuests);
-          }
-        }
-      } else {
-        // Add new guest and claim
-        const apiGuest = await apiAddGuest(parseInt(eventId), newGuestName.trim(), 0, 0);
-        const result = await apiClaimGuest(parseInt(eventId), apiGuest.id);
-
-        if (result.success) {
-          setShowClaimGuestModal(false);
-          setIsCreatingNewGuest(false);
-          setNewGuestName('');
-
-          // Reload guests
-          const guestResult = await apiGetGuests(parseInt(eventId));
-          if (guestResult.success && guestResult.guests) {
-            const convertedGuests: Guest[] = guestResult.guests.map((g: import('@/lib/api-client').Guest) => ({
-              id: g.id.toString(),
-              name: g.name,
-              amount: g.amount,
-              deposit: g.deposit,
-              items: g.items.map((item: import('@/lib/api-client').GuestItem) => ({
-                id: item.id.toString(),
-                note: item.note,
-                price: item.price,
-              })),
-              notes: g.notes,
-              paid: g.paid,
-              app_user_id: g.app_user_id,
-            }));
-            setGuests(convertedGuests);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error adding and claiming guest:', error);
-    } finally {
-      setIsClaimingGuest(false);
-    }
   };
 
   const handleAddMyselfAsGuest = async () => {
@@ -662,6 +494,40 @@ export default function EventDetailPage() {
     loadEventData();
   }, [eventId, router]);
 
+  // Handle modal query parameter
+  useEffect(() => {
+    if (isLoading || !event) return;
+
+    const modalParam = searchParams.get('modal');
+    if (modalParam) {
+      // Open the appropriate modal based on query param
+      switch (modalParam) {
+        case 'payment':
+          setShowPaymentDetailsModal(true);
+          break;
+        case 'notes':
+          setShowNotesSummary(true);
+          break;
+        case 'guest-name':
+          // Find the current user's claimed guest
+          const myGuest = guests.find(g => g.app_user_id === currentUser?.id);
+          if (myGuest) {
+            setSelectedClaimGuestId(myGuest.id);
+            setIsEditingGuestName(true);
+            setEditedGuestName(myGuest.name);
+          }
+          setShowClaimGuestModal(true);
+          break;
+        case 'contact-host':
+          setShowNotesSummary(true); // Contact host info is shown in notes summary
+          break;
+      }
+
+      // Remove the modal param from URL to keep it clean
+      router.replace(`/events/${eventId}`, { scroll: false });
+    }
+  }, [isLoading, event, searchParams, eventId, router, guests, currentUser]);
+
   if (isLoading || !event) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
@@ -688,18 +554,7 @@ export default function EventDetailPage() {
       <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40">
         <div className="px-4 h-16 flex items-center justify-between">
           <button
-            onClick={() => {
-              if (showingBreakdown) {
-                // If viewing breakdown, go back to guest detail
-                setShowingBreakdown(false);
-              } else if (viewingGuestId) {
-                // If viewing a guest, go back to guest list
-                setViewingGuestId(null);
-              } else {
-                // If on guest list, go back to events
-                router.push('/events');
-              }
-            }}
+            onClick={() => router.push('/events')}
             className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
             aria-label="Back"
           >
@@ -797,366 +652,7 @@ export default function EventDetailPage() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-4">
-        {viewingGuestId ? (
-          /* Guest Detail or Breakdown View */
-          (() => {
-            const viewingGuest = guests.find(g => g.id === viewingGuestId);
-            if (!viewingGuest) return null;
-
-            if (showingBreakdown) {
-              /* Bill Breakdown View */
-              const itemsTotal = viewingGuest.items.reduce((sum, item) => sum + (item.price || 0), 0);
-              const difference = itemsTotal - viewingGuest.amount;
-
-              return (
-                <>
-                  {/* Guest Name */}
-                  <div className="mb-6">
-                    <h2 className="text-xl sm:text-2xl font-light text-slate-600 dark:text-slate-400 text-center">
-                      {viewingGuest.name}
-                    </h2>
-                  </div>
-
-                  {/* Add Item Input - Host Only */}
-                  {userRole === 'host' && (
-                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm mb-6 p-4">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Item name"
-                          value={itemNote}
-                          onChange={(e) => setItemNote(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              document.getElementById('item-price-input')?.focus();
-                            }
-                          }}
-                          className="flex-1 px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                        />
-                        <input
-                          id="item-price-input"
-                          type="number"
-                          placeholder="£0.00"
-                          value={itemPrice}
-                          onChange={(e) => setItemPrice(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') addItemToGuest();
-                          }}
-                          step="0.01"
-                          className="w-24 px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                        <button
-                          onClick={addItemToGuest}
-                          disabled={!itemNote.trim()}
-                          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
-                        >
-                          Add
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Items List */}
-                  <div className="space-y-3 mb-6">
-                    {viewingGuest.items.length > 0 ? (
-                      viewingGuest.items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between px-4 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm"
-                        >
-                          <div className="flex-1">
-                            <span className="text-base font-medium text-slate-800 dark:text-slate-100">
-                              {item.note}
-                            </span>
-                            {item.price !== null && item.price !== undefined && (
-                              <div className="mt-1">
-                                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                                  £{item.price.toFixed(2)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          {userRole === 'host' && (
-                            <button
-                              onClick={() => removeItem(viewingGuest.id, item.id)}
-                              className="ml-3 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                              aria-label="Remove item"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-12">
-                        <p className="text-slate-500 dark:text-slate-400 text-sm">No items yet</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Summary Section */}
-                  {viewingGuest.items.length > 0 && (
-                    <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 space-y-3 border border-slate-200 dark:border-slate-700">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-600 dark:text-slate-400">
-                          Items Subtotal
-                        </span>
-                        <span className="font-medium text-slate-700 dark:text-slate-300">
-                          £{itemsTotal.toFixed(2)}
-                        </span>
-                      </div>
-                      {Math.abs(difference) > 0.01 ? (
-                        <div className="flex justify-between items-center text-sm pb-2 border-b border-slate-200 dark:border-slate-700">
-                          <span className="text-red-600 dark:text-red-400">
-                            {difference < 0 ? 'Missing' : 'Extra'}
-                          </span>
-                          <span className="font-medium text-red-600 dark:text-red-400">
-                            {difference < 0 ? '-' : ''}£{Math.abs(difference).toFixed(2)}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex justify-between items-center text-sm pb-2 border-b border-slate-200 dark:border-slate-700">
-                          <span className="text-green-600 dark:text-green-400">
-                            Matches
-                          </span>
-                          <span className="font-medium text-green-600 dark:text-green-400">
-                            ✓
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center py-2 px-3 bg-white dark:bg-slate-800 rounded-lg">
-                        <span className="text-base font-bold text-slate-800 dark:text-slate-200">
-                          Bill Total
-                        </span>
-                        <span className="text-xl font-bold text-slate-800 dark:text-slate-200">
-                          £{viewingGuest.amount.toFixed(2)}
-                        </span>
-                      </div>
-                      {userRole === 'host' && Math.abs(difference) > 0.01 && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              setGuests(
-                                guests.map((g) =>
-                                  g.id === viewingGuestId
-                                    ? { ...g, amount: itemsTotal }
-                                    : g
-                                )
-                              );
-                              await apiUpdateGuest(parseInt(viewingGuestId), { amount: itemsTotal });
-                            } catch (error) {
-                              console.error('Error updating bill total:', error);
-                            }
-                          }}
-                          className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                          </svg>
-                          Set bill total to £{itemsTotal.toFixed(2)}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </>
-              );
-            }
-
-            /* Guest Detail View */
-            return (
-              <>
-                {/* Guest Name */}
-                <div className="mb-4">
-                  <h2 className="text-xl sm:text-2xl font-light text-slate-600 dark:text-slate-400 text-center">
-                    {viewingGuest.name}
-                  </h2>
-                </div>
-
-                {/* Bill Overview */}
-                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border-2 border-slate-200 dark:border-slate-700 p-4 sm:p-6 mb-6">
-                  <div className="space-y-4">
-                    {/* Balance - Prominent Display */}
-                    <div>
-                      <div className="flex flex-col items-center px-3 py-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <span className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                          Balance
-                        </span>
-                        <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          £{(viewingGuest.amount - viewingGuest.deposit).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Total and Deposit - Side by Side */}
-                    <div className="border-t border-slate-200 dark:border-slate-700 pt-4 grid grid-cols-2 gap-4">
-                      {(() => {
-                        // User can edit if: (1) they are host, OR (2) they are viewing their own guest AND allowGuestPriceEdit is enabled
-                        const canEditPrice = userRole === 'host' || (viewingGuest.app_user_id === currentUser?.id && event?.allowGuestPriceEdit);
-
-                        return (
-                          <>
-                            {/* Total */}
-                            <div className="text-center">
-                              <label className="block text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">
-                                Total
-                              </label>
-                              <div
-                                onClick={async () => {
-                                  if (!canEditPrice) return;
-
-                                  // If guest, check permissions first
-                                  if (userRole === 'guest' && viewingGuest.app_user_id === currentUser?.id) {
-                                    try {
-                                      const events = await apiGetMyEvents();
-                                      const latestEvent = events.find(ev => ev.id.toString() === eventId);
-
-                                      if (!latestEvent?.allow_guest_price_edit) {
-                                        setErrorMessage('The host has disabled price editing for guests. Please contact the host if you need to update your amount.');
-                                        setShowErrorModal(true);
-                                        return;
-                                      }
-
-                                      // Update local state
-                                      if (event && latestEvent) {
-                                        setEvent({
-                                          ...event,
-                                          allowGuestPriceEdit: latestEvent.allow_guest_price_edit,
-                                          allowGuestNotesEdit: latestEvent.allow_guest_notes_edit,
-                                        });
-                                      }
-                                    } catch (error) {
-                                      console.error('Error checking permissions:', error);
-                                      setErrorMessage('Unable to verify permissions. Please try again.');
-                                      setShowErrorModal(true);
-                                      return;
-                                    }
-                                  }
-
-                                  openCalculator('amount', viewingGuestId, viewingGuest.amount);
-                                }}
-                                className={`w-full px-4 py-4 text-xl font-semibold rounded-lg text-slate-800 dark:text-slate-100 ${
-                                  canEditPrice
-                                    ? 'bg-slate-50 dark:bg-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500'
-                                    : 'bg-slate-50 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-700'
-                                }`}
-                              >
-                                £{viewingGuest.amount.toFixed(2)}
-                                {canEditPrice && (
-                                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tap to edit</div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Deposit */}
-                            <div className="text-center">
-                              <label className="block text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">
-                                Deposit
-                              </label>
-                              <div
-                                onClick={async () => {
-                                  if (!canEditPrice) return;
-
-                                  // If guest, check permissions first
-                                  if (userRole === 'guest' && viewingGuest.app_user_id === currentUser?.id) {
-                                    try {
-                                      const events = await apiGetMyEvents();
-                                      const latestEvent = events.find(ev => ev.id.toString() === eventId);
-
-                                      if (!latestEvent?.allow_guest_price_edit) {
-                                        setErrorMessage('The host has disabled price editing for guests. Please contact the host if you need to update your amount.');
-                                        setShowErrorModal(true);
-                                        return;
-                                      }
-
-                                      // Update local state
-                                      if (event && latestEvent) {
-                                        setEvent({
-                                          ...event,
-                                          allowGuestPriceEdit: latestEvent.allow_guest_price_edit,
-                                          allowGuestNotesEdit: latestEvent.allow_guest_notes_edit,
-                                        });
-                                      }
-                                    } catch (error) {
-                                      console.error('Error checking permissions:', error);
-                                      setErrorMessage('Unable to verify permissions. Please try again.');
-                                      setShowErrorModal(true);
-                                      return;
-                                    }
-                                  }
-
-                                  openCalculator('deposit', viewingGuestId, viewingGuest.deposit);
-                                }}
-                                className={`w-full px-4 py-4 text-xl font-semibold rounded-lg text-slate-800 dark:text-slate-100 ${
-                                  canEditPrice
-                                    ? 'bg-slate-50 dark:bg-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500'
-                                    : 'bg-slate-50 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-700'
-                                }`}
-                              >
-                                £{viewingGuest.deposit.toFixed(2)}
-                                {canEditPrice && (
-                                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tap to edit</div>
-                                )}
-                              </div>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setShowingBreakdown(true)}
-                    className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-slate-300 dark:border-slate-600 rounded-lg py-4 px-6 transition-colors font-medium flex items-center justify-center gap-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
-                    </svg>
-                    Bill Breakdown
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      // If guest editing their own notes, check permissions from server
-                      if (userRole === 'guest' && viewingGuest.app_user_id === currentUser?.id) {
-                        try {
-                          const events = await apiGetMyEvents();
-                          const latestEvent = events.find(ev => ev.id.toString() === eventId);
-
-                          // Update local state with fresh settings
-                          if (event && latestEvent) {
-                            setEvent({
-                              ...event,
-                              allowGuestPriceEdit: latestEvent.allow_guest_price_edit,
-                              allowGuestNotesEdit: latestEvent.allow_guest_notes_edit,
-                            });
-                          }
-                        } catch (error) {
-                          console.error('Error fetching fresh event settings:', error);
-                        }
-                      }
-
-                      setTempGuestNotes(viewingGuest.notes);
-                      setEditingGuestNotesId(viewingGuestId);
-                    }}
-                    className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-slate-300 dark:border-slate-600 rounded-lg py-4 px-6 transition-colors font-medium flex items-center justify-center gap-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                    </svg>
-                    Pre-order / Notes
-                  </button>
-                </div>
-              </>
-            );
-          })()
-        ) : (
-          /* Guest List View */
-          <>
+        {/* Guest List View */}
             {/* Bill Total Section - Show at top */}
             <div className={`px-4 py-4 rounded-lg border mb-6 transition-all duration-300 ${
               totalBill > 0 && totalOwed === 0 && depositsOwed === 0
@@ -1215,7 +711,7 @@ export default function EventDetailPage() {
               {guests.filter(g => g.name !== '').map((guest) => (
                 <div
                   key={guest.id}
-                  onClick={() => setViewingGuestId(guest.id)}
+                  onClick={() => router.push(`/events/${eventId}/guests/${guest.id}`)}
                   className="p-3 sm:p-4 rounded-lg border-2 bg-slate-50 dark:bg-slate-700 border-transparent cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
                 >
                   <div className="flex items-start sm:items-center justify-between gap-2">
@@ -1254,7 +750,7 @@ export default function EventDetailPage() {
                     </div>
                     <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
                       {(() => {
-                        // Show as button if: (1) host, OR (2) guest viewing their own profile (permission check happens onClick)
+                        // Show as button if: (1) host, OR (2) guest viewing their own profile
                         const isOwnProfile = guest.app_user_id === currentUser?.id;
                         const showAsButton = userRole === 'host' || isOwnProfile;
 
@@ -1292,12 +788,8 @@ export default function EventDetailPage() {
                                 }
                               }
 
-                              // Open calculator
-                              setCalculatorField('amount');
-                              setCalculatorGuestId(guest.id);
-                              setCalculatorValue(guest.amount === 0 ? '' : guest.amount.toString());
-                              setIsFirstInput(true);
-                              setShowCalculator(true);
+                              // Open calculator with the balance (what's actually displayed)
+                              openCalculator('amount', guest.id, guest.amount - guest.deposit);
                             }}
                             className={`text-xl sm:text-2xl font-bold px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${
                               guest.paid
@@ -1417,8 +909,6 @@ export default function EventDetailPage() {
             </div>
           )}
             </div>
-          </>
-        )}
       </main>
 
       {/* Event Settings Modal */}
@@ -1762,202 +1252,13 @@ export default function EventDetailPage() {
         </div>
       )}
 
-      {/* Guest Notes Modal */}
-      {editingGuestNotesId && (() => {
-        const guest = guests.find(g => g.id === editingGuestNotesId);
-        if (!guest) return null;
-
-        const isHost = userRole === 'host';
-        const isOwnGuest = guest.app_user_id === currentUser?.id;
-        const canEditNotes = isHost || (isOwnGuest && event?.allowGuestNotesEdit !== false);
-
-        return (
-          <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-            onClick={() => {
-              setEditingGuestNotesId(null);
-              setTempGuestNotes('');
-            }}
-          >
-            <div
-              className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                    Pre-order / Notes
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setEditingGuestNotesId(null);
-                      setTempGuestNotes('');
-                    }}
-                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                    aria-label="Close"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Guest Name */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-base font-medium text-slate-600 dark:text-slate-400">
-                      {guest.name}
-                    </p>
-                    {/* Show lock icon only when guest is viewing their own notes but editing is disabled */}
-                    {isOwnGuest && event?.allowGuestNotesEdit === false && (
-                      <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                        </svg>
-                        <span>Locked</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Notes Textarea */}
-                <div className="mb-2">
-                  <textarea
-                    value={tempGuestNotes}
-                    onChange={(e) => setTempGuestNotes(e.target.value)}
-                    placeholder={!canEditNotes && !isHost ? "Read only" : "e.g., Vegetarian option, no onions..."}
-                    maxLength={500}
-                    rows={8}
-                    readOnly={!canEditNotes}
-                    autoFocus
-                    className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 resize-none"
-                  />
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-right">
-                    {tempGuestNotes.length}/500
-                  </div>
-                </div>
-
-                {/* Buttons */}
-                {canEditNotes && (
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={() => {
-                        setEditingGuestNotesId(null);
-                        setTempGuestNotes('');
-                      }}
-                      className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-medium rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await apiUpdateGuest(
-                            parseInt(editingGuestNotesId),
-                            {
-                              notes: tempGuestNotes,
-                            }
-                          );
-                          // Update local state
-                          setGuests(guests.map(g =>
-                            g.id === editingGuestNotesId ? { ...g, notes: tempGuestNotes } : g
-                          ));
-                          setEditingGuestNotesId(null);
-                          setTempGuestNotes('');
-                        } catch (error) {
-                          console.error('Error updating guest notes:', error);
-                        }
-                      }}
-                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      Save
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Calculator Modal */}
-      {showCalculator && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleCalculatorCancel}>
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                  {calculatorField === 'amount' ? 'Bill Total' : 'Paid'}
-                </h3>
-                <button
-                  onClick={handleCalculatorCancel}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                  aria-label="Close"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Display */}
-              <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
-                <div className="text-right text-3xl font-semibold text-slate-800 dark:text-slate-100">
-                  £{calculatorValue || '0'}
-                </div>
-              </div>
-
-              {/* Number Pad */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-                  <button
-                    key={num}
-                    onClick={() => handleCalculatorNumberPress(num)}
-                    className="p-4 text-xl font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors"
-                  >
-                    {num}
-                  </button>
-                ))}
-                <button
-                  onClick={handleCalculatorBackspace}
-                  className="p-4 text-xl font-semibold bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg transition-colors flex items-center justify-center"
-                >
-                  ←
-                </button>
-                <button
-                  onClick={() => handleCalculatorNumberPress('0')}
-                  className="p-4 text-xl font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors"
-                >
-                  0
-                </button>
-                <button
-                  onClick={() => handleCalculatorNumberPress('.')}
-                  className="p-4 text-xl font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-lg transition-colors"
-                >
-                  .
-                </button>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={handleCalculatorCancel}
-                  className="px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCalculatorOK}
-                  className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                >
-                  OK
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <CalculatorModal
+        isOpen={showCalculator}
+        initialValue={calculatorInitialValue}
+        onSave={handleCalculatorSave}
+        onCancel={handleCalculatorCancel}
+      />
 
       {/* Claim Guest Modal */}
       {showClaimGuestModal && (
@@ -2169,39 +1470,6 @@ export default function EventDetailPage() {
         </div>
       )}
 
-      {/* Error Modal */}
-      {showErrorModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowErrorModal(false)}>
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Unable to Edit</h3>
-                <button
-                  onClick={() => setShowErrorModal(false)}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                  aria-label="Close"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <p className="text-slate-600 dark:text-slate-400 mb-6">
-                {errorMessage}
-              </p>
-
-              <button
-                onClick={() => setShowErrorModal(false)}
-                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Notes Summary Modal */}
       {showNotesSummary && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4 z-50" onClick={() => setShowNotesSummary(false)}>
@@ -2256,10 +1524,8 @@ export default function EventDetailPage() {
                           {canEdit && (
                             <button
                               onClick={() => {
-                                setTempGuestNotes(guest.notes);
-                                setEditingGuestNotesId(guest.id);
-                                setViewingGuestId(guest.id);
                                 setShowNotesSummary(false);
+                                router.push(`/events/${eventId}/guests/${guest.id}`);
                               }}
                               className="p-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex-shrink-0 min-w-12 min-h-12 flex items-center justify-center"
                               aria-label="Edit notes"
@@ -2289,6 +1555,29 @@ export default function EventDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">
+              Unable to Edit
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => {
+                setShowErrorModal(false);
+                setErrorMessage('');
+              }}
+              className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
