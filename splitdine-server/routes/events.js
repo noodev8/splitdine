@@ -347,9 +347,11 @@ router.post('/get_my_events', verifyToken, async (req, res) => {
                 WHEN g.co_host = true THEN 'host'
                 ELSE 'guest'
               END as role,
-              COALESCE(g.created_at, e.created_at) as joined_at
+              COALESCE(g.created_at, e.created_at) as joined_at,
+              u.name as host_name
        FROM events e
        LEFT JOIN guests g ON e.id = g.event_id AND g.app_user_id = $1
+       LEFT JOIN app_user u ON e.user_id = u.id
        WHERE e.user_id = $1 OR g.app_user_id = $1
        ORDER BY COALESCE(g.created_at, e.created_at) DESC`,
       [userId]
@@ -368,6 +370,7 @@ router.post('/get_my_events', verifyToken, async (req, res) => {
       allow_guest_price_edit: event.allow_guest_price_edit,
       allow_guest_notes_edit: event.allow_guest_notes_edit,
       host_contact_info: event.host_contact_info,
+      host_name: event.host_name,
       role: event.role,
       joined_at: event.joined_at,
       created_at: event.created_at

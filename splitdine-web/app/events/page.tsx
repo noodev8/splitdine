@@ -279,6 +279,10 @@ export default function EventsPage() {
   const [pendingGuests, setPendingGuests] = useState<Guest[]>([]);
   const [isClaimingGuest, setIsClaimingGuest] = useState(false);
 
+  // Contact Host modal state
+  const [showContactHostModal, setShowContactHostModal] = useState(false);
+  const [contactHostEventId, setContactHostEventId] = useState<string | null>(null);
+
   // Form states
   const [eventName, setEventName] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -327,6 +331,7 @@ export default function EventsPage() {
           bankAccountName: apiEvent.bank_account_name,
           allowGuestNotesEdit: apiEvent.allow_guest_notes_edit,
           hostContactInfo: apiEvent.host_contact_info,
+          hostName: apiEvent.host_name,
         }));
 
         const convertedApiMemberships: UserEventMembership[] = apiEvents.map((apiEvent: import('@/lib/api-client').Event) => ({
@@ -373,6 +378,7 @@ export default function EventsPage() {
         bankAccountName: apiEvent.bank_account_name,
         allowGuestNotesEdit: apiEvent.allow_guest_notes_edit,
         hostContactInfo: apiEvent.host_contact_info,
+        hostName: apiEvent.host_name,
       };
 
       const newMembership: UserEventMembership = {
@@ -416,6 +422,7 @@ export default function EventsPage() {
           bankAccountName: apiEvent.bank_account_name,
           allowGuestNotesEdit: apiEvent.allow_guest_notes_edit,
           hostContactInfo: apiEvent.host_contact_info,
+          hostName: apiEvent.host_name,
         };
 
         // Check if event already exists in local state
@@ -750,7 +757,10 @@ export default function EventsPage() {
                   onShowToast={showToastNotification}
                   onShowPaymentDetails={(eventId) => router.push(`/events/${eventId}?modal=payment`)}
                   onShowNotesSummary={(eventId) => router.push(`/events/${eventId}?modal=notes`)}
-                  onShowContactHost={(eventId) => router.push(`/events/${eventId}?modal=contact-host`)}
+                  onShowContactHost={(eventId) => {
+                    setContactHostEventId(eventId);
+                    setShowContactHostModal(true);
+                  }}
                   onShowManageGuestName={(eventId) => router.push(`/events/${eventId}?modal=guest-name`)}
                 />
               );
@@ -1016,6 +1026,73 @@ export default function EventsPage() {
           </div>
         </div>
       )}
+
+      {/* Contact Host Modal */}
+      {showContactHostModal && contactHostEventId && (() => {
+        const event = events.find(e => e.id === contactHostEventId);
+        if (!event) return null;
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
+                  Contact Host
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowContactHostModal(false);
+                    setContactHostEventId(null);
+                  }}
+                  className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-500 dark:text-slate-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mb-4 space-y-2">
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Event: <span className="font-medium text-slate-800 dark:text-slate-200">{event.name}</span>
+                </div>
+                {event.hostName && (
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    Host: <span className="font-medium text-slate-800 dark:text-slate-200">{event.hostName}</span>
+                  </div>
+                )}
+              </div>
+
+              {event.hostContactInfo ? (
+                <div>
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Contact Info:</div>
+                  <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                    <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">
+                      {event.hostContactInfo}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700 text-center">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                    No additional contact information provided.
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setShowContactHostModal(false);
+                  setContactHostEventId(null);
+                }}
+                className="w-full mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Toast Notification */}
       {showToast && (

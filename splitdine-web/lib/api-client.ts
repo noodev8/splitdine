@@ -37,6 +37,7 @@ export interface Event {
   allow_guest_price_edit?: boolean;
   allow_guest_notes_edit?: boolean;
   host_contact_info?: string;
+  host_name?: string;
 }
 
 export interface GuestItem {

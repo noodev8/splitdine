@@ -9,6 +9,7 @@ import {
   updateGuest as apiUpdateGuest,
   addGuestItem as apiAddGuestItem,
   deleteGuestItem as apiDeleteGuestItem,
+  getCurrentUser,
   type GuestItem,
 } from '@/lib/api-client';
 
@@ -17,6 +18,9 @@ export default function BillBreakdownPage() {
   const params = useParams();
   const eventId = params.eventId as string;
   const guestId = params.guestId as string;
+
+  // Auth state
+  const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null);
 
   // Event and guest state
   const [event, setEvent] = useState<Event | null>(null);
@@ -28,10 +32,18 @@ export default function BillBreakdownPage() {
   const [itemNote, setItemNote] = useState('');
   const [itemPrice, setItemPrice] = useState('');
 
+  // Error modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
   // Load user and event data
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Get current user
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+
         // Get event data
         const events = await apiGetMyEvents();
         const foundEvent = events.find(e => e.id.toString() === eventId);
@@ -103,6 +115,34 @@ export default function BillBreakdownPage() {
   const addItemToGuest = async () => {
     if (!guest || !itemNote.trim()) return;
 
+    // Check permissions for guests
+    if (userRole === 'guest' && guest.app_user_id === currentUser?.id) {
+      try {
+        const events = await apiGetMyEvents();
+        const latestEvent = events.find(ev => ev.id.toString() === eventId);
+
+        if (!latestEvent?.allow_guest_price_edit) {
+          setErrorMessage('The host has disabled item editing for guests. Please contact the host if you need to update your bill breakdown.');
+          setShowErrorModal(true);
+          return;
+        }
+
+        // Update local state
+        if (event && latestEvent) {
+          setEvent({
+            ...event,
+            allowGuestPriceEdit: latestEvent.allow_guest_price_edit,
+            allowGuestNotesEdit: latestEvent.allow_guest_notes_edit,
+          });
+        }
+      } catch (error) {
+        console.error('Error checking permissions:', error);
+        setErrorMessage('Unable to verify permissions. Please try again.');
+        setShowErrorModal(true);
+        return;
+      }
+    }
+
     const noteText = itemNote.trim();
     const priceValue = itemPrice.trim() ? parseFloat(itemPrice) : undefined;
 
@@ -133,7 +173,35 @@ export default function BillBreakdownPage() {
   };
 
   const removeItem = async (itemId: string) => {
-    if (userRole !== 'host' || !guest) return;
+    if (!guest) return;
+
+    // Check permissions for guests
+    if (userRole === 'guest' && guest.app_user_id === currentUser?.id) {
+      try {
+        const events = await apiGetMyEvents();
+        const latestEvent = events.find(ev => ev.id.toString() === eventId);
+
+        if (!latestEvent?.allow_guest_price_edit) {
+          setErrorMessage('The host has disabled item editing for guests. Please contact the host if you need to update your bill breakdown.');
+          setShowErrorModal(true);
+          return;
+        }
+
+        // Update local state
+        if (event && latestEvent) {
+          setEvent({
+            ...event,
+            allowGuestPriceEdit: latestEvent.allow_guest_price_edit,
+            allowGuestNotesEdit: latestEvent.allow_guest_notes_edit,
+          });
+        }
+      } catch (error) {
+        console.error('Error checking permissions:', error);
+        setErrorMessage('Unable to verify permissions. Please try again.');
+        setShowErrorModal(true);
+        return;
+      }
+    }
 
     // Remove from local state first (immediate UI feedback)
     setGuest({
@@ -175,6 +243,7 @@ export default function BillBreakdownPage() {
     return null;
   }
 
+  const canEditItems = userRole === 'host' || (guest.app_user_id === currentUser?.id && event?.allowGuestPriceEdit);
   const itemsTotal = guest.items.reduce((sum, item) => sum + (item.price || 0), 0);
   const difference = itemsTotal - guest.amount;
 
@@ -206,8 +275,8 @@ export default function BillBreakdownPage() {
           </h2>
         </div>
 
-        {/* Add Item Input - Host Only */}
-        {userRole === 'host' && (
+        {/* Add Item Input */}
+        {canEditItems && (
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm mb-6 p-3 sm:p-4">
             <div className="flex gap-1.5 sm:gap-2">
               <input
@@ -265,7 +334,7 @@ export default function BillBreakdownPage() {
                     </div>
                   )}
                 </div>
-                {userRole === 'host' && (
+                {canEditItems && (
                   <button
                     onClick={() => removeItem(item.id)}
                     className="ml-3 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -337,6 +406,29 @@ export default function BillBreakdownPage() {
           </div>
         )}
       </div>
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">
+              Unable to Edit
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => {
+                setShowErrorModal(false);
+                setErrorMessage('');
+              }}
+              className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

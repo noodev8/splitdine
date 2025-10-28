@@ -65,6 +65,13 @@ export default function EventDetailPage() {
   // Notes summary modal state
   const [showNotesSummary, setShowNotesSummary] = useState(false);
 
+  // Contact Host modal state
+  const [showContactHostModal, setShowContactHostModal] = useState(false);
+
+  // Guest notes editing modal state
+  const [editingGuestNotesId, setEditingGuestNotesId] = useState<string | null>(null);
+  const [tempGuestNotes, setTempGuestNotes] = useState('');
+
   // Calculator modal state
   const [showCalculator, setShowCalculator] = useState(false);
   const [calculatorInitialValue, setCalculatorInitialValue] = useState(0);
@@ -272,6 +279,30 @@ export default function EventDetailPage() {
     }
   };
 
+  // Guest notes editing functions
+  const saveGuestNotes = async () => {
+    if (!editingGuestNotesId) return;
+
+    try {
+      // Update local state
+      setGuests(
+        guests.map((g) =>
+          g.id === editingGuestNotesId
+            ? { ...g, notes: tempGuestNotes }
+            : g
+        )
+      );
+
+      // Save to API
+      await apiUpdateGuest(parseInt(editingGuestNotesId), { notes: tempGuestNotes });
+
+      setEditingGuestNotesId(null);
+      setTempGuestNotes('');
+    } catch (error) {
+      console.error('Error saving notes:', error);
+    }
+  };
+
   // Claim guest functions
   const openClaimGuestModal = () => {
     setSelectedClaimGuestId(null);
@@ -459,6 +490,7 @@ export default function EventDetailPage() {
           allowGuestPriceEdit: foundEvent.allow_guest_price_edit,
           allowGuestNotesEdit: foundEvent.allow_guest_notes_edit,
           hostContactInfo: foundEvent.host_contact_info,
+          hostName: foundEvent.host_name,
         };
 
         setEvent(convertedEvent);
@@ -519,7 +551,7 @@ export default function EventDetailPage() {
           setShowClaimGuestModal(true);
           break;
         case 'contact-host':
-          setShowNotesSummary(true); // Contact host info is shown in notes summary
+          setShowContactHostModal(true);
           break;
       }
 
@@ -627,6 +659,21 @@ export default function EventDetailPage() {
                     </svg>
                     <span className="text-base text-slate-700 dark:text-slate-300">My Guest Name</span>
                   </button>
+
+                  {userRole === 'guest' && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowContactHostModal(true);
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-3"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-600 dark:text-slate-400">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                      </svg>
+                      <span className="text-base text-slate-700 dark:text-slate-300">Contact Host</span>
+                    </button>
+                  )}
 
                   {userRole === 'host' && (
                     <button
@@ -1524,8 +1571,8 @@ export default function EventDetailPage() {
                           {canEdit && (
                             <button
                               onClick={() => {
-                                setShowNotesSummary(false);
-                                router.push(`/events/${eventId}/guests/${guest.id}`);
+                                setTempGuestNotes(guest.notes);
+                                setEditingGuestNotesId(guest.id);
                               }}
                               className="p-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex-shrink-0 min-w-12 min-h-12 flex items-center justify-center"
                               aria-label="Edit notes"
@@ -1558,6 +1605,163 @@ export default function EventDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Contact Host Modal */}
+      {showContactHostModal && event && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
+                Contact Host
+              </h2>
+              <button
+                onClick={() => setShowContactHostModal(false)}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-500 dark:text-slate-400">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4 space-y-2">
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Event: <span className="font-medium text-slate-800 dark:text-slate-200">{event.name}</span>
+              </div>
+              {event.hostName && (
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Host: <span className="font-medium text-slate-800 dark:text-slate-200">{event.hostName}</span>
+                </div>
+              )}
+            </div>
+
+            {event.hostContactInfo ? (
+              <div>
+                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Contact Info:</div>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                  <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">
+                    {event.hostContactInfo}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700 text-center">
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  No additional contact information provided.
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowContactHostModal(false)}
+              className="w-full mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Guest Notes Editing Modal */}
+      {editingGuestNotesId && (() => {
+        const guest = guests.find(g => g.id === editingGuestNotesId);
+        if (!guest) return null;
+
+        const isHost = userRole === 'host';
+        const isOwnGuest = guest.app_user_id === currentUser?.id;
+        const canEditNotes = isHost || (isOwnGuest && event?.allowGuestNotesEdit !== false);
+
+        return (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setEditingGuestNotesId(null);
+              setTempGuestNotes('');
+            }}
+          >
+            <div
+              className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                    Pre-order / Notes
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setEditingGuestNotesId(null);
+                      setTempGuestNotes('');
+                    }}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                    aria-label="Close"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-slate-500 dark:text-slate-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Guest Name */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-base font-medium text-slate-600 dark:text-slate-400">
+                      {guest.name}
+                    </p>
+                    {isOwnGuest && event?.allowGuestNotesEdit === false && (
+                      <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
+                        <span>Locked</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Notes Textarea */}
+                <div className="mb-2">
+                  <textarea
+                    value={tempGuestNotes}
+                    onChange={(e) => setTempGuestNotes(e.target.value)}
+                    placeholder={!canEditNotes && !isHost ? "Read only" : "e.g., Vegetarian option, no onions..."}
+                    maxLength={500}
+                    rows={8}
+                    readOnly={!canEditNotes}
+                    autoFocus
+                    className="w-full px-4 py-3 text-base border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-slate-100 resize-none"
+                  />
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-right">
+                    {tempGuestNotes.length}/500
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                {canEditNotes && (
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => {
+                        setEditingGuestNotesId(null);
+                        setTempGuestNotes('');
+                      }}
+                      className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveGuestNotes}
+                      className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Error Modal */}
       {showErrorModal && (

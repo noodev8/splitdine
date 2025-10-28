@@ -30,6 +30,7 @@ export interface Event {
   allowGuestPriceEdit?: boolean;
   allowGuestNotesEdit?: boolean;
   hostContactInfo?: string;
+  hostName?: string;
 }
 
 export interface UserEventMembership {
